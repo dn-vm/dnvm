@@ -8,7 +8,7 @@ namespace Internal.CommandLine
 {
     public abstract class Argument
     {
-        internal Argument(ArgumentCommand command, IEnumerable<string> names, bool isOption, bool isRequired)
+        internal Argument(ArgumentCommand? command, IEnumerable<string> names, bool isOption, bool isRequired)
         {
             var nameArray = names.ToArray();
             Command = command;
@@ -18,7 +18,7 @@ namespace Internal.CommandLine
             IsRequired = isRequired;
         }
 
-        public ArgumentCommand Command { get; private set; }
+        public ArgumentCommand? Command { get; private set; }
 
         public string Name { get; private set; }
 

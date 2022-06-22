@@ -38,13 +38,9 @@ public class Program
             ? "zip"
             : "tar.gz";
 
-        string latestVersion = await GetLatestVersion(feed, options.Channel);
-        Console.WriteLine(latestVersion);
-        string archiveName = ConstructArchiveName(latestVersion, osName, arch, suffix);
-        Console.WriteLine(archiveName);
-        string link = ConstructDownloadLink(feed, latestVersion, archiveName);
+        string link = await ConstructDownloadLink(feed, options.Channel, osName, arch, suffix);
         Console.WriteLine(link);
-        string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
+        string archivePath = Path.Combine(Path.GetTempPath(), ConstructArchiveName(null, osName, arch, suffix));
         Console.WriteLine(archivePath);
 
         using (var tempArchiveFile = File.Create(archivePath))
@@ -53,7 +49,7 @@ public class Program
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
         }
 
-        string installDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.LocalApplicationData), ".dotnet");
+        string installDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
         Console.WriteLine(installDir);
         await ExtractArchiveToDir(archivePath, installDir);
 
@@ -80,25 +76,44 @@ public class Program
     }
 
     static string ConstructArchiveName(
-        string specificVersion,
+        string? specificVersion,
         string osName,
         string arch,
         string suffix)
     {
-        return $"dotnet-sdk-{specificVersion}-{osName}-{arch}.{suffix}";
+        return specificVersion is null
+            ? $"dotnet-sdk-{osName}-{arch}.{suffix}"
+            : $"dotnet-sdk-{specificVersion}-{osName}-{arch}.{suffix}";
     }
 
-    static string ConstructDownloadLink(
+    static async Task<string> ConstructDownloadLink(
         string feed,
-        string specificVersion,
-        string archiveName)
+        Channel channel,
+        string osName,
+        string arch,
+        string suffix)
     {
-        return $"{feed}/Sdk/{specificVersion}/{archiveName}";
+        // The dotnet service provides an endpoint for fetching the latest LTS and Current versions,
+        // but not preview. We'll have to construct that ourselves.
+        if (channel != Channel.Preview)
+        {
+            string latestVersion = await GetLatestVersion(feed, channel);
+            Console.WriteLine(latestVersion);
+            var archiveName = ConstructArchiveName(latestVersion, osName, arch, suffix);
+            return $"{feed}/Sdk/{latestVersion}/{archiveName}";
+        }
+        else
+        {
+            const string PreviewMajorVersion = "7.0";
+            var archiveName = ConstructArchiveName(null, osName, arch, suffix);
+            return $"https://aka.ms/dotnet/{PreviewMajorVersion}/preview/{archiveName}";
+        }
     }
 
     static async Task<string> GetLatestVersion(string feed, Channel channel)
     {
         string versionFileUrl = $"{feed}/Sdk/{channel.ToString()}/latest.version";
+        Console.WriteLine("Fetching latest version from URL " + versionFileUrl);
         var body = await s_client.GetStringAsync(versionFileUrl);
         return body;
     }

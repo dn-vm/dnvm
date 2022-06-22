@@ -17,9 +17,9 @@ namespace Internal.CommandLine
         private readonly List<string> _extraHelpParagraphs = new List<string>();
 
         // Below are initialized in Parse
-        private ArgumentParser _parser = null!;
-        private ArgumentCommand _definedCommand = null!;
-        private ArgumentCommand _activeCommand = null!;
+        private ArgumentParser? _parser = null;
+        private ArgumentCommand? _definedCommand = null;
+        private ArgumentCommand? _activeCommand = null;
 
         internal ArgumentSyntax(IEnumerable<string> arguments)
         {
@@ -376,7 +376,7 @@ namespace Internal.CommandLine
             get { return _parameters.Where(p => p.Command == null || p.Command == _definedCommand); }
         }
 
-        public ArgumentCommand ActiveCommand
+        public ArgumentCommand? ActiveCommand
         {
             get { return _activeCommand; }
         }
