@@ -25,5 +25,5 @@ jobs:
          # Artifact name
          name: dnvm linux-x64
          # A file, directory or wildcard pattern that describes what to upload
-         path: bin/Release/net7.0/osx-x64/publish/dnvm
+         path: bin/Release/net7.0/linux-x64/publish/dnvm
         # The desired behavior if no files are found using the provided path.
