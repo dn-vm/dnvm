@@ -122,8 +122,8 @@ namespace Internal.CommandLine
                 throw new InvalidOperationException(message);
             }
 
-            if (_options.Concat(_parameters).Any(c => c.Command == null))
-                throw new InvalidOperationException(Strings.CannotDefineCommandsIfArgumentsExist);
+            //if (_options.Concat(_parameters).Any(c => c.Command == null))
+            //    throw new InvalidOperationException(Strings.CannotDefineCommandsIfArgumentsExist);
 
             var definedCommand = new ArgumentCommand<T>(name, value);
             _commands.Add(definedCommand);

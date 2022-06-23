@@ -3,15 +3,20 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IlcHostArch>x64</IlcHostArch>
-    <TrimmerDefaultAction>link</TrimmerDefaultAction>
+    <StripSymbols>true</StripSymbols>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IlcOptimizationPreference>size</IlcOptimizationPreference>
+    <IlcTrimMetadata>true</IlcTrimMetadata>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.5.22301.12" />
     <PackageReference Include="runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.5.22301.12" />
+    <PackageReference Include="serde-dn" Version="0.3.1" />
   </ItemGroup>
 
 </Project>

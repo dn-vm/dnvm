@@ -1,14 +1,24 @@
 ﻿
+using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Runtime.InteropServices;
-using Internal.CommandLine;
+using System.Threading.Tasks;
+using Serde.Json;
 using static System.Environment;
 
 namespace Dnvm;
 
-public class Program
+public static class Program
 {
     private static readonly HttpClient s_client = new HttpClient();
+    private static readonly string s_installDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
+    private static readonly string s_manifestPath = Path.Combine(s_installDir, "dnvmManifest.json");
+
+    private static Logger? Logger = null;
 
     static async Task<int> Main(string[] args)
     {
@@ -17,6 +27,12 @@ public class Program
             "https://dotnetcli.azureedge.net/dotnet",
             "https://dotnetbuilds.azureedge.net/public"
         };
+
+        if (options.Verbose) {
+            Logger = new Logger();
+        }
+
+        Logger?.Log("Install Directory: " + s_installDir);
 
         string feed = feeds[0];
 
@@ -38,25 +54,66 @@ public class Program
             ? "zip"
             : "tar.gz";
 
-        string link = await ConstructDownloadLink(feed, options.Channel, osName, arch, suffix);
-        Console.WriteLine(link);
-        string archivePath = Path.Combine(Path.GetTempPath(), ConstructArchiveName(null, osName, arch, suffix));
-        Console.WriteLine(archivePath);
+        string? latestVersion = await GetLatestVersion(feed, options.Channel, osName, arch, suffix);
+        if (latestVersion is null)
+        {
+            Console.Error.WriteLine("Could not fetch the latest package version");
+            return 1;
+        }
 
-        using (var tempArchiveFile = File.Create(archivePath))
+        Manifest? manifest = null;
+        try
+        {
+            manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(s_manifestPath));
+        }
+        catch
+        {
+            // Ignore exceptions
+            manifest = new Manifest();
+        }
+
+        if (!options.Force)
+        {
+            foreach (var workload in manifest.Workloads)
+            {
+                if (workload.Version == latestVersion)
+                {
+                    Console.WriteLine($"Version {latestVersion} is the latest available version and is already installed.");
+                    return 0;
+                }
+            }
+        }
+
+        string archiveName = ConstructArchiveName(latestVersion, osName, arch, suffix);
+        string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
+        Logger?.Log("Archive path: " + archivePath);
+
+        string link = ConstructDownloadLink(feed, latestVersion, archiveName);
+        Logger?.Log("Download link: " + link);
+
+        var result = JsonSerializer.Serialize(manifest);
+        Logger?.Log("Existing manifest: " + link);
+
+        using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.DeleteOnClose))
         using (var archiveHttpStream = await s_client.GetStreamAsync(link))
         {
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
+            if (await ExtractArchiveToDir(archivePath, s_installDir) != 0)
+            {
+                return 1;
+            }
         }
 
-        string installDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
-        Console.WriteLine(installDir);
-        await ExtractArchiveToDir(archivePath, installDir);
-
+        var newWorkload = new Workload { Version = latestVersion };
+        if (manifest.Workloads.Contains(newWorkload))
+        {
+            manifest = manifest with { Workloads = manifest.Workloads.Add(newWorkload) };
+        }
+        File.WriteAllText(s_manifestPath, JsonSerializer.Serialize(manifest));
         return 0;
     }
 
-    static async Task ExtractArchiveToDir(string archivePath, string dirPath)
+    static async Task<int> ExtractArchiveToDir(string archivePath, string dirPath)
     {
         Directory.CreateDirectory(dirPath);
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -71,8 +128,11 @@ public class Program
             if (p is not null)
             {
                 await p.WaitForExitAsync();
+                return p.ExitCode;
             }
+            return 1;
         }
+        return 0;
     }
 
     static string ConstructArchiveName(
@@ -86,35 +146,53 @@ public class Program
             : $"dotnet-sdk-{specificVersion}-{osName}-{arch}.{suffix}";
     }
 
-    static async Task<string> ConstructDownloadLink(
+    private static readonly HttpClient s_noRedirectClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false });
+
+    static string ConstructDownloadLink(string feed, string latestVersion, string archiveName)
+    {
+        return $"{feed}/Sdk/{latestVersion}/{archiveName}";
+    }
+
+    private static async Task<string?> GetLatestVersion(
         string feed,
         Channel channel,
         string osName,
         string arch,
         string suffix)
     {
+        string latestVersion;
         // The dotnet service provides an endpoint for fetching the latest LTS and Current versions,
-        // but not preview. We'll have to construct that ourselves.
+        // but not preview. We'll have to construct that ourselves from aka.ms.
         if (channel != Channel.Preview)
         {
-            string latestVersion = await GetLatestVersion(feed, channel);
-            Console.WriteLine(latestVersion);
-            var archiveName = ConstructArchiveName(latestVersion, osName, arch, suffix);
-            return $"{feed}/Sdk/{latestVersion}/{archiveName}";
+            string versionFileUrl = $"{feed}/Sdk/{channel.ToString()}/latest.version";
+            Logger?.Log("Fetching latest version from URL " + versionFileUrl);
+            latestVersion = await s_client.GetStringAsync(versionFileUrl);
         }
         else
         {
             const string PreviewMajorVersion = "7.0";
-            var archiveName = ConstructArchiveName(null, osName, arch, suffix);
-            return $"https://aka.ms/dotnet/{PreviewMajorVersion}/preview/{archiveName}";
-        }
-    }
+            var versionlessArchiveName = ConstructArchiveName(null, osName, arch, suffix);
+            string akaMsUrl = $"https://aka.ms/dotnet/{PreviewMajorVersion}/preview/{versionlessArchiveName}";
+            Logger?.Log("aka.ms URL: " + akaMsUrl);
+            var requestMessage = new HttpRequestMessage(
+                HttpMethod.Head,
+                akaMsUrl);
+            var response = await s_noRedirectClient.SendAsync(requestMessage);
 
-    static async Task<string> GetLatestVersion(string feed, Channel channel)
-    {
-        string versionFileUrl = $"{feed}/Sdk/{channel.ToString()}/latest.version";
-        Console.WriteLine("Fetching latest version from URL " + versionFileUrl);
-        var body = await s_client.GetStringAsync(versionFileUrl);
-        return body;
+            if (response.StatusCode != HttpStatusCode.MovedPermanently)
+            {
+                return null;
+            }
+
+            if (response.Headers.Location?.Segments is not { Length: 5 } segments)
+            {
+                return null;
+            }
+
+            latestVersion = segments[3].TrimEnd('/');
+        }
+        Logger?.Log(latestVersion);
+        return latestVersion;
     }
 }
