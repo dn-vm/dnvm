@@ -72,16 +72,10 @@ public static class Program
             manifest = new Manifest();
         }
 
-        if (!options.Force)
+        if (!options.Force && manifest.Workloads.Contains(new Workload() { Version = latestVersion }))
         {
-            foreach (var workload in manifest.Workloads)
-            {
-                if (workload.Version == latestVersion)
-                {
-                    Console.WriteLine($"Version {latestVersion} is the latest available version and is already installed.");
-                    return 0;
-                }
-            }
+            Console.WriteLine($"Version {latestVersion} is the latest available version and is already installed.");
+            return 0;
         }
 
         string archiveName = ConstructArchiveName(latestVersion, osName, arch, suffix);
@@ -94,10 +88,11 @@ public static class Program
         var result = JsonSerializer.Serialize(manifest);
         Logger?.Log("Existing manifest: " + link);
 
-        using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.DeleteOnClose))
+        using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough | FileOptions.DeleteOnClose))
         using (var archiveHttpStream = await s_client.GetStreamAsync(link))
         {
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
+            await tempArchiveFile.FlushAsync();
             if (await ExtractArchiveToDir(archivePath, s_installDir) != 0)
             {
                 return 1;
@@ -105,11 +100,13 @@ public static class Program
         }
 
         var newWorkload = new Workload { Version = latestVersion };
-        if (manifest.Workloads.Contains(newWorkload))
+        if (!manifest.Workloads.Contains(newWorkload))
         {
+            Logger?.Log($"Adding workload {newWorkload} to manifest.");
             manifest = manifest with { Workloads = manifest.Workloads.Add(newWorkload) };
         }
         File.WriteAllText(s_manifestPath, JsonSerializer.Serialize(manifest));
+        Logger?.Log("Writing manifest");
         return 0;
     }
 
