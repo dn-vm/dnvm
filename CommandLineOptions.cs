@@ -4,29 +4,40 @@ using Internal.CommandLine;
 
 namespace Dnvm;
 
-public enum Channel
+enum Channel
 {
     LTS,
     Current,
     Preview
 }
 
-public record class CommandLineOptions
+abstract record Command
 {
-    public bool Verbose { get; init; } = false;
-    public Channel Channel { get; init; } = Channel.LTS;
-    public bool Force { get; init; } = false;
+    private Command() {}
+    public sealed record InstallOptions : Command
+    {
+        public bool Verbose { get; init; } = false;
+        public Channel Channel { get; init; } = Channel.LTS;
+        public bool Force { get; init; } = false;
+        public bool Self { get; init; } = false;
+    }
+}
 
+sealed record class CommandLineOptions(Command Command)
+{
     public static CommandLineOptions Parse(string[] args)
     {
-        Channel channel = default;
-        bool verbose = default;
-        bool force = default;
+        Command? command = default;
 
         var argSyntax = ArgumentSyntax.Parse(args, syntax =>
         {
             string installString = "";
-            var installCommand = syntax.DefineCommand("install", ref installString, "Install a new SDK");
+            Channel channel = default;
+            bool verbose = default;
+            bool force = default;
+            bool self = default;
+
+            syntax.DefineCommand("install", ref installString, "Install a new SDK");
             syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
             syntax.DefineOption(
                 "c|channel",
@@ -39,13 +50,19 @@ public record class CommandLineOptions
                 },
                 $"Download from the channel specified, Defaults to ${channel}.");
             syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
+            syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
+
+            if (installString != "")
+            {
+                command = new Command.InstallOptions {
+                    Channel = channel,
+                    Verbose = verbose,
+                    Force = force,
+                    Self = self
+                };
+            }
         });
 
-        return new CommandLineOptions()
-        {
-            Channel = channel,
-            Verbose = verbose,
-            Force = force
-        };
+        return new CommandLineOptions(command!);
     }
 }
