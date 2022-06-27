@@ -20,7 +20,7 @@ public static class Program
         var logger = new Logger();
         return options.Command switch
         {
-            Command.InstallOptions o => new Install(logger).Handle(o),
+            Command.InstallOptions o => new Install(logger, o).Handle(),
             _ => throw new InvalidOperationException("Should be unreachable")
         };
     }

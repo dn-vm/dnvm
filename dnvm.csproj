@@ -14,6 +14,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="env.sh" />
+
     <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.5.22301.12" />
     <PackageReference Include="runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.5.22301.12" />
     <PackageReference Include="serde-dn" Version="0.3.1" />

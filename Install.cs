@@ -1,7 +1,9 @@
 
 using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
+using System.IO.MemoryMappedFiles;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
@@ -19,22 +21,23 @@ sealed class Install
     private static readonly string s_manifestPath = Path.Combine(s_installDir, "dnvmManifest.json");
 
     private readonly Logger _logger;
+    private readonly Command.InstallOptions _options;
 
-    public Install(Logger logger)
+    public Install(Logger logger, Command.InstallOptions options)
     {
         _logger = logger;
-    }
-
-    public async Task<int> Handle(Command.InstallOptions options)
-    {
-        if (options.Verbose)
+        _options = options;
+        if (_options.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
+    }
 
-        if (options.Self)
+    public async Task<int> Handle()
+    {
+        if (_options.Self)
         {
-            return RunSelfInstall();
+            return await RunSelfInstall();
         }
 
         _logger.Info("Install Directory: " + s_installDir);
@@ -64,7 +67,7 @@ sealed class Install
             ? "zip"
             : "tar.gz";
 
-        string? latestVersion = await GetLatestVersion(feed, options.Channel, osName, arch, suffix);
+        string? latestVersion = await GetLatestVersion(feed, _options.Channel, osName, arch, suffix);
         if (latestVersion is null)
         {
             Console.Error.WriteLine("Could not fetch the latest package version");
@@ -82,7 +85,7 @@ sealed class Install
             manifest = new Manifest();
         }
 
-        if (!options.Force && manifest.Workloads.Contains(new Workload() { Version = latestVersion }))
+        if (!_options.Force && manifest.Workloads.Contains(new Workload() { Version = latestVersion }))
         {
             Console.WriteLine($"Version {latestVersion} is the latest available version and is already installed.");
             return 0;
@@ -203,7 +206,20 @@ sealed class Install
         return latestVersion;
     }
 
-    private int RunSelfInstall()
+    private const string s_envShContent = """
+#!/bin/sh
+# Prepend dotnet dir to the path, unless it's already there.
+# Steal rustup trick of matching with ':' on both sides
+case ":${PATH}:" in
+    *:{install_loc}:*)
+        ;;
+    *)
+        export PATH="{install_loc}:$PATH"
+        ;;
+esac
+""";
+
+    private async Task<int> RunSelfInstall()
     {
         if (Assembly.GetEntryAssembly()?.Location != "")
         {
@@ -217,14 +233,24 @@ sealed class Install
         _logger.Info("Location of running exe" + procPath);
 
         var targetPath = Path.Combine(s_installDir, exeName);
-        try
+        if (!_options.Force && File.Exists(targetPath))
         {
-            File.Copy(procPath, targetPath);
+            _logger.Log("dnvm is already installed at: " + targetPath);
+            _logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
         }
-        catch (Exception e)
+        else
         {
-            Console.WriteLine($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
-            return 1;
+            try
+            {
+                _logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
+                File.Copy(procPath, targetPath, overwrite: _options.Force);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
+                return 1;
+            }
+
         }
 
         // Set up path
@@ -236,16 +262,95 @@ sealed class Install
             {
                 Environment.SetEnvironmentVariable("PATH", s_installDir + ":" + currentPathVar, EnvironmentVariableTarget.User);
             }
-            else
-            {
-                string envPath = Path.Combine(s_installDir, "env");
-                const string userShSuffix = $$"""
-if [ -f "{envPath}" ]; then
-    . "{s_installDir}"
+        }
+        else
+        {
+            _logger.Info("Setting environment variables");
+            string resolvedEnvPath = Path.Combine(s_installDir, "env");
+            // Using the full path to the install directory is usually fine, but on Unix systems
+            // people often copy their dotfiles from one machine to another and fully resolved paths present a problem
+            // there. Instead, we'll try to replace instances of the user's home directory with the $HOME
+            // variable, which should be the most common case of machine-dependence.
+            var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile), "$HOME");
+            string userShSuffix = $"""
+if [ -f "{portableEnvPath}" ]; then
+    . "{portableEnvPath}"
+fi
 """;
+            FileStream? envFile;
+            try
+            {
+                envFile = File.Open(resolvedEnvPath, FileMode.CreateNew);
+            }
+            catch
+            {
+                _logger.Info("env file already exists, skipping installation");
+                envFile = null;
+            }
+
+            if (envFile is not null)
+            {
+                _logger.Info("Writing env sh file");
+                using (envFile)
+                using (var writer = new StreamWriter(envFile))
+                {
+                    await writer.WriteAsync(s_envShContent.Replace("{install_loc}", s_installDir));
+                    await envFile.FlushAsync();
+                }
+
+                // Scan shell files for shell suffix and add it if it doesn't exist
+                _logger.Log("Scanning for shell files to update");
+                foreach (var shellFileName in ProfileShellFiles)
+                {
+                    var shellPath = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), shellFileName);
+                    _logger.Info("Checking for file: " + shellPath);
+                    if (File.Exists(shellPath))
+                    {
+                        _logger.Log("Found " + shellPath);
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        if (!(await FileContainsLine(shellPath, $". \"{portableEnvPath}\"")))
+                        {
+                            _logger.Log("Adding env import to: " + shellPath);
+                            await File.AppendAllTextAsync(shellPath, userShSuffix);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        // Ignore if the file can't be accessed
+                        _logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
+                    }
+                }
             }
         }
 
         return 0;
+    }
+
+    private static ImmutableArray<string> ProfileShellFiles => ImmutableArray.Create<string>(
+        ".profile",
+        ".bashrc",
+        ".zshrc"
+    );
+
+    private static async Task<bool> FileContainsLine(string filePath, string contents)
+    {
+        using var file = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open);
+        var stream = file.CreateViewStream();
+        using var reader = new StreamReader(stream);
+        string? line;
+        while ((line = await reader.ReadLineAsync()) is not null)
+        {
+            if (line.Contains(contents))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

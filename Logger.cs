@@ -5,8 +5,8 @@ namespace Dnvm;
 
 enum LogLevel
 {
-    Normal,
-    Info
+    Normal = 1,
+    Info = 2
 }
 
 internal sealed class Logger
@@ -21,6 +21,14 @@ internal sealed class Logger
 
     public void Info(string msg)
     {
-        Console.WriteLine("Log: " + msg);
+        if (LogLevel >= LogLevel.Info)
+        {
+            Console.WriteLine("Log: " + msg);
+        }
+    }
+
+    public void Log(string msg)
+    {
+        Console.WriteLine(msg);
     }
 }
