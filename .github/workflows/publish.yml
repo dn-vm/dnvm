@@ -34,5 +34,5 @@ jobs:
          # Artifact name
          name: dnvm ${{ matrix.rid }}
          # A file, directory or wildcard pattern that describes what to upload
-         path: bin/Release/net7.0/${{ matrix.rid }}/publish/dnvm${{ matrix.exeSuffix }}
+         path: artifacts/dnvm/bin/Release/net7.0/${{ matrix.rid }}/publish/dnvm${{ matrix.exeSuffix }}
         # The desired behavior if no files are found using the provided path.
