@@ -13,6 +13,8 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using static System.Environment;
 using System.Net.Sockets;
+using dnvm;
+using System.Runtime.CompilerServices;
 
 namespace Dnvm;
 
@@ -20,15 +22,16 @@ sealed partial class Update
 {
     private readonly Logger _logger;
     private readonly Command.UpdateOptions _options;
-    private static readonly HttpClient s_noRedirectClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false });
 
     public Update(Logger logger, Command.UpdateOptions options)
     {
         _logger = logger;
         _options = options;
+        if (_options.Verbose)
+        {
+            _logger.LogLevel = LogLevel.Info;
+        }
     }
-
-    internal record struct SelfVersionOptions()
 
     [GenerateDeserialize]
     partial struct LatestReleaseResponse
@@ -36,31 +39,49 @@ sealed partial class Update
         public string assets_url { get; init; }
     }
 
-    public async Task<string> GetBinaryUri (string endpoint)
+    private const string s_dnvmVersionsEndpoint = "https://ja.cksonschuster.com/dnvm/versions/";
+    public async Task<string> GetLatestBinaryUri(RID rid, string endpoint = s_dnvmVersionsEndpoint)
     {
-        return await Program.DefaultClient.GetStringAsync(endpoint);
+        _logger.Info($"Getting latest version from {endpoint}{rid}/latest");
+        return await Program.DefaultClient.GetStringAsync($"{endpoint}{rid}/latest");
     }
 
-    public async Task<string> DownloadAndExchange(string uri)
+    public async Task<int> DownloadBinary (string uri, string fileName)
     {
         var response = await Program.DefaultClient.GetAsync(uri);
-        var downloadedTmpFileName = Path.GetTempFileName();
-        using (var fs = File.OpenWrite(downloadedTmpFileName)) {
+        using (var fs = File.OpenWrite(fileName)) {
             await response.Content.CopyToAsync(fs);
         }
-        if (Process.Start(new ProcessStartInfo(downloadedTmpFileName, "--help")) is Process ps)
+        _logger.Info($"Downloaded binary to {fileName}");
+        return 0;
+    }
+
+    public async Task<int> ValidateBinary (string fileName)
+    {
+        if (Process.Start(new ProcessStartInfo(fileName, "--help") {
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true
+        }) is Process ps)
         {
-            ps.WaitForExit();
+            await ps.WaitForExitAsync();
+            await ps.StandardOutput.ReadToEndAsync();
             if (ps.ExitCode != 0)
                 throw new Exception("Downloaded binary failed");
         }
-        if (Path.GetDirectoryName(Process.GetCurrentProcess()?.MainModule?.FileName) is not string thisFileName)
+        return 0;
+    }
+
+    public int SwapWithRunningFile(string newFileName) 
+    {
+        if (Process.GetCurrentProcess()?.MainModule?.FileName is not string thisFileName)
             throw new Exception("Could not find path of current process");
 
         var oldExeTmpFileName = Path.GetTempFileName();
-        File.Move(thisFileName, oldExeTmpFileName);
-        File.Move(downloadedTmpFileName, thisFileName);
-        return "";
+        _logger.Info($"Swapping {thisFileName} with downloaded version at {newFileName}");
+        File.Move(thisFileName, oldExeTmpFileName, true);
+        File.Move(newFileName, thisFileName, true);
+        return 0;
     }
 
     public async Task<int> Handle()
@@ -71,28 +92,16 @@ sealed partial class Update
             return 0;
         }
 
-        string versionsEndpoint = "https://ja.cksonschuster.com/dnvm/versions/";
+        var rid = Program.Rid;
 
-        string? osName = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx"
-            : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "win"
-            : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ?
-                RuntimeInformation.RuntimeIdentifier.Contains("musl") ? "linux-musl"
-                : "linux"
-            : null;
+        var binaryDownloadURI = await GetLatestBinaryUri(rid);
+        _logger.Info($"Latest binary endpoint: {binaryDownloadURI}");
 
-        if (osName is null)
-        {
-            Console.WriteLine("Could not determine current OS");
-            return 1;
-        }
+        string downloadedFileName = Path.GetTempFileName();
+        await DownloadBinary(binaryDownloadURI, downloadedFileName);
+        await ValidateBinary(downloadedFileName);
+        SwapWithRunningFile(downloadedFileName);
 
-        string arch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-        
-        var endpoint = versionsEndpoint + "/" + osName + "-" + arch;
-        await DownloadAndExchange(await GetBinaryUri(endpoint));
-
-
-        _logger.Error("Not currently supported");
         return 0;
     }
 }
