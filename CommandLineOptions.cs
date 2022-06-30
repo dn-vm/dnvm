@@ -25,6 +25,7 @@ abstract record Command
 
     public sealed record UpdateOptions : Command
     {
+        public bool Verbose { get; init; } = false;
         public bool Self { get; init; } = false;
     }
 }
@@ -76,11 +77,14 @@ sealed record class CommandLineOptions(Command Command)
             if (update.IsActive)
             {
                 bool self = default;
+                bool verbose = default;
                 syntax.DefineOption("self", ref self, "Update dnvm itself in the current location");
+                syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
 
                 command = new Command.UpdateOptions
                 {
-                    Self = self
+                    Self = self,
+                    Verbose = verbose
                 };
             }
         });
