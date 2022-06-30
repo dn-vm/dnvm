@@ -19,6 +19,7 @@ sealed partial class Update
 {
     private readonly Logger _logger;
     private readonly Command.UpdateOptions _options;
+    private static readonly HttpClient s_noRedirectClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false });
 
     public Update(Logger logger, Command.UpdateOptions options)
     {
@@ -30,6 +31,19 @@ sealed partial class Update
     partial struct LatestReleaseResponse
     {
         public string assets_url { get; init; }
+    }
+
+    public async GetBinaryUri (string endpoint)
+    {
+        var requestMessage = new HttpRequestMessage(
+            HttpMethod.Get,
+            endpoint);
+        var response = await s_noRedirectClient.SendAsync(requestMessage);
+    }
+
+    public async Task<Path> DownloadBinary(string uri)
+    {
+
     }
 
     public Task<int> Handle()
@@ -52,7 +66,7 @@ sealed partial class Update
         if (osName is null)
         {
             Console.WriteLine("Could not determine current OS");
-            return 1;
+            return new Task<int> (() => 1);
         }
 
         string arch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
