@@ -12,6 +12,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using static System.Environment;
+using System.Net.Sockets;
 
 namespace Dnvm;
 
@@ -27,34 +28,50 @@ sealed partial class Update
         _options = options;
     }
 
+    internal record struct SelfVersionOptions()
+
     [GenerateDeserialize]
     partial struct LatestReleaseResponse
     {
         public string assets_url { get; init; }
     }
 
-    public async GetBinaryUri (string endpoint)
+    public async Task<string> GetBinaryUri (string endpoint)
     {
-        var requestMessage = new HttpRequestMessage(
-            HttpMethod.Get,
-            endpoint);
-        var response = await s_noRedirectClient.SendAsync(requestMessage);
+        return await Program.DefaultClient.GetStringAsync(endpoint);
     }
 
-    public async Task<Path> DownloadBinary(string uri)
+    public async Task<string> DownloadAndExchange(string uri)
     {
+        var response = await Program.DefaultClient.GetAsync(uri);
+        var downloadedTmpFileName = Path.GetTempFileName();
+        using (var fs = File.OpenWrite(downloadedTmpFileName)) {
+            await response.Content.CopyToAsync(fs);
+        }
+        if (Process.Start(new ProcessStartInfo(downloadedTmpFileName, "--help")) is Process ps)
+        {
+            ps.WaitForExit();
+            if (ps.ExitCode != 0)
+                throw new Exception("Downloaded binary failed");
+        }
+        if (Path.GetDirectoryName(Process.GetCurrentProcess()?.MainModule?.FileName) is not string thisFileName)
+            throw new Exception("Could not find path of current process");
 
+        var oldExeTmpFileName = Path.GetTempFileName();
+        File.Move(thisFileName, oldExeTmpFileName);
+        File.Move(downloadedTmpFileName, thisFileName);
+        return "";
     }
 
-    public Task<int> Handle()
+    public async Task<int> Handle()
     {
         if (!_options.Self)
         {
             _logger.Error("update is currently only supported with --self");
-            return Task.FromResult(1);
+            return 0;
         }
 
-        string versionsEndpoint = "https://agocke.github.io/dnvm/versions/releases.json";
+        string versionsEndpoint = "https://ja.cksonschuster.com/dnvm/versions/";
 
         string? osName = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx"
             : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "win"
@@ -66,14 +83,16 @@ sealed partial class Update
         if (osName is null)
         {
             Console.WriteLine("Could not determine current OS");
-            return new Task<int> (() => 1);
+            return 1;
         }
 
         string arch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-
+        
+        var endpoint = versionsEndpoint + "/" + osName + "-" + arch;
+        await DownloadAndExchange(await GetBinaryUri(endpoint));
 
 
         _logger.Error("Not currently supported");
-        return Task.FromResult(1);
+        return 0;
     }
 }
