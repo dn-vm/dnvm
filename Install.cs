@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using dnvm;
 using Serde.Json;
 using static System.Environment;
 
@@ -48,25 +49,13 @@ sealed class Install
 
         string feed = feeds[0];
 
-        string? osName = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx"
-            : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "win"
-            : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ?
-                RuntimeInformation.RuntimeIdentifier.Contains("musl") ? "linux-musl"
-                : "linux"
-            : null;
+        RID rid = Program.Rid;
 
-        if (osName is null)
-        {
-            Console.WriteLine("Could not determine current OS");
-            return 1;
-        }
-
-        string arch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
         string suffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? "zip"
             : "tar.gz";
 
-        string? latestVersion = await GetLatestVersion(feed, _options.Channel, osName, arch, suffix);
+        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, suffix);
         if (latestVersion is null)
         {
             Console.Error.WriteLine("Could not fetch the latest package version");
@@ -90,7 +79,7 @@ sealed class Install
             return 0;
         }
 
-        string archiveName = ConstructArchiveName(latestVersion, osName, arch, suffix);
+        string archiveName = ConstructArchiveName(latestVersion, rid, suffix);
         string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
         _logger.Info("Archive path: " + archivePath);
 
@@ -146,13 +135,12 @@ sealed class Install
 
     static string ConstructArchiveName(
         string? specificVersion,
-        string osName,
-        string arch,
+        RID rid,
         string suffix)
     {
         return specificVersion is null
-            ? $"dotnet-sdk-{osName}-{arch}.{suffix}"
-            : $"dotnet-sdk-{specificVersion}-{osName}-{arch}.{suffix}";
+            ? $"dotnet-sdk-{rid}.{suffix}"
+            : $"dotnet-sdk-{specificVersion}-{rid}.{suffix}";
     }
 
     private static readonly HttpClient s_noRedirectClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false });
@@ -165,8 +153,7 @@ sealed class Install
     private async Task<string?> GetLatestVersion(
         string feed,
         Channel channel,
-        string osName,
-        string arch,
+        RID rid,
         string suffix)
     {
         string latestVersion;
@@ -181,7 +168,7 @@ sealed class Install
         else
         {
             const string PreviewMajorVersion = "7.0";
-            var versionlessArchiveName = ConstructArchiveName(null, osName, arch, suffix);
+            var versionlessArchiveName = ConstructArchiveName(null, rid, suffix);
             string akaMsUrl = $"https://aka.ms/dotnet/{PreviewMajorVersion}/preview/{versionlessArchiveName}";
             _logger.Info("aka.ms URL: " + akaMsUrl);
             var requestMessage = new HttpRequestMessage(
