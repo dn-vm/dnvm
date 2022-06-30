@@ -20,6 +20,12 @@ abstract record Command
         public Channel Channel { get; init; } = Channel.LTS;
         public bool Force { get; init; } = false;
         public bool Self { get; init; } = false;
+        public bool Prereqs { get; init; } = false;
+    }
+
+    public sealed record UpdateOptions : Command
+    {
+        public bool Self { get; init; } = false;
     }
 }
 
@@ -31,33 +37,49 @@ sealed record class CommandLineOptions(Command Command)
 
         var argSyntax = ArgumentSyntax.Parse(args, syntax =>
         {
-            string installString = "";
-            Channel channel = default;
-            bool verbose = default;
-            bool force = default;
-            bool self = default;
+            string? commandName = null;
 
-            syntax.DefineCommand("install", ref installString, "Install a new SDK");
-            syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
-            syntax.DefineOption(
-                "c|channel",
-                ref channel,
-                c => c.ToLower() switch {
-                    "lts" => Channel.LTS,
-                    "current" => Channel.Current,
-                    "preview" => Channel.Preview,
-                    _ => throw new FormatException("Channel must be one of 'lts' or 'current'")
-                },
-                $"Download from the channel specified, Defaults to ${channel}.");
-            syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
-            syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
-
-            if (installString != "")
+            var install = syntax.DefineCommand("install", ref commandName, "Install a new SDK");
+            if (install.IsActive)
             {
-                command = new Command.InstallOptions {
+                Channel channel = default;
+                bool verbose = default;
+                bool force = default;
+                bool self = default;
+                bool prereqs = default;
+                syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
+                syntax.DefineOption(
+                    "c|channel",
+                    ref channel,
+                    c => c.ToLower() switch
+                    {
+                        "lts" => Channel.LTS,
+                        "current" => Channel.Current,
+                        "preview" => Channel.Preview,
+                        _ => throw new FormatException("Channel must be one of 'lts' or 'current'")
+                    },
+                    $"Download from the channel specified, Defaults to ${channel}.");
+                syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
+                syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
+                syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
+                command = new Command.InstallOptions
+                {
                     Channel = channel,
                     Verbose = verbose,
                     Force = force,
+                    Self = self,
+                    Prereqs = prereqs
+                };
+            }
+
+            var update = syntax.DefineCommand("update", ref commandName, "Update the installed SDKs or dnvm itself");
+            if (update.IsActive)
+            {
+                bool self = default;
+                syntax.DefineOption("self", ref self, "Update dnvm itself in the current location");
+
+                command = new Command.UpdateOptions
+                {
                     Self = self
                 };
             }

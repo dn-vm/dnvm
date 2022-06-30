@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 namespace Internal.CommandLine
@@ -20,7 +21,7 @@ namespace Internal.CommandLine
             return DefineCommand(name, name);
         }
 
-        public ArgumentCommand<T> DefineCommand<T>(string name, ref T command, T value, string help)
+        public ArgumentCommand<T> DefineCommand<T>(string name, [NotNullIfNotNull("value")] ref T? command, T value, string help)
         {
             var result = DefineCommand(name, value);
             result.Help = help;
@@ -31,7 +32,7 @@ namespace Internal.CommandLine
             return result;
         }
 
-        public ArgumentCommand<string> DefineCommand(string name, ref string value, string help)
+        public ArgumentCommand<string> DefineCommand(string name, [NotNull] ref string? value, string help)
         {
             return DefineCommand(name, ref value, name, help);
         }

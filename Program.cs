@@ -1,19 +1,14 @@
 ﻿
 using System;
-using System.Collections.Immutable;
-using System.Diagnostics;
-using System.IO;
-using System.Net;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Serde.Json;
-using static System.Environment;
 
 namespace Dnvm;
 
 public static class Program
 {
+    public static readonly HttpClient DefaultClient = new HttpClient();
+
     static Task<int> Main(string[] args)
     {
         var options = CommandLineOptions.Parse(args);
@@ -21,6 +16,7 @@ public static class Program
         return options.Command switch
         {
             Command.InstallOptions o => new Install(logger, o).Handle(),
+            Command.UpdateOptions o => new Update(logger, o).Handle(),
             _ => throw new InvalidOperationException("Should be unreachable")
         };
     }

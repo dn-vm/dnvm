@@ -16,7 +16,6 @@ namespace Dnvm;
 
 sealed class Install
 {
-    private static readonly HttpClient s_client = new HttpClient();
     private static readonly string s_installDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
     private static readonly string s_manifestPath = Path.Combine(s_installDir, "dnvmManifest.json");
 
@@ -102,7 +101,7 @@ sealed class Install
         _logger.Info("Existing manifest: " + link);
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough | FileOptions.DeleteOnClose))
-        using (var archiveHttpStream = await s_client.GetStreamAsync(link))
+        using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
         {
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
@@ -177,7 +176,7 @@ sealed class Install
         {
             string versionFileUrl = $"{feed}/Sdk/{channel.ToString()}/latest.version";
             _logger.Info("Fetching latest version from URL " + versionFileUrl);
-            latestVersion = await s_client.GetStringAsync(versionFileUrl);
+            latestVersion = await Program.DefaultClient.GetStringAsync(versionFileUrl);
         }
         else
         {
