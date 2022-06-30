@@ -1,0 +1,10 @@
+{
+    "latestVersion": {
+        "version": "0.0.1",
+        "artifacts": {
+            "linux-x64": "https://github.com/agocke/dnvm/suites/7156494076/artifacts/284848604",
+            "osx-x64": "https://github.com/agocke/dnvm/suites/7156494076/artifacts/284848607",
+            "win-x64": "https://github.com/agocke/dnvm/suites/7156494076/artifacts/284848608"
+        }
+    }
+}
