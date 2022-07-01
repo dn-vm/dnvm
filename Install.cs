@@ -9,7 +9,6 @@ using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using dnvm;
 using Serde.Json;
 using static System.Environment;
 
@@ -49,13 +48,13 @@ sealed class Install
 
         string feed = feeds[0];
 
-        RID rid = Program.Rid;
+        RID rid = Utilities.CurrentRID;
 
-        string suffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        string zipSuffiz = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? "zip"
             : "tar.gz";
 
-        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, suffix);
+        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, zipSuffiz);
         if (latestVersion is null)
         {
             Console.Error.WriteLine("Could not fetch the latest package version");
@@ -79,7 +78,7 @@ sealed class Install
             return 0;
         }
 
-        string archiveName = ConstructArchiveName(latestVersion, rid, suffix);
+        string archiveName = ConstructArchiveName(latestVersion, rid, zipSuffiz);
         string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
         _logger.Info("Archive path: " + archivePath);
 
@@ -212,13 +211,11 @@ esac
             Console.WriteLine("Cannot self-install into target location: the current executable is not deployed as a single file.");
             return 1;
         }
+
         var procPath = Process.GetCurrentProcess().MainModule!.FileName;
-        var exeName = "dnvm" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? ".exe"
-            : "");
         _logger.Info("Location of running exe" + procPath);
 
-        var targetPath = Path.Combine(s_installDir, exeName);
+        var targetPath = Path.Combine(s_installDir, Utilities.ExeName);
         if (!_options.Force && File.Exists(targetPath))
         {
             _logger.Log("dnvm is already installed at: " + targetPath);
@@ -259,6 +256,7 @@ esac
             // variable, which should be the most common case of machine-dependence.
             var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile), "$HOME");
             string userShSuffix = $"""
+
 if [ -f "{portableEnvPath}" ]; then
     . "{portableEnvPath}"
 fi

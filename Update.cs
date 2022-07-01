@@ -1,20 +1,13 @@
-
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Serde;
 using Serde.Json;
-using System;
-using System.Collections.Immutable;
-using System.IO;
-using System.IO.MemoryMappedFiles;
-using System.Net;
-using System.Net.Http;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using static System.Environment;
-using System.Net.Sockets;
-using dnvm;
-using System.Runtime.CompilerServices;
 
 namespace Dnvm;
 
@@ -33,75 +26,132 @@ sealed partial class Update
         }
     }
 
-    [GenerateDeserialize]
-    partial struct LatestReleaseResponse
-    {
-        public string assets_url { get; init; }
-    }
-
-    private const string s_dnvmVersionsEndpoint = "https://ja.cksonschuster.com/dnvm/versions/";
-    public async Task<string> GetLatestBinaryUri(RID rid, string endpoint = s_dnvmVersionsEndpoint)
-    {
-        _logger.Info($"Getting latest version from {endpoint}{rid}/latest");
-        return await Program.DefaultClient.GetStringAsync($"{endpoint}{rid}/latest");
-    }
-
-    public async Task<int> DownloadBinary (string uri, string fileName)
-    {
-        var response = await Program.DefaultClient.GetAsync(uri);
-        using (var fs = File.OpenWrite(fileName)) {
-            await response.Content.CopyToAsync(fs);
-        }
-        _logger.Info($"Downloaded binary to {fileName}");
-        return 0;
-    }
-
-    public async Task<int> ValidateBinary (string fileName)
-    {
-        if (Process.Start(new ProcessStartInfo(fileName, "--help") {
-            RedirectStandardError = true,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true
-        }) is Process ps)
-        {
-            await ps.WaitForExitAsync();
-            await ps.StandardOutput.ReadToEndAsync();
-            if (ps.ExitCode != 0)
-                throw new Exception("Downloaded binary failed");
-        }
-        return 0;
-    }
-
-    public int SwapWithRunningFile(string newFileName) 
-    {
-        if (Process.GetCurrentProcess()?.MainModule?.FileName is not string thisFileName)
-            throw new Exception("Could not find path of current process");
-
-        var oldExeTmpFileName = Path.GetTempFileName();
-        _logger.Info($"Swapping {thisFileName} with downloaded version at {newFileName}");
-        File.Move(thisFileName, oldExeTmpFileName, true);
-        File.Move(newFileName, thisFileName, true);
-        return 0;
-    }
-
     public async Task<int> Handle()
     {
         if (!_options.Self)
         {
             _logger.Error("update is currently only supported with --self");
-            return 0;
+            return 1;
         }
 
-        var rid = Program.Rid;
+        if (Assembly.GetEntryAssembly()?.Location != "")
+        {
+            Console.WriteLine("Cannot self-update: the current executable is not deployed as a single file.");
+            return 1;
+        }
 
-        var binaryDownloadURI = await GetLatestBinaryUri(rid);
-        _logger.Info($"Latest binary endpoint: {binaryDownloadURI}");
+        string artifactDownloadLink = await GetReleaseLink();
 
-        string downloadedFileName = Path.GetTempFileName();
-        await DownloadBinary(binaryDownloadURI, downloadedFileName);
-        await ValidateBinary(downloadedFileName);
-        SwapWithRunningFile(downloadedFileName);
+        string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Action<string> handleDownload = tempDownloadPath =>
+        {
+            _logger.Info("Extraction directory: " + tempArchiveDir);
+            ZipFile.ExtractToDirectory(tempDownloadPath, tempArchiveDir);
+        };
 
-        return 0;
+        await DownloadBinaryToTempAndDelete(artifactDownloadLink, handleDownload);
+        _logger.Info($"Downloaded binary to {tempArchiveDir}");
+
+        string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
+        bool success = 
+            await ValidateBinary(dnvmTmpPath) &&
+            SwapWithRunningFile(dnvmTmpPath);
+        return success ? 0 : 1;
+    }
+
+
+    [GenerateDeserialize]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.CamelCase)]
+    partial struct Releases
+    {
+        public Release LatestVersion { get; init; }
+    }
+    
+    [GenerateDeserialize]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.CamelCase)]
+    partial struct Release
+    {
+        public string Version { get; init; }
+
+        public Dictionary<string, string> Artifacts { get; init; }
+    }
+
+    private async Task<string> GetReleaseLink()
+    {
+        string releasesJson = await Program.DefaultClient.GetStringAsync("https://commentout.com/dnvm/releases.json");
+        _logger.Info("Releases JSON: " + releasesJson);
+        var releases = JsonSerializer.Deserialize<Releases>(releasesJson);
+        var rid = Utilities.CurrentRID.ToString();
+        var artifactDownloadLink = releases.LatestVersion.Artifacts[rid];
+        _logger.Info("Artifact download link: " + artifactDownloadLink);
+        return artifactDownloadLink;
+    }
+
+    private async Task DownloadBinaryToTempAndDelete(string uri, Action<string> action)
+    {
+        string tempDownloadPath = Path.GetTempFileName();
+        using (var tempFile = new FileStream(
+            tempDownloadPath,
+            FileMode.Open,
+            FileAccess.Write,
+            FileShare.Read,
+            64 * 1024 /* 64kB */,
+            FileOptions.WriteThrough | FileOptions.DeleteOnClose))
+        using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri))
+        {
+            await archiveHttpStream.CopyToAsync(tempFile);
+            await tempFile.FlushAsync();
+            action(tempDownloadPath);
+        }
+    }
+
+    public async Task<bool> ValidateBinary(string fileName)
+    {
+        // Replace with File.SetUnixFileMode when available
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var chmod = Process.Start("chmod", $"+x \"{fileName}\"");
+            await chmod.WaitForExitAsync();
+            _logger.Info("chmod return: " + chmod.ExitCode);
+        }
+
+        // Run exe and make sure it's OK
+        var testProc = Process.Start(new ProcessStartInfo
+        {
+            FileName = fileName,
+            ArgumentList = { "--help" },
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        });
+        if (testProc is Process ps)
+        {
+            await testProc.WaitForExitAsync();
+            var output = await ps.StandardOutput.ReadToEndAsync();
+            if (ps.ExitCode != 0 || !output.Contains("usage: "))
+            {
+                _logger.Error("Could not run downloaded dnvm");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public bool SwapWithRunningFile(string newFileName) 
+    {
+        try
+        {
+            string backupPath = Utilities.ProcessPath + ".bak";
+            _logger.Info($"Swapping {Utilities.ProcessPath} with downloaded version at {newFileName}");
+            File.Move(Utilities.ProcessPath, backupPath);
+            File.Move(newFileName, Utilities.ProcessPath, overwrite: false);
+            _logger.Log("Process successfully upgraded");
+            File.Delete(backupPath);
+            return true;
+        }
+        catch (Exception e)
+        {
+            _logger.Error("Couldn't replace existing binary: " + e.Message);
+            return false;
+        }
     }
 }
