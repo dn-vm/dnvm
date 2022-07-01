@@ -37,7 +37,7 @@ jobs:
       run: Compress-Archive artifacts/bin/dnvm/Release/net7.0/${{ matrix.rid }}/publish/dnvm.exe  dnvm-win-x64.zip
     - name: Zip Output Unix
       if: matrix.os != 'windows-latest'
-      run:  tar -C artifacts/bin/dnvm/Debug/net7.0/${{ matrix.rid }}/publish/ -cvzf artifacts/dnvm-${{ matrix.rid }}.tar.gz dnvm
+      run:  tar -C artifacts/bin/dnvm/Release/net7.0/${{ matrix.rid }}/publish/ -cvzf artifacts/dnvm-${{ matrix.rid }}.tar.gz dnvm
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
