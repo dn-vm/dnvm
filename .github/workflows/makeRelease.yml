@@ -34,18 +34,15 @@ jobs:
     - name: Zip Output Windows
       if: matrix.os == 'windows-latest'
       shell: pwsh
-      run: Compress-Archive artifacts/bin/dnvm/Release/net7.0/${{ matrix.rid }}/publish/dnvm.exe  dnvm-win-x64.zip
+      run: Compress-Archive artifacts/bin/dnvm/Release/net7.0/${{ matrix.rid }}/publish/dnvm.exe  artifacts/dnvm-win-x64.zip
     - name: Zip Output Unix
       if: matrix.os != 'windows-latest'
       run:  tar -C artifacts/bin/dnvm/Release/net7.0/${{ matrix.rid }}/publish/ -cvzf artifacts/dnvm-${{ matrix.rid }}.tar.gz dnvm
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
-         # Artifact name
-         name: dnvm ${{ matrix.rid }}
          # A file, directory or wildcard pattern that describes what to upload
          path: artifacts/dnvm-${{ matrix.rid }}.${{ matrix.zipSuffix }}
-        # The desired behavior if no files are found using the provided path.
   release:
     needs: publish
     runs-on: ubuntu-latest
@@ -57,5 +54,6 @@ jobs:
         with:
           prerelease: true
           draft: true
+          fail_on_unmatched_files: true
           files:
-            dnvm*
+            dnvm**/dnvm.*
