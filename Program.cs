@@ -1,15 +1,14 @@
-﻿
-using dnvm;
-using System;
+﻿using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using static Dnvm.Utilities;
 
 namespace Dnvm;
 
 public static class Program
 {
     public static readonly HttpClient DefaultClient = new HttpClient();
-    internal static readonly RID Rid = RID.GetRid();
+    internal static readonly Rid Rid = Rid.GetRid();
 
     static Task<int> Main(string[] args)
     {

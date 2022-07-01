@@ -9,9 +9,9 @@ using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using dnvm;
 using Serde.Json;
 using static System.Environment;
+using static Dnvm.Utilities;
 
 namespace Dnvm;
 
@@ -49,7 +49,7 @@ sealed class Install
 
         string feed = feeds[0];
 
-        RID rid = Program.Rid;
+        Rid rid = Program.Rid;
 
         string suffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? "zip"
@@ -135,7 +135,7 @@ sealed class Install
 
     static string ConstructArchiveName(
         string? specificVersion,
-        RID rid,
+        Rid rid,
         string suffix)
     {
         return specificVersion is null
@@ -153,7 +153,7 @@ sealed class Install
     private async Task<string?> GetLatestVersion(
         string feed,
         Channel channel,
-        RID rid,
+        Rid rid,
         string suffix)
     {
         string latestVersion;
