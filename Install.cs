@@ -213,12 +213,9 @@ esac
             return 1;
         }
         var procPath = Process.GetCurrentProcess().MainModule!.FileName;
-        var exeName = "dnvm" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? ".exe"
-            : "");
         _logger.Info("Location of running exe" + procPath);
 
-        var targetPath = Path.Combine(s_installDir, exeName);
+        var targetPath = Path.Combine(s_installDir, Utilities.ExeName);
         if (!_options.Force && File.Exists(targetPath))
         {
             _logger.Log("dnvm is already installed at: " + targetPath);
