@@ -25,8 +25,8 @@ abstract record Command
 
     public sealed record UpdateOptions : Command
     {
-        public bool Self { get; init; } = false;
         public bool Verbose { get; init; } = false;
+        public bool Self { get; init; } = false;
     }
 }
 
