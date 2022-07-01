@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download release artifacts
-        uses: actions/download-artifacts@v3
+        uses: actions/download-artifact@v3
       - name: Make Release
         uses: softprops/action-gh-release@v1
         with:
