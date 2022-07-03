@@ -48,20 +48,13 @@ sealed class Install
 
         string feed = feeds[0];
 
-        var osName = Utilities.GetOsName();
+        RID rid = Utilities.CurrentRID;
 
-        if (osName is null)
-        {
-            Console.WriteLine("Could not determine current OS");
-            return 1;
-        }
-
-        string arch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-        string suffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        string zipSuffiz = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? "zip"
             : "tar.gz";
 
-        string? latestVersion = await GetLatestVersion(feed, _options.Channel, osName, arch, suffix);
+        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, zipSuffiz);
         if (latestVersion is null)
         {
             Console.Error.WriteLine("Could not fetch the latest package version");
@@ -85,7 +78,7 @@ sealed class Install
             return 0;
         }
 
-        string archiveName = ConstructArchiveName(latestVersion, osName, arch, suffix);
+        string archiveName = ConstructArchiveName(latestVersion, rid, zipSuffiz);
         string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
         _logger.Info("Archive path: " + archivePath);
 
@@ -141,13 +134,12 @@ sealed class Install
 
     static string ConstructArchiveName(
         string? specificVersion,
-        string osName,
-        string arch,
+        RID rid,
         string suffix)
     {
         return specificVersion is null
-            ? $"dotnet-sdk-{osName}-{arch}.{suffix}"
-            : $"dotnet-sdk-{specificVersion}-{osName}-{arch}.{suffix}";
+            ? $"dotnet-sdk-{rid}.{suffix}"
+            : $"dotnet-sdk-{specificVersion}-{rid}.{suffix}";
     }
 
     private static readonly HttpClient s_noRedirectClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false });
@@ -160,8 +152,7 @@ sealed class Install
     private async Task<string?> GetLatestVersion(
         string feed,
         Channel channel,
-        string osName,
-        string arch,
+        RID rid,
         string suffix)
     {
         string latestVersion;
@@ -176,7 +167,7 @@ sealed class Install
         else
         {
             const string PreviewMajorVersion = "7.0";
-            var versionlessArchiveName = ConstructArchiveName(null, osName, arch, suffix);
+            var versionlessArchiveName = ConstructArchiveName(null, rid, suffix);
             string akaMsUrl = $"https://aka.ms/dotnet/{PreviewMajorVersion}/preview/{versionlessArchiveName}";
             _logger.Info("aka.ms URL: " + akaMsUrl);
             var requestMessage = new HttpRequestMessage(
@@ -220,6 +211,7 @@ esac
             Console.WriteLine("Cannot self-install into target location: the current executable is not deployed as a single file.");
             return 1;
         }
+
         var procPath = Process.GetCurrentProcess().MainModule!.FileName;
         _logger.Info("Location of running exe" + procPath);
 
@@ -264,6 +256,7 @@ esac
             // variable, which should be the most common case of machine-dependence.
             var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile), "$HOME");
             string userShSuffix = $"""
+
 if [ -f "{portableEnvPath}" ]; then
     . "{portableEnvPath}"
 fi

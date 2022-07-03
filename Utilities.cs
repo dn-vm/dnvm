@@ -1,26 +1,62 @@
 using System;
-using System.IO;
 using System.Runtime.InteropServices;
+using StaticCs;
 
 namespace Dnvm;
 
 static class Utilities
 {
-    public static string? GetOsName()
-    {
-        string? osName = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx"
-            : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "win"
-            : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ?
-                RuntimeInformation.RuntimeIdentifier.Contains("musl") ? "linux-musl"
-                : "linux"
-            : null;
+    public static readonly RID CurrentRID = new RID(
+        GetCurrentOSPlatform(),
+        RuntimeInformation.ProcessArchitecture,
+        RuntimeInformation.RuntimeIdentifier.Contains("musl") ? Libc.Musl : Libc.Default);
 
-        return osName;
+    private static OSPlatform GetCurrentOSPlatform()
+    {
+        return RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? OSPlatform.OSX :
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? OSPlatform.Windows :
+            RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? OSPlatform.Linux :
+            throw new NotSupportedException("Current OS is not supported: " + RuntimeInformation.OSDescription);
     }
 
-    public static string ProcessPath = Environment.ProcessPath!;
+    public static string ProcessPath = Environment.ProcessPath 
+        ?? throw new InvalidOperationException("Cannot find exe name");
 
     public static string ExeName = "dnvm" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
         ? ".exe"
         : "");
+}
+
+[Closed]
+internal enum Libc
+{
+    Default, // Not a real libc, refers to the most common platform libc
+    Musl
+}
+
+internal readonly record struct RID(
+    OSPlatform OS,
+    Architecture Arch,
+    Libc Libc = Libc.Default)
+{
+    public override string ToString()
+    {
+        string os =
+            OS == OSPlatform.Windows ? "win" :
+            OS == OSPlatform.Linux   ? "linux" :
+            OS == OSPlatform.OSX ? "osx" :
+            throw new NotSupportedException("Unsupported OS: " + OS);
+
+        string arch = Arch switch
+        {
+            Architecture.X64 => "x64",
+            _ => throw new NotSupportedException("Unsupported architecture")
+        };
+        string libc = Libc switch
+        {
+            Libc.Default => "",
+            Libc.Musl => "musl"
+        };
+        return string.Join('-', os, arch, libc);
+    }
 }
