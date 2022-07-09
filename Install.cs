@@ -343,7 +343,7 @@ esac
         var currentPathVar = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
         if (!(":" + currentPathVar + ":").Contains(_installDir))
         {
-            Environment.SetEnvironmentVariable("PATH", _installDir + ":" + currentPathVar, EnvironmentVariableTarget.User);
+            Environment.SetEnvironmentVariable("PATH", _installDir + ":" + currentPathVar, _options.Global ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User);
         }
         return 0;
     }
