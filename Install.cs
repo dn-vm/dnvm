@@ -16,14 +16,7 @@ namespace Dnvm;
 
 sealed class Install
 {
-    private readonly string _installDir;
-    private readonly string _manifestPath;
-
-    private readonly Logger _logger;
-    private readonly Command.InstallOptions _options;
-
     private static string s_defaultInstallDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
-
     private static string s_globalInstallDir =
         Utilities.CurrentRID.OS == OSPlatform.Windows ?
             Path.Combine(Environment.GetFolderPath(SpecialFolder.ProgramFiles), "dotnet")
@@ -31,6 +24,12 @@ sealed class Install
             "/usr/local/share/dotnet" // MacOS no longer lets anyone mess with /usr/share, even as root
         :
             "/usr/share/dotnet";
+
+    private readonly string _installDir;
+    private readonly string _manifestPath;
+
+    private readonly Logger _logger;
+    private readonly Command.InstallOptions _options;
 
     private async Task<int> LinuxAddToPath(string pathToAdd)
     {
@@ -60,7 +59,7 @@ sealed class Install
                 _logger.Error("Unable to write path to /etc/profile, attempting to write to local environment");
             }
         }
-        return await UnixAddToLocalPath(pathToAdd);
+        return await UnixAddToPathInShellFiles(pathToAdd);
     }
 
     private async Task<int> MacAddToPath(string pathToAdd)
@@ -81,7 +80,7 @@ sealed class Install
                 _logger.Error("Unable to write path to /etc/paths.d/dotnet, attempting to write to local environment");
             }
         }
-        return await UnixAddToLocalPath(pathToAdd);
+        return await UnixAddToPathInShellFiles(pathToAdd);
     }
 
     public Install(Logger logger, Command.InstallOptions options)
@@ -349,7 +348,7 @@ esac
         return 0;
     }
 
-    private async Task<int> UnixAddToLocalPath(string pathToAdd)
+    private async Task<int> UnixAddToPathInShellFiles(string pathToAdd)
     {
         _logger.Info("Setting environment variables in shell files");
         string resolvedEnvPath = Path.Combine(pathToAdd, "env");
