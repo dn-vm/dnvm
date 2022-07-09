@@ -32,10 +32,42 @@ sealed class Install
         :
             "/usr/share/dotnet";
 
+    private async Task<int> LinuxAddToPath(string pathToAdd)
+    {
+        string addToPath = "PATH=$PATH/{pathToAdd}";
+        if (_options.Global)
+        {
+            _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/profile");
+            try
+            {
+                string fileContents = await File.ReadAllTextAsync("/etc/profile");
+                if (fileContents.Contains(addToPath))
+                {
+                    _logger.Info("/etc/profile already contains the path");
+                    return 0;
+                }
+                using (var f = File.OpenWrite("/etc/profile"))
+                {
+
+                    f.Seek(0, SeekOrigin.End);
+                    f.WriteByte (0x0A); // Newline
+                    await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(addToPath).AsMemory());
+                }
+                return 0;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                _logger.Error("Unable to write path to /etc/profile, attempting to write to local environment");
+            }
+        }
+        return await UnixAddToLocalPath(pathToAdd);
+    }
+
     private async Task<int> MacAddToPath(string pathToAdd)
     {
         if (_options.Global)
         {
+            _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/paths.d/dotnet");
             try
             {
                 using (var f = File.OpenWrite("/etc/paths.d/dotnet"))
@@ -285,11 +317,7 @@ esac
         if (Utilities.CurrentRID.OS == OSPlatform.Windows)
         {
             Console.WriteLine("Adding install directory to user path: " + _installDir);
-            var currentPathVar = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
-            if (!(":" + currentPathVar + ":").Contains(_installDir))
-            {
-                Environment.SetEnvironmentVariable("PATH", _installDir + ":" + currentPathVar, EnvironmentVariableTarget.User);
-            }
+            WindowsAddToPath(_installDir);
         }
         else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
         {
@@ -301,7 +329,7 @@ esac
         }
         else
         {
-            int result = await UnixAddToLocalPath(_installDir);
+            int result = await LinuxAddToPath(_installDir);
             if (result != 0)
             {
                 _logger.Error ("Failed to add to path");
@@ -311,9 +339,19 @@ esac
         return 0;
     }
 
+    private int WindowsAddToPath(string pathToAdd)
+    {
+        var currentPathVar = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
+        if (!(":" + currentPathVar + ":").Contains(_installDir))
+        {
+            Environment.SetEnvironmentVariable("PATH", _installDir + ":" + currentPathVar, EnvironmentVariableTarget.User);
+        }
+        return 0;
+    }
+
     private async Task<int> UnixAddToLocalPath(string pathToAdd)
     {
-        _logger.Info("Setting environment variables");
+        _logger.Info("Setting environment variables in shell files");
         string resolvedEnvPath = Path.Combine(pathToAdd, "env");
         // Using the full path to the install directory is usually fine, but on Unix systems
         // people often copy their dotfiles from one machine to another and fully resolved paths present a problem
