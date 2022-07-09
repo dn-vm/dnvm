@@ -21,6 +21,7 @@ abstract record Command
         public bool Force { get; init; } = false;
         public bool Self { get; init; } = false;
         public bool Prereqs { get; init; } = false;
+        public bool Global { get; init; } = false;
     }
 
     public sealed record UpdateOptions : Command
@@ -48,6 +49,7 @@ sealed record class CommandLineOptions(Command Command)
                 bool force = default;
                 bool self = default;
                 bool prereqs = default;
+                bool global = default;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption(
                     "c|channel",
@@ -63,13 +65,15 @@ sealed record class CommandLineOptions(Command Command)
                 syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
                 syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
+                syntax.DefineOption("g|global", ref global, "Install to the global location");
                 command = new Command.InstallOptions
                 {
                     Channel = channel,
                     Verbose = verbose,
                     Force = force,
                     Self = self,
-                    Prereqs = prereqs
+                    Prereqs = prereqs,
+                    Global = global
                 };
             }
 
