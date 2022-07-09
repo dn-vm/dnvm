@@ -65,7 +65,7 @@ namespace Internal.CommandLine
                 var message = unreadCommand == null
                     ? Strings.MissingCommand
                     : string.Format(Strings.UnknownCommandFmt, unreadCommand);
-                ReportError(message);
+                ReportError(message + Environment.NewLine + GetHelpText());
             }
 
             if (ErrorOnUnexpectedArguments)
