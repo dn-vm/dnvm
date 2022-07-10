@@ -103,7 +103,7 @@ sealed class Install
             try
             {
                 Directory.CreateDirectory(_installDir);
-                File.OpenWrite(_manifestPath);
+                using var _ = File.OpenWrite(_manifestPath);
             }
             catch (System.UnauthorizedAccessException)
             {
@@ -162,13 +162,14 @@ sealed class Install
         _logger.Info("Download link: " + link);
 
         var result = JsonSerializer.Serialize(manifest);
-        _logger.Info("Existing manifest: " + link);
+        _logger.Info("Existing manifest: " + result);
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough | FileOptions.DeleteOnClose))
         using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
         {
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
+            _logger.Info($"Installing to {_installDir}");
             if (await ExtractArchiveToDir(archivePath, _installDir) != 0)
             {
                 return 1;
