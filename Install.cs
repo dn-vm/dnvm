@@ -49,7 +49,7 @@ sealed class Install
                 {
 
                     f.Seek(0, SeekOrigin.End);
-                    f.WriteByte (0x0A); // Newline
+                    f.WriteByte(0x0A); // Newline
                     await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(addToPath).AsMemory());
                 }
                 return 0;
@@ -176,6 +176,8 @@ sealed class Install
             }
         }
 
+        await AddToPath(_installDir);
+
         var newWorkload = new Workload { Version = latestVersion };
         if (!manifest.Workloads.Contains(newWorkload))
         {
@@ -289,7 +291,7 @@ esac
             return 1;
         }
 
-        var procPath = Process.GetCurrentProcess().MainModule!.FileName;
+        var procPath = Environment.ProcessPath;
         _logger.Info("Location of running exe" + procPath);
 
         var targetPath = Path.Combine(_installDir, Utilities.ExeName);
@@ -314,6 +316,13 @@ esac
         }
 
         // Set up path
+        await AddToPath(_installDir);
+
+        return 0;
+    }
+
+    private async Task<int> AddToPath(string path)
+    {
         if (Utilities.CurrentRID.OS == OSPlatform.Windows)
         {
             Console.WriteLine("Adding install directory to user path: " + _installDir);
@@ -324,7 +333,7 @@ esac
             int result = await MacAddToPath(_installDir);
             if (result != 0)
             {
-                _logger.Error ("Failed to add to path");
+                _logger.Error("Failed to add to path");
             }
         }
         else
@@ -332,10 +341,9 @@ esac
             int result = await LinuxAddToPath(_installDir);
             if (result != 0)
             {
-                _logger.Error ("Failed to add to path");
+                _logger.Error("Failed to add to path");
             }
         }
-
         return 0;
     }
 
