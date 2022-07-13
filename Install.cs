@@ -33,30 +33,21 @@ sealed class Install
 
     private async Task<int> LinuxAddToPath(string pathToAdd)
     {
-        string addToPath = "PATH=$PATH/{pathToAdd}";
+        string addToPath = $"PATH=$PATH:{pathToAdd}";
         if (_options.Global)
         {
-            _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/profile");
+            _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/profile.d/dotnet.sh");
             try
             {
-                string fileContents = await File.ReadAllTextAsync("/etc/profile");
-                if (fileContents.Contains(addToPath))
+                using (var f = File.OpenWrite("/etc/profile.d/dotnet.sh"))
                 {
-                    _logger.Info("/etc/profile already contains the path");
-                    return 0;
-                }
-                using (var f = File.OpenWrite("/etc/profile"))
-                {
-
-                    f.Seek(0, SeekOrigin.End);
-                    f.WriteByte (0x0A); // Newline
                     await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(addToPath).AsMemory());
                 }
                 return 0;
             }
             catch (UnauthorizedAccessException)
             {
-                _logger.Error("Unable to write path to /etc/profile, attempting to write to local environment");
+                _logger.Error("Unable to write to /etc/profile.d/dotnet.sh, attempting to write to local environment");
             }
         }
         return await UnixAddToPathInShellFiles(pathToAdd);
