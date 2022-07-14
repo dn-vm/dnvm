@@ -16,11 +16,63 @@ namespace Dnvm;
 
 sealed class Install
 {
-    private static readonly string s_installDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
-    private static readonly string s_manifestPath = Path.Combine(s_installDir, "dnvmManifest.json");
+    private static string s_defaultInstallDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
+    private static string s_globalInstallDir =
+        Utilities.CurrentRID.OS == OSPlatform.Windows ?
+            Path.Combine(Environment.GetFolderPath(SpecialFolder.ProgramFiles), "dotnet")
+        : Utilities.CurrentRID.OS == OSPlatform.OSX ?
+            "/usr/local/share/dotnet" // MacOS no longer lets anyone mess with /usr/share, even as root
+        :
+            "/usr/share/dotnet";
+
+    private readonly string _installDir;
+    private readonly string _manifestPath;
 
     private readonly Logger _logger;
     private readonly Command.InstallOptions _options;
+
+    private async Task<int> LinuxAddToPath(string pathToAdd)
+    {
+        string addToPath = $"PATH=$PATH:{pathToAdd}";
+        if (_options.Global)
+        {
+            _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/profile.d/dotnet.sh");
+            try
+            {
+                using (var f = File.OpenWrite("/etc/profile.d/dotnet.sh"))
+                {
+                    await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(addToPath).AsMemory());
+                }
+                return 0;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                _logger.Error("Unable to write to /etc/profile.d/dotnet.sh, attempting to write to local environment");
+            }
+        }
+        return await UnixAddToPathInShellFiles(pathToAdd);
+    }
+
+    private async Task<int> MacAddToPath(string pathToAdd)
+    {
+        if (_options.Global)
+        {
+            _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/paths.d/dotnet");
+            try
+            {
+                using (var f = File.OpenWrite("/etc/paths.d/dotnet"))
+                {
+                    await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(pathToAdd).AsMemory());
+                }
+                return 0;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                _logger.Error("Unable to write path to /etc/paths.d/dotnet, attempting to write to local environment");
+            }
+        }
+        return await UnixAddToPathInShellFiles(pathToAdd);
+    }
 
     public Install(Logger logger, Command.InstallOptions options)
     {
@@ -30,16 +82,31 @@ sealed class Install
         {
             _logger.LogLevel = LogLevel.Info;
         }
+        _installDir = options.Global ? s_globalInstallDir : s_defaultInstallDir;
+        _manifestPath = Path.Combine(_installDir, "dnvmManifest.json");
     }
 
     public async Task<int> Handle()
     {
+        _logger.Info("Install Directory: " + _installDir);
+        if (_options.Global)
+        {
+            try
+            {
+                Directory.CreateDirectory(_installDir);
+                using var _ = File.OpenWrite(_manifestPath);
+            }
+            catch (System.UnauthorizedAccessException)
+            {
+                _logger.Error($"Cannot access global install location. Make sure you are running as {(Utilities.CurrentRID.OS == OSPlatform.Windows ? "administrator" : "root")}.");
+                return 1;
+            }
+        }
+
         if (_options.Self)
         {
             return await RunSelfInstall();
         }
-
-        _logger.Info("Install Directory: " + s_installDir);
 
         var feeds = new[] {
             "https://dotnetcli.azureedge.net/dotnet",
@@ -64,7 +131,7 @@ sealed class Install
         Manifest? manifest = null;
         try
         {
-            manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(s_manifestPath));
+            manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_manifestPath));
         }
         catch
         {
@@ -86,18 +153,21 @@ sealed class Install
         _logger.Info("Download link: " + link);
 
         var result = JsonSerializer.Serialize(manifest);
-        _logger.Info("Existing manifest: " + link);
+        _logger.Info("Existing manifest: " + result);
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough | FileOptions.DeleteOnClose))
         using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
         {
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
-            if (await ExtractArchiveToDir(archivePath, s_installDir) != 0)
+            _logger.Info($"Installing to {_installDir}");
+            if (await ExtractArchiveToDir(archivePath, _installDir) != 0)
             {
                 return 1;
             }
         }
+
+        await AddToPath(_installDir);
 
         var newWorkload = new Workload { Version = latestVersion };
         if (!manifest.Workloads.Contains(newWorkload))
@@ -105,7 +175,7 @@ sealed class Install
             _logger.Info($"Adding workload {newWorkload} to manifest.");
             manifest = manifest with { Workloads = manifest.Workloads.Add(newWorkload) };
         }
-        File.WriteAllText(s_manifestPath, JsonSerializer.Serialize(manifest));
+        File.WriteAllText(_manifestPath, JsonSerializer.Serialize(manifest));
         _logger.Info("Writing manifest");
         return 0;
     }
@@ -113,7 +183,7 @@ sealed class Install
     static async Task<int> ExtractArchiveToDir(string archivePath, string dirPath)
     {
         Directory.CreateDirectory(dirPath);
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (!(Utilities.CurrentRID.OS == OSPlatform.Windows))
         {
             var psi = new ProcessStartInfo()
             {
@@ -212,10 +282,10 @@ esac
             return 1;
         }
 
-        var procPath = Process.GetCurrentProcess().MainModule!.FileName;
+        var procPath = Environment.ProcessPath;
         _logger.Info("Location of running exe" + procPath);
 
-        var targetPath = Path.Combine(s_installDir, Utilities.ExeName);
+        var targetPath = Path.Combine(_installDir, Utilities.ExeName);
         if (!_options.Force && File.Exists(targetPath))
         {
             _logger.Log("dnvm is already installed at: " + targetPath);
@@ -237,82 +307,112 @@ esac
         }
 
         // Set up path
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        await AddToPath(_installDir);
+
+        return 0;
+    }
+
+    private async Task<int> AddToPath(string path)
+    {
+        if (Utilities.CurrentRID.OS == OSPlatform.Windows)
         {
-            Console.WriteLine("Adding install directory to user path: " + s_installDir);
-            var currentPathVar = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
-            if (!(":" + currentPathVar + ":").Contains(s_installDir))
+            Console.WriteLine("Adding install directory to user path: " + _installDir);
+            WindowsAddToPath(_installDir);
+        }
+        else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
+        {
+            int result = await MacAddToPath(_installDir);
+            if (result != 0)
             {
-                Environment.SetEnvironmentVariable("PATH", s_installDir + ":" + currentPathVar, EnvironmentVariableTarget.User);
+                _logger.Error("Failed to add to path");
             }
         }
         else
         {
-            _logger.Info("Setting environment variables");
-            string resolvedEnvPath = Path.Combine(s_installDir, "env");
-            // Using the full path to the install directory is usually fine, but on Unix systems
-            // people often copy their dotfiles from one machine to another and fully resolved paths present a problem
-            // there. Instead, we'll try to replace instances of the user's home directory with the $HOME
-            // variable, which should be the most common case of machine-dependence.
-            var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile), "$HOME");
-            string userShSuffix = $"""
+            int result = await LinuxAddToPath(_installDir);
+            if (result != 0)
+            {
+                _logger.Error("Failed to add to path");
+            }
+        }
+        return 0;
+    }
+
+    private int WindowsAddToPath(string pathToAdd)
+    {
+        var currentPathVar = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
+        if (!(":" + currentPathVar + ":").Contains(_installDir))
+        {
+            Environment.SetEnvironmentVariable("PATH", _installDir + ":" + currentPathVar, _options.Global ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User);
+        }
+        return 0;
+    }
+
+    private async Task<int> UnixAddToPathInShellFiles(string pathToAdd)
+    {
+        _logger.Info("Setting environment variables in shell files");
+        string resolvedEnvPath = Path.Combine(pathToAdd, "env");
+        // Using the full path to the install directory is usually fine, but on Unix systems
+        // people often copy their dotfiles from one machine to another and fully resolved paths present a problem
+        // there. Instead, we'll try to replace instances of the user's home directory with the $HOME
+        // variable, which should be the most common case of machine-dependence.
+        var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile), "$HOME");
+        string userShSuffix = $"""
 
 if [ -f "{portableEnvPath}" ]; then
     . "{portableEnvPath}"
 fi
 """;
-            FileStream? envFile;
-            try
+        FileStream? envFile;
+        try
+        {
+            envFile = File.Open(resolvedEnvPath, FileMode.CreateNew);
+        }
+        catch
+        {
+            _logger.Info("env file already exists, skipping installation");
+            envFile = null;
+        }
+
+        if (envFile is not null)
+        {
+            _logger.Info("Writing env sh file");
+            using (envFile)
+            using (var writer = new StreamWriter(envFile))
             {
-                envFile = File.Open(resolvedEnvPath, FileMode.CreateNew);
-            }
-            catch
-            {
-                _logger.Info("env file already exists, skipping installation");
-                envFile = null;
+                await writer.WriteAsync(s_envShContent.Replace("{install_loc}", pathToAdd));
+                await envFile.FlushAsync();
             }
 
-            if (envFile is not null)
+            // Scan shell files for shell suffix and add it if it doesn't exist
+            _logger.Log("Scanning for shell files to update");
+            foreach (var shellFileName in ProfileShellFiles)
             {
-                _logger.Info("Writing env sh file");
-                using (envFile)
-                using (var writer = new StreamWriter(envFile))
+                var shellPath = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), shellFileName);
+                _logger.Info("Checking for file: " + shellPath);
+                if (File.Exists(shellPath))
                 {
-                    await writer.WriteAsync(s_envShContent.Replace("{install_loc}", s_installDir));
-                    await envFile.FlushAsync();
+                    _logger.Log("Found " + shellPath);
                 }
-
-                // Scan shell files for shell suffix and add it if it doesn't exist
-                _logger.Log("Scanning for shell files to update");
-                foreach (var shellFileName in ProfileShellFiles)
+                else
                 {
-                    var shellPath = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), shellFileName);
-                    _logger.Info("Checking for file: " + shellPath);
-                    if (File.Exists(shellPath))
+                    continue;
+                }
+                try
+                {
+                    if (!(await FileContainsLine(shellPath, $". \"{portableEnvPath}\"")))
                     {
-                        _logger.Log("Found " + shellPath);
+                        _logger.Log("Adding env import to: " + shellPath);
+                        await File.AppendAllTextAsync(shellPath, userShSuffix);
                     }
-                    else
-                    {
-                        continue;
-                    }
-                    try
-                    {
-                        if (!(await FileContainsLine(shellPath, $". \"{portableEnvPath}\"")))
-                        {
-                            _logger.Log("Adding env import to: " + shellPath);
-                            await File.AppendAllTextAsync(shellPath, userShSuffix);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        // Ignore if the file can't be accessed
-                        _logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
-                    }
+                }
+                catch (Exception e)
+                {
+                    // Ignore if the file can't be accessed
+                    _logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
                 }
             }
         }
-
         return 0;
     }
 

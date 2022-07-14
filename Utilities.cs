@@ -19,7 +19,7 @@ static class Utilities
             throw new NotSupportedException("Current OS is not supported: " + RuntimeInformation.OSDescription);
     }
 
-    public static string ProcessPath = Environment.ProcessPath 
+    public static string ProcessPath = Environment.ProcessPath
         ?? throw new InvalidOperationException("Cannot find exe name");
 
     public static string ExeName = "dnvm" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
@@ -52,11 +52,10 @@ internal readonly record struct RID(
             Architecture.X64 => "x64",
             _ => throw new NotSupportedException("Unsupported architecture")
         };
-        string libc = Libc switch
+        return Libc switch
         {
-            Libc.Default => "",
-            Libc.Musl => "musl"
+            Libc.Default => string.Join("-", os, arch),
+            Libc.Musl => string.Join('-', os, arch, "musl")
         };
-        return string.Join('-', os, arch, libc);
     }
 }
