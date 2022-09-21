@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.32804.182
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dnvm", "src\dnvm.csproj", "{B8797A95-4040-4CC1-B560-771B8DC521CB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dnvm.Tests", "test\dnvm.Tests\dnvm.Tests.csproj", "{6DE5B075-AFFB-42AC-8E0C-20EA920E39AB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B8797A95-4040-4CC1-B560-771B8DC521CB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8797A95-4040-4CC1-B560-771B8DC521CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8797A95-4040-4CC1-B560-771B8DC521CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8797A95-4040-4CC1-B560-771B8DC521CB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DE5B075-AFFB-42AC-8E0C-20EA920E39AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DE5B075-AFFB-42AC-8E0C-20EA920E39AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DE5B075-AFFB-42AC-8E0C-20EA920E39AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DE5B075-AFFB-42AC-8E0C-20EA920E39AB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {94839423-A99C-445B-9C58-5807CA8FC0D4}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,19 @@
+{
+  "profiles": {
+    "dnvm": {
+      "commandName": "Project"
+    },
+    "install 7.0.100-rc.1.22431.12": {
+      "commandName": "Project",
+      "commandLineArgs": "install --version 7.0.100-rc.1.22431.12 --verbose --force"
+    },
+    "init bash": {
+      "commandName": "Project",
+      "commandLineArgs": "init bash"
+    },
+    "init powershell": {
+      "commandName": "Project",
+      "commandLineArgs": "init powershell"
+    }
+  }
+}

@@ -1,22 +1,22 @@
+using Serde;
+using Serde.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Serde;
-using Serde.Json;
 
 namespace Dnvm;
 
 sealed partial class Update
 {
+    public sealed record Options(bool Verbose, Channel Channel, Version Version, bool Force, bool Self, bool Global);
     private readonly Logger _logger;
-    private readonly Command.UpdateOptions _options;
+    private readonly Options _options;
 
-    public Update(Logger logger, Command.UpdateOptions options)
+    public Update(Logger logger, Options options)
     {
         _logger = logger;
         _options = options;
@@ -34,7 +34,7 @@ sealed partial class Update
             return 1;
         }
 
-        if (Assembly.GetEntryAssembly()?.Location != "")
+        if (!Utilities.IsAOT)
         {
             Console.WriteLine("Cannot self-update: the current executable is not deployed as a single file.");
             return 1;
@@ -53,7 +53,7 @@ sealed partial class Update
         _logger.Info($"Downloaded binary to {tempArchiveDir}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
-        bool success = 
+        bool success =
             await ValidateBinary(dnvmTmpPath) &&
             SwapWithRunningFile(dnvmTmpPath);
         return success ? 0 : 1;
@@ -66,7 +66,7 @@ sealed partial class Update
     {
         public Release LatestVersion { get; init; }
     }
-    
+
     [GenerateDeserialize]
     [SerdeTypeOptions(MemberFormat = MemberFormat.CamelCase)]
     partial struct Release
@@ -136,7 +136,7 @@ sealed partial class Update
         return true;
     }
 
-    public bool SwapWithRunningFile(string newFileName) 
+    public bool SwapWithRunningFile(string newFileName)
     {
         try
         {
