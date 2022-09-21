@@ -6,9 +6,7 @@ using static Dnvm.Channel;
 
 namespace Dnvm;
 
-
-
-public record struct Channel(ChannelKind Kind, int? Major = null, int? Minor = null, int? Patch = null)
+public record Channel(ChannelKind Kind, int? Major = null, int? Minor = null, int? Patch = null)
 {
 	[Closed]
 	public enum ChannelKind
@@ -22,9 +20,9 @@ public record struct Channel(ChannelKind Kind, int? Major = null, int? Minor = n
 	public override string ToString()
 		=> Kind switch
 		{
-			ChannelKind.LTS => "lts",
-			ChannelKind.Current => "current",
-			ChannelKind.Preview => "preview",
+			ChannelKind.LTS => "LTS",
+			ChannelKind.Current => "Current",
+			ChannelKind.Preview => "7.0",
 			ChannelKind.Numbered => Patch switch
 			{
 				int => $"{Major!.Value}.{Minor!.Value}.{Patch!.Value}xx",

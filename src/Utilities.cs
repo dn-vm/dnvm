@@ -1,6 +1,9 @@
 using StaticCs;
 using System;
 using System.Collections.Generic;
+using System.CommandLine;
+using System.CommandLine.Parsing;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -95,5 +98,29 @@ static class Utilities
 			Environment.SetEnvironmentVariable("PATH", pathToAdd + ":" + currentPathVar, EnvironmentVariableTarget.User);
 		}
 		return 0;
+	}
+
+	public static ValidateSymbolResult<CommandResult> ValidateOneOf(params Option[] options)
+	{
+		Debug.Assert(options.Length >= 2);
+
+		return (CommandResult commandResult) =>
+		{
+			if (options.Count(option => commandResult.FindResultFor(option) is not null) != 1)
+			{
+				commandResult.ErrorMessage = OneOfRequiredText(options);
+			}
+		};
+	}
+
+	static string OneOfRequiredText(params Option[] options)
+	{
+		Debug.Assert(options.Length >= 2);
+
+		var names = options.Select(o => $"'--{o.Name}'").ToArray();
+		var list = names.Length == 2
+			? $"{names[0]} or {names[1]}"
+			: string.Join(", ", names[0..(names.Length - 1)]) + ", or " + names[^1];
+		return $"Exactly one of the options {list} is required.";
 	}
 }

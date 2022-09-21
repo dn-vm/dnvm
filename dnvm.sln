@@ -5,7 +5,7 @@ VisualStudioVersion = 17.4.32804.182
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dnvm", "src\Dnvm.csproj", "{B8797A95-4040-4CC1-B560-771B8DC521CB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dnvm.Tests", "test\dnvm.Tests\dnvm.Tests.csproj", "{6DE5B075-AFFB-42AC-8E0C-20EA920E39AB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dnvm.Tests", "test\dnvm.Tests\Dnvm.Tests.csproj", "{6DE5B075-AFFB-42AC-8E0C-20EA920E39AB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

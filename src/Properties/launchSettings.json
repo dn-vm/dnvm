@@ -22,6 +22,18 @@
     "help": {
       "commandName": "Project",
       "commandLineArgs": "-h"
+    },
+    "activate error": {
+      "commandName": "Project",
+      "commandLineArgs": "activate"
+    },
+    "activate 7.0": {
+      "commandName": "Project",
+      "commandLineArgs": "activate --version 7.0.100-rc.1.22431.12"
+    },
+    "install lts": {
+      "commandName": "Project",
+      "commandLineArgs": "install --channel lts --verbose"
     }
   }
 }

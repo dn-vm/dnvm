@@ -12,7 +12,8 @@
 		<LangVersion>preview</LangVersion>
 		<RuntimeIdentifier>$(NETCoreSdkPortableRuntimeIdentifier)</RuntimeIdentifier>
 		<PublishAot>true</PublishAot>
-		<ILCSingleWarn>false</ILCSingleWarn>
+		<AssemblyName>$(MSBuildProjectName.ToLower())</AssemblyName>
+		<TrimmerSingleWarn>false</TrimmerSingleWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

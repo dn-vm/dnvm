@@ -1,11 +1,10 @@
-﻿using Serde;
-using System;
+﻿using System;
 using System.CommandLine.Parsing;
 using System.Linq;
 using static Dnvm.Version;
 namespace Dnvm;
 
-public partial record struct Version(VersionKind Kind, int? Major = null, int? Minor = null, int? Patch = null, string? Suffix = null)
+public record class Version(VersionKind Kind, int? Major = null, int? Minor = null, int? Patch = null, string? Suffix = null)
 {
 	public override string ToString()
 		=> string.Concat($"{Major}.{Minor}.{Patch}", Suffix is not null ? $"-{Suffix}" : "");
@@ -20,15 +19,12 @@ public partial record struct Version(VersionKind Kind, int? Major = null, int? M
 		}
 	}
 
-	public static Option<Version> Option { get; }
-
 	public static Version From(string token)
 	{
 		switch (token.ToLower())
 		{
 			case "latest":
 				throw new NotImplementedException("TODO");
-				return new Version(VersionKind.Latest);
 			default:
 				int dot1 = token.IndexOf('.');
 				if (dot1 + 1 >= token.Length || dot1 == -1)
@@ -67,6 +63,19 @@ public partial record struct Version(VersionKind Kind, int? Major = null, int? M
 		Latest,
 		Exact
 	}
+
+	public static Version? ParseNullable(ArgumentResult arg)
+	{
+		try
+		{
+			return Parse(arg);
+		}
+		catch (InvalidOperationException)
+		{
+			return null;
+		}
+	}
+
 	public static Version Parse(ArgumentResult arg)
 	{
 		var tok = arg.Tokens.Single().Value;

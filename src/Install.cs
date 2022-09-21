@@ -62,17 +62,18 @@ sealed class Install
 			setActive.AddAlias("-d");
 			install.Add(setActive);
 
+			install.AddValidator(Utilities.ValidateOneOf(channel, version));
+
 			install.SetHandler(Handler, channel, version, path, force, global, verbose, setActive);
 
 			return install;
 		}
 	}
 
-	public sealed record Options(Channel Channel, Version Version, string Path, bool Force, bool Global, bool Verbose, bool setActive);
+	public sealed record Options(Channel? Channel, Version? Version, string Path, bool Force, bool Global, bool Verbose, bool setActive);
 
-	private static async Task<int> Handler(Channel channel, Version version, string? path, bool force, bool global, bool verbose, bool setActive)
+	private static async Task<int> Handler(Channel? channel, Version? version, string? path, bool force, bool global, bool verbose, bool setActive)
 	{
-		path ??= Path.Combine(Utilities.LocalInstallLocation, Utilities.EscapeFilename(version.ToString()));
 		var install = new Install(new Logger(), new Options(channel, version, path ?? Utilities.LocalInstallLocation, force, global, verbose, setActive));
 
 		return await install.Handle();
@@ -98,13 +99,25 @@ sealed class Install
 
 	bool VersionIsAlreadyInstalled()
 	{
-		return ManifestHelpers.Instance.Workloads.Contains(new Workload(_options.Version.ToString()));
+		return ManifestHelpers.Instance.Workloads.Contains(new Workload(_options.Version!.ToString()));
 	}
 
-	public async Task SetVersion()
+	public async Task EnsureExactVersion()
 	{
+		if (_options.Version?.Kind is Version.VersionKind.Exact)
+			return;
+
 		_logger.Info($"Precise version not provided, getting version from channel {_options.Channel}");
-		_options = _options with { Version = await GetVersion(_options.Channel) };
+		if (await GetVersion(_options.Channel!) is not Version newVersion)
+		{
+			_logger.Error("Invalid channel - cannot deteremine version number");
+			throw new ApplicationException();
+		}
+		_options = _options with
+		{
+			Version = newVersion,
+			Path = Path.Combine(_options.Path, Utilities.EscapeFilename(newVersion.ToString()))
+		};
 		_logger.Info($"Version set to {_options.Version}");
 	}
 
@@ -112,8 +125,9 @@ sealed class Install
 	{
 		_logger.Info("Install Directory: " + _options.Path);
 
-		if (_options.Version.Kind is not Version.VersionKind.Exact)
-			await SetVersion();
+		await EnsureExactVersion();
+
+		_logger.Log($"Installing version {_options.Version}.");
 
 		if (!_options.Force && VersionIsAlreadyInstalled())
 		{
@@ -125,7 +139,7 @@ sealed class Install
 		string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
 		_logger.Info("Archive path: " + archivePath);
 
-		string downloadPath = _options.Version.DownloadPath;
+		string downloadPath = _options.Version!.DownloadPath;
 		string link = Feeds[0] + downloadPath;
 		_logger.Info("Download link: " + link);
 
@@ -157,21 +171,9 @@ sealed class Install
 			ManifestHelpers.Instance.WriteOut();
 		}
 
-		// Add to path / update default;
-		//throw new NotImplementedException();
-
 		return 0;
 	}
 
-	private async Task<Version> GetVersion(Channel channel)
-	{
-		foreach (var feed in Feeds)
-		{
-			if (await GetLatestVersion(feed, channel) is Version v)
-				return v;
-		}
-		throw new NotImplementedException("IDK what to do here really");
-	}
 
 	static async Task<int> ExtractArchiveToDir(string archivePath, string dirPath)
 	{
@@ -208,45 +210,56 @@ sealed class Install
 
 	private static readonly HttpClient s_noRedirectClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false });
 
-	private async Task<Version?> GetLatestVersion(
-		string feed,
-		Channel channel)
+	async Task<Version?> GetVersionFromAkaMs(Channel channel)
 	{
-		string latestVersion;
-		// The dotnet service provides an endpoint for fetching the latest LTS and Current versions,
-		// but not preview. We'll have to construct that ourselves from aka.ms.
-		if (channel.Kind != Channel.ChannelKind.Preview)
+		var versionlessArchiveName = ConstructArchiveName();
+		Uri? akaMsUrl = new Uri($"https://aka.ms/dotnet/{channel}/{versionlessArchiveName}");
+		_logger.Info("aka.ms URL: " + akaMsUrl);
+		HttpResponseMessage? response = null;
+		for (int i = 0; i < 10; i++)
 		{
-			string versionFileUrl = $"{feed}/Sdk/{channel}/latest.version";
-			_logger.Info("Fetching latest version from URL " + versionFileUrl);
-			latestVersion = await Program.DefaultClient.GetStringAsync(versionFileUrl);
-			return Version.From(latestVersion);
-		}
-		else
-		{
-			const string PreviewMajorVersion = "8.0";
-			var versionlessArchiveName = ConstructArchiveName();
-			string akaMsUrl = $"https://aka.ms/dotnet/{PreviewMajorVersion}/preview/{versionlessArchiveName}";
-			_logger.Info("aka.ms URL: " + akaMsUrl);
 			var requestMessage = new HttpRequestMessage(
 				HttpMethod.Head,
 				akaMsUrl);
-			var response = await s_noRedirectClient.SendAsync(requestMessage);
-
+			response = await s_noRedirectClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
 			if (response.StatusCode != HttpStatusCode.MovedPermanently)
-			{
-				return null;
-			}
-
-			if (response.Headers.Location?.Segments is not { Length: 5 } segments)
-			{
-				return null;
-			}
-
-			latestVersion = segments[3].TrimEnd('/');
+				break;
+			akaMsUrl = response.Headers.Location;
 		}
-		_logger.Info(latestVersion);
-		return Version.From(latestVersion);
+
+		if (response!.StatusCode != HttpStatusCode.OK)
+			return null;
+
+		if (akaMsUrl!.Segments is not { Length: 5 } segments)
+			return null;
+
+		return Version.From(segments[3].TrimEnd('/'));
+	}
+	async Task<Version?> GetVersionFromLegacyUrl(Channel channel)
+	{
+		foreach (var feed in Feeds)
+		{
+			string versionFileUrl = $"{feed}/Sdk/{channel}/latest.version";
+			_logger.Info("Fetching latest version from URL " + versionFileUrl);
+			try
+			{
+				string latestVersion = await Program.DefaultClient.GetStringAsync(versionFileUrl);
+				return Version.From(latestVersion);
+			}
+			catch (HttpRequestException)
+			{
+				_logger.Info($"Couldn't find version for channel {channel} in at {versionFileUrl}");
+			}
+		}
+		return null;
+	}
+	private async Task<Version?> GetVersion(Channel channel)
+	{
+		Version? latestVersion = await GetVersionFromAkaMs(channel);
+		if (latestVersion is Version version)
+			return version;
+		_logger.Info("Falling back to legacy URL to get Version");
+		return await GetVersionFromLegacyUrl(channel);
 	}
 
 	private const string s_envShContent = """
