@@ -2,6 +2,7 @@ using Serde;
 using Serde.Json;
 using System;
 using System.Collections.Generic;
+using System.CommandLine;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -12,9 +13,30 @@ namespace Dnvm;
 
 sealed partial class Update
 {
-    public sealed record Options(bool Verbose, Channel Channel, Version Version, bool Force, bool Self, bool Global);
+    public sealed record Options(bool Verbose);
     private readonly Logger _logger;
     private readonly Options _options;
+
+    public static Command Command
+    {
+        get
+        {
+            Command update = new("update", "Update dnvm itself with the latest released version.");
+
+            System.CommandLine.Option<bool> verbose = new(new[] { "--verbose", "-v" });
+            update.Add(verbose);
+
+            update.SetHandler(Handle, verbose);
+            return update;
+        }
+    }
+
+    public static async Task<int> Handle(bool verbose)
+    {
+        var update = new Update(Program.Logger, new Options(verbose));
+        var exit = await update.Handle();
+        return exit;
+    }
 
     public Update(Logger logger, Options options)
     {
@@ -28,12 +50,6 @@ sealed partial class Update
 
     public async Task<int> Handle()
     {
-        if (!_options.Self)
-        {
-            _logger.Error("update is currently only supported with --self");
-            return 1;
-        }
-
         if (!Utilities.IsAOT)
         {
             Console.WriteLine("Cannot self-update: the current executable is not deployed as a single file.");

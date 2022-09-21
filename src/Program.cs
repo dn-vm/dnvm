@@ -1,7 +1,9 @@
 ﻿using System.CommandLine;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
+[assembly: InternalsVisibleTo("dnvm.Tests")]
 namespace Dnvm;
 
 public static class Program
@@ -17,6 +19,8 @@ public static class Program
         var root = new RootCommand("dnvm");
         root.Add(Install.Command);
         root.Add(Init.Command);
+        root.Add(Update.Command);
+        root.Add(Activate.Command);
 
         root.Invoke(args);
         return Task.FromResult(0);

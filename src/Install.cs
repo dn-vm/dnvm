@@ -17,70 +17,11 @@ namespace Dnvm;
 
 sealed class Install
 {
-	sealed class SelfInstall
-	{
-		public record struct Options(bool Global);
-		static Logger _logger => Program.Logger;
-		static Task<int> Handle(bool force)
-		{
-			if (!Utilities.IsAOT)
-			{
-				Console.WriteLine("Cannot self-install into target location: the current executable is not deployed as a single file.");
-				return Task.FromResult(1);
-			}
-
-			var procPath = Environment.ProcessPath;
-			_logger.Info("Location of running exe" + procPath);
-
-			var targetPath = Path.Combine(Utilities.LocalInstallLocation, Utilities.ExeName);
-			if (!force && File.Exists(targetPath))
-			{
-				_logger.Log("dnvm is already installed at: " + targetPath);
-				_logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
-			}
-			else
-			{
-				try
-				{
-					_logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
-					File.Copy(Utilities.ProcessPath, targetPath, overwrite: force);
-				}
-				catch (Exception e)
-				{
-					Console.WriteLine($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
-					return Task.FromResult(1);
-				}
-			}
-
-			// Set up path -- probably add eval(dnvm init)
-			throw new NotImplementedException();
-
-			//return Task.FromResult(0);
-		}
-
-		public static Command Command
-		{
-			get
-			{
-				Command self = new("self");
-				self.Description = $"""
-								Installs dnvm to ~/.dnvm/ and adds hook to profile to add dnvm and the active sdk to path
-								""";
-
-				Option<bool> force = new("--force");
-				force.AddAlias("-f");
-				self.Add(force);
-
-				self.SetHandler(Handle, force);
-				return self;
-			}
-		}
-	}
 	public static Command Command
 	{
 		get
 		{
-			Command install = new Command("install");
+			Command install = new Command("install", "Install a dotnet sdk");
 
 			install.Add(SelfInstall.Command);
 
@@ -141,48 +82,6 @@ sealed class Install
 
 	private Options _options;
 
-	private async Task<int> LinuxAddToPath(string pathToAdd, bool global = false)
-	{
-		string addToPath = $"PATH=$PATH:{pathToAdd}";
-		if (global)
-		{
-			_logger.Info($"Adding {pathToAdd} to the global PATH in /etc/profile.d/dnvm.sh");
-			try
-			{
-				using (var f = File.OpenWrite("/etc/profile.d/dnvm.sh"))
-				{
-					await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(addToPath).AsMemory());
-				}
-				return 0;
-			}
-			catch (UnauthorizedAccessException)
-			{
-				_logger.Error("Unable to write to /etc/profile.d/dnvm.sh, attempting to write to local environment");
-			}
-		}
-		return await UnixAddToPathInShellFiles(pathToAdd);
-	}
-
-	private async Task<int> MacAddToPath(string pathToAdd)
-	{
-		//if (_options.Global) {
-		//    _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/paths.d/dnvm");
-		//    try
-		//    {
-		//        using (var f = File.OpenWrite("/etc/paths.d/dnvm"))
-		//        {
-		//            await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(pathToAdd).AsMemory());
-		//        }
-		//        return 0;
-		//    }
-		//    catch (UnauthorizedAccessException)
-		//    {
-		//        _logger.Error("Unable to write path to /etc/paths.d/dnvm, attempting to write to local environment");
-		//    }
-		//}
-		return await UnixAddToPathInShellFiles(pathToAdd);
-	}
-
 	public Install(Logger logger, Options options)
 	{
 		_logger = logger;
@@ -233,17 +132,20 @@ sealed class Install
 		var result = JsonSerializer.Serialize(ManifestHelpers.Instance);
 		_logger.Info("Existing manifest: " + result);
 
-		using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough | FileOptions.DeleteOnClose))
+		using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
 		using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
 		{
 			await archiveHttpStream.CopyToAsync(tempArchiveFile);
 			await tempArchiveFile.FlushAsync();
 			_logger.Info($"Installing to {_options.Path}");
-			if (await ExtractArchiveToDir(archivePath, _options.Path) != 0)
-			{
-				return 1;
-			}
+			tempArchiveFile.Close();
 		}
+		if (await ExtractArchiveToDir(archivePath, _options.Path) != 0)
+		{
+			File.Delete(archivePath);
+			return 1;
+		}
+		File.Delete(archivePath);
 
 
 		var newWorkload = new Workload(_options.Version.ToString(), _options.Path);
@@ -290,7 +192,10 @@ sealed class Install
 			}
 			return 1;
 		}
-		ZipFile.ExtractToDirectory(archivePath, dirPath);
+		else
+		{
+			ZipFile.ExtractToDirectory(archivePath, dirPath);
+		}
 		return 0;
 	}
 
@@ -356,34 +261,6 @@ case ":${PATH}:" in
         ;;
 esac
 """;
-
-
-	private async Task<int> AddToPath(string path, bool global = false)
-	{
-		throw new NotImplementedException();
-		if (Utilities.CurrentRID.OS == OSPlatform.Windows)
-		{
-			Console.WriteLine("Adding install directory to user path: " + _options.Path);
-			//WindowsAddToPath(_options.Path);
-		}
-		else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
-		{
-			int result = await MacAddToPath(_options.Path);
-			if (result != 0)
-			{
-				_logger.Error("Failed to add to path");
-			}
-		}
-		else
-		{
-			int result = await LinuxAddToPath(_options.Path, global);
-			if (result != 0)
-			{
-				_logger.Error("Failed to add to path");
-			}
-		}
-		return 0;
-	}
 
 	private async Task<int> UnixAddToPathInShellFiles(string pathToAdd)
 	{
@@ -473,5 +350,79 @@ fi
 			}
 		}
 		return false;
+	}
+	sealed class SelfInstall
+	{
+		public SelfInstall(Logger logger, Options options)
+		{
+			_logger = logger;
+			_options = options;
+		}
+
+		public record struct Options(bool Force);
+
+		Logger _logger;
+		Options _options;
+
+		static Task<int> Handle(bool force)
+		{
+			var selfInstall = new SelfInstall(Program.Logger, new Options(force));
+			return selfInstall.Handle();
+		}
+
+		Task<int> Handle()
+		{
+			if (!Utilities.IsAOT)
+			{
+				Console.WriteLine("Cannot self-install into target location: the current executable is not deployed as a single file.");
+				return Task.FromResult(1);
+			}
+
+			var procPath = Utilities.ProcessPath;
+			_logger.Info("Location of running exe" + procPath);
+
+			var targetPath = Path.Combine(Utilities.LocalInstallLocation, Utilities.ExeName);
+			if (!_options.Force && File.Exists(targetPath))
+			{
+				_logger.Log("dnvm is already installed at: " + targetPath);
+				_logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
+			}
+			else
+			{
+				try
+				{
+					_logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
+					File.Copy(procPath, targetPath, overwrite: _options.Force);
+				}
+				catch (Exception e)
+				{
+					Console.WriteLine($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
+					return Task.FromResult(1);
+				}
+			}
+
+			// Set up path -- probably add eval(dnvm init)
+			throw new NotImplementedException();
+
+			//return Task.FromResult(0);
+		}
+
+		public static Command Command
+		{
+			get
+			{
+				Command self = new("self");
+				self.Description = $"""
+								Installs dnvm to ~/.dnvm/ and adds hook to profile to add dnvm and the active sdk to path
+								""";
+
+				Option<bool> force = new("--force");
+				force.AddAlias("-f");
+				self.Add(force);
+
+				self.SetHandler(Handle, force);
+				return self;
+			}
+		}
 	}
 }

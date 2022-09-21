@@ -1,10 +1,11 @@
-﻿using System;
+﻿using Serde;
+using System;
 using System.CommandLine.Parsing;
 using System.Linq;
 using static Dnvm.Version;
 namespace Dnvm;
 
-public record struct Version(VersionKind Kind, int? Major = null, int? Minor = null, int? Patch = null, string? Suffix = null)
+public partial record struct Version(VersionKind Kind, int? Major = null, int? Minor = null, int? Patch = null, string? Suffix = null)
 {
 	public override string ToString()
 		=> string.Concat($"{Major}.{Minor}.{Patch}", Suffix is not null ? $"-{Suffix}" : "");
@@ -18,6 +19,9 @@ public record struct Version(VersionKind Kind, int? Major = null, int? Minor = n
 			return $"/Sdk/{this}/dotnet-sdk-{this}-{Utilities.CurrentRID}.{Utilities.ZipSuffix}";
 		}
 	}
+
+	public static Option<Version> Option { get; }
+
 	public static Version From(string token)
 	{
 		switch (token.ToLower())
