@@ -15,7 +15,6 @@ internal class Activate
 			Command activate = new("activate", "Set an installed sdk as the active version");
 
 			Option<Version> version = new(new[] { "--version", "-v" }, Version.Parse, false, "The installed version to activate");
-			// Should make sure that version is exact and not latest
 			activate.Add(version);
 
 			Option<bool> none = new(new[] { "--none", "-n" }, "Remove active sdk an use whatever else is on the path");
@@ -27,7 +26,6 @@ internal class Activate
 			activate.AddValidator(Utilities.ValidateOneOf(none, version, interactive));
 
 			activate.SetHandler(Handle, version, none, interactive);
-			activate.SetHandler(HandleNone, none);
 
 			return activate;
 		}
@@ -35,24 +33,19 @@ internal class Activate
 
 	static Task<int> Handle(Version? version, bool none, bool interactive)
 	{
-		var activate = new Activate(Program.Logger, new Options(version, none, interactive));
+		var activate = new Activate(Logger.Default, ManifestHelpers.Instance, new Options(version, none, interactive));
 		return activate.Handle();
-	}
-	static Task<int> HandleNone(bool None)
-	{
-		Program.Logger.Log("asdfasdf");
-		return Task.FromResult(0);
 	}
 
 	Options _options;
-	Logger _logger;
+	ILogger _logger;
 	Manifest _manifest;
 
-	public Activate(Logger logger, Options options)
+	public Activate(ILogger logger, Manifest manifest, Options options)
 	{
 		_logger = logger;
 		_options = options;
-		_manifest = ManifestHelpers.Instance;
+		_manifest = manifest;
 	}
 
 	public Task<int> Handle()
@@ -65,12 +58,6 @@ internal class Activate
 		}
 		if (_options.Interactive)
 			throw new NotImplementedException();
-
-		if (_options.Version?.Kind == Version.VersionKind.Latest)
-		{
-			_logger.Error("Cannot set active version to 'latest', specify an exact version");
-			return Task.FromResult(1);
-		}
 
 		Workload newActive;
 		string versionToFind = _options.Version!.ToString();

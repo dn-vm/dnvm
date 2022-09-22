@@ -28,12 +28,13 @@ namespace Dnvm
 			}
 		}
 
-		Logger _logger;
+		ILogger _logger;
 		Options _options;
+		Manifest _manifest;
 
 		internal static Task<int> Handle(Shell shell, bool copyable)
 		{
-			var init = new Init(Program.Logger, new Options(shell, copyable));
+			var init = new Init(Logger.Default, ManifestHelpers.Instance, new Options(shell, copyable));
 			return init.Handle();
 		}
 
@@ -45,8 +46,9 @@ namespace Dnvm
 				return Task.FromResult(0);
 			}
 			string output = AddToPathText(_options.Shell, Path.GetDirectoryName(Utilities.ProcessPath)!);
+			output += ActivateAliasText(_options.Shell);
 
-			string activePath = ManifestHelpers.Instance.Active.Path;
+			string? activePath = _manifest.Active?.Path;
 			if (!string.IsNullOrEmpty(activePath))
 				output += AddToPathText(_options.Shell, activePath);
 
@@ -62,10 +64,17 @@ namespace Dnvm
 				Shell.Zsh => throw new NotImplementedException()
 			};
 
-		public Init(Logger logger, Options options)
+		public Init(ILogger logger, Manifest manifest, Options options)
 		{
 			_logger = logger;
+			_manifest = manifest;
 			_options = options;
+		}
+
+		// TODO: add an alias to evaluate the init script after calling dnvm activate
+		static string ActivateAliasText(Shell shell)
+		{
+			throw new NotImplementedException();
 		}
 
 		static string AddToPathText(Shell shell, string path)

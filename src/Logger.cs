@@ -3,16 +3,11 @@ using System;
 
 namespace Dnvm;
 
-enum LogLevel
-{
-    Normal = 1,
-    Info = 2
-}
 
-internal sealed class Logger
+internal sealed class Logger : ILogger
 {
     // Mutable for now, should be immutable once the command line parser supports global options
-    public LogLevel LogLevel = LogLevel.Normal;
+    public LogLevel LogLevel { private get; set; } = LogLevel.Normal;
 
     public void Error(string msg)
     {
@@ -31,4 +26,6 @@ internal sealed class Logger
     {
         Console.WriteLine(msg);
     }
+
+    public static Logger Default { get; } = new Logger();
 }

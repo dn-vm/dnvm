@@ -14,7 +14,7 @@ namespace Dnvm;
 sealed partial class Update
 {
     public sealed record Options(bool Verbose);
-    private readonly Logger _logger;
+    private readonly ILogger _logger;
     private readonly Options _options;
 
     public static Command Command
@@ -33,12 +33,12 @@ sealed partial class Update
 
     public static async Task<int> Handle(bool verbose)
     {
-        var update = new Update(Program.Logger, new Options(verbose));
+        var update = new Update(Logger.Default, new Options(verbose));
         var exit = await update.Handle();
         return exit;
     }
 
-    public Update(Logger logger, Options options)
+    public Update(ILogger logger, Options options)
     {
         _logger = logger;
         _options = options;
@@ -68,7 +68,7 @@ sealed partial class Update
         await DownloadBinaryToTempAndDelete(artifactDownloadLink, handleDownload);
         _logger.Info($"Downloaded binary to {tempArchiveDir}");
 
-        string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
+        string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.DnvmExeName);
         bool success =
             await ValidateBinary(dnvmTmpPath) &&
             SwapWithRunningFile(dnvmTmpPath);

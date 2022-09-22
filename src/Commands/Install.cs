@@ -1,6 +1,7 @@
 
 using Serde.Json;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.CommandLine;
 using System.Diagnostics;
@@ -49,7 +50,7 @@ sealed class Install
 
 			Option<bool> installer = new("--installer");
 			installer.AddAlias("-i");
-			install.AddOption(installer);
+			//install.AddOption(installer);
 
 			Option<Version> version = new("--version", Version.Parse);
 			install.Add(version);
@@ -60,32 +61,42 @@ sealed class Install
 
 			Option<bool> setActive = new("--set-default");
 			setActive.AddAlias("-d");
-			install.Add(setActive);
+			//install.Add(setActive);
+
+			Option<bool> daily = new(new[] { "--daily", "-d" }, "Use the latest daily build in a channel");
+			install.Add(daily);
 
 			install.AddValidator(Utilities.ValidateOneOf(channel, version));
+			install.AddValidator(Utilities.ValidateXOnlyIfY(daily, channel));
 
-			install.SetHandler(Handler, channel, version, path, force, global, verbose, setActive);
+			install.SetHandler(Handler, channel, version, path, force, global, verbose, daily);
 
 			return install;
 		}
 	}
 
-	public sealed record Options(Channel? Channel, Version? Version, string Path, bool Force, bool Global, bool Verbose, bool setActive);
+	public sealed record Options(Channel? Channel, Version? Version, string Path, bool Force, bool Global, bool Verbose, bool Daily);
 
-	private static async Task<int> Handler(Channel? channel, Version? version, string? path, bool force, bool global, bool verbose, bool setActive)
+	private static async Task<int> Handler(Channel? channel, Version? version, string? path, bool force, bool global, bool verbose, bool daily)
 	{
-		var install = new Install(new Logger(), new Options(channel, version, path ?? Utilities.LocalInstallLocation, force, global, verbose, setActive));
+		var install = new Install(Logger.Default, ManifestHelpers.Instance, new Options(channel, version, path ?? Utilities.LocalInstallLocation, force, global, verbose, daily));
+#if DEBUG
+		var @catch = false;
+#else
+		var @catch = true;
+#endif
 
-		return await install.Handle();
+		return await install.Handle(@catch);
 	}
 
-	private readonly Logger _logger;
-
+	private readonly ILogger _logger;
+	private Manifest _manifest;
 	private Options _options;
 
-	public Install(Logger logger, Options options)
+	public Install(ILogger logger, Manifest manifest, Options options)
 	{
 		_logger = logger;
+		_manifest = manifest;
 		_options = options;
 		if (_options.Verbose)
 		{
@@ -99,26 +110,37 @@ sealed class Install
 
 	bool VersionIsAlreadyInstalled()
 	{
-		return ManifestHelpers.Instance.Workloads.Contains(new Workload(_options.Version!.ToString()));
+		return _manifest.Workloads.Contains(new Workload(_options.Version!.ToString()));
 	}
 
 	public async Task EnsureExactVersion()
 	{
-		if (_options.Version?.Kind is Version.VersionKind.Exact)
+		if (_options.Version is not null)
 			return;
-
-		_logger.Info($"Precise version not provided, getting version from channel {_options.Channel}");
-		if (await GetVersion(_options.Channel!) is not Version newVersion)
+		_logger.Info($"Version not provided, getting version from channel {_options.Channel}");
+		if (await GetVersion(_options.Channel!, _options.Daily) is not Version newVersion)
 		{
-			_logger.Error("Invalid channel - cannot deteremine version number");
-			throw new ApplicationException();
+			throw new DnvmException("Invalid channel - cannot determine version number");
 		}
 		_options = _options with
 		{
 			Version = newVersion,
 			Path = Path.Combine(_options.Path, Utilities.EscapeFilename(newVersion.ToString()))
 		};
-		_logger.Info($"Version set to {_options.Version}");
+		_logger.Log($"Latest version in channel {_options.Channel} {(_options.Daily ? "(daily)" : "")} is {_options.Version}");
+	}
+
+	public async Task<int> Handle(bool @catch = false)
+	{
+		try
+		{
+			return await Handle();
+		}
+		catch (DnvmException e) when (@catch)
+		{
+			_logger.Error(e.Message);
+			return 1;
+		}
 	}
 
 	public async Task<int> Handle()
@@ -127,33 +149,35 @@ sealed class Install
 
 		await EnsureExactVersion();
 
-		_logger.Log($"Installing version {_options.Version}.");
 
+		_logger.Info("Existing manifest: " + JsonSerializer.Serialize(_manifest));
 		if (!_options.Force && VersionIsAlreadyInstalled())
 		{
-			Console.WriteLine($"Version {_options.Version} is already installed. Use --force to reinstall.");
-			return 0;
+			throw new DnvmException($"Version {_options.Version} is already installed. Use --force to reinstall.");
 		}
+
+		_logger.Log($"Installing version {_options.Version}.");
 
 		string archiveName = ConstructArchiveName(_options.Version);
 		string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
 		_logger.Info("Archive path: " + archivePath);
 
-		string downloadPath = _options.Version!.DownloadPath;
-		string link = Feeds[0] + downloadPath;
+		string[] downloadPaths = _options.Version!.DownloadPaths;
+
+
+		if (await GetCorrectDownloadLink(Feeds, downloadPaths) is not Uri link)
+			throw new DnvmException($"Couldn't find download link for Version {_options.Version} and RID {Utilities.CurrentRID}");
 		_logger.Info("Download link: " + link);
-
-		var result = JsonSerializer.Serialize(ManifestHelpers.Instance);
-		_logger.Info("Existing manifest: " + result);
-
-		using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
 		using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
+		using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
 		{
 			await archiveHttpStream.CopyToAsync(tempArchiveFile);
 			await tempArchiveFile.FlushAsync();
 			_logger.Info($"Installing to {_options.Path}");
 			tempArchiveFile.Close();
 		}
+
+		_logger.Info($"Extracting downloaded archive at {archivePath} to directory at {_options.Path}");
 		if (await ExtractArchiveToDir(archivePath, _options.Path) != 0)
 		{
 			File.Delete(archivePath);
@@ -163,15 +187,41 @@ sealed class Install
 
 
 		var newWorkload = new Workload(_options.Version.ToString(), _options.Path);
-		if (!ManifestHelpers.Instance.Workloads.Contains(newWorkload))
+		if (!_manifest.Workloads.Contains(newWorkload))
 		{
 			_logger.Info($"Adding workload {newWorkload} to manifest.");
-			ManifestHelpers.Instance = ManifestHelpers.Instance with { Workloads = ManifestHelpers.Instance.Workloads.Add(newWorkload) };
-			ManifestHelpers.Instance = ManifestHelpers.Instance with { Active = newWorkload };
-			ManifestHelpers.Instance.WriteOut();
+			_manifest = _manifest with { Workloads = _manifest.Workloads.Add(newWorkload) };
+			_manifest = _manifest with { Active = newWorkload };
+			_manifest.WriteOut();
 		}
 
 		return 0;
+	}
+
+	static async Task<Uri?> GetCorrectDownloadLink(string[] feeds, string[] downloadPaths)
+	{
+		int capacity = feeds.Length * downloadPaths.Length;
+		List<Task<HttpResponseMessage>> responseTasks = new(capacity);
+		List<Uri> links = new(capacity);
+		for (int i = 0; i < feeds.Length; i++)
+		{
+			for (int j = 0; j < downloadPaths.Length; j++)
+			{
+				Uri link = new Uri(feeds[i] + downloadPaths[j]);
+				links.Add(link);
+				var requestMessage = new HttpRequestMessage(
+					HttpMethod.Head,
+					link);
+				responseTasks.Add(s_noRedirectClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead));
+			}
+		}
+		var responses = await Task.WhenAll(responseTasks);
+		for (int i = 0; i < responses.Length; i++)
+		{
+			if (responses[i].StatusCode == HttpStatusCode.OK)
+				return links[i];
+		}
+		return null;
 	}
 
 
@@ -196,7 +246,7 @@ sealed class Install
 		}
 		else
 		{
-			ZipFile.ExtractToDirectory(archivePath, dirPath);
+			ZipFile.ExtractToDirectory(archivePath, dirPath, overwriteFiles: true);
 		}
 		return 0;
 	}
@@ -214,27 +264,9 @@ sealed class Install
 	{
 		var versionlessArchiveName = ConstructArchiveName();
 		Uri? akaMsUrl = new Uri($"https://aka.ms/dotnet/{channel}/{versionlessArchiveName}");
-		_logger.Info("aka.ms URL: " + akaMsUrl);
-		HttpResponseMessage? response = null;
-		for (int i = 0; i < 10; i++)
-		{
-			var requestMessage = new HttpRequestMessage(
-				HttpMethod.Head,
-				akaMsUrl);
-			response = await s_noRedirectClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
-			if (response.StatusCode != HttpStatusCode.MovedPermanently)
-				break;
-			akaMsUrl = response.Headers.Location;
-		}
-
-		if (response!.StatusCode != HttpStatusCode.OK)
-			return null;
-
-		if (akaMsUrl!.Segments is not { Length: 5 } segments)
-			return null;
-
-		return Version.From(segments[3].TrimEnd('/'));
+		return await GetVersionFromAkaUrl(akaMsUrl);
 	}
+
 	async Task<Version?> GetVersionFromLegacyUrl(Channel channel)
 	{
 		foreach (var feed in Feeds)
@@ -253,13 +285,52 @@ sealed class Install
 		}
 		return null;
 	}
-	private async Task<Version?> GetVersion(Channel channel)
+
+	async Task<Version?> GetVersionFromAkaUrl(Uri akaMsUrl)
 	{
-		Version? latestVersion = await GetVersionFromAkaMs(channel);
-		if (latestVersion is Version version)
-			return version;
-		_logger.Info("Falling back to legacy URL to get Version");
-		return await GetVersionFromLegacyUrl(channel);
+		_logger.Info("aka.ms URL: " + akaMsUrl);
+		HttpResponseMessage? response = null;
+		for (int i = 0; i < 10; i++)
+		{
+			var requestMessage = new HttpRequestMessage(
+				HttpMethod.Head,
+				akaMsUrl);
+			response = await s_noRedirectClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
+			if (response.StatusCode != HttpStatusCode.MovedPermanently)
+				break;
+			akaMsUrl = response.Headers.Location!;
+		}
+
+		if (response!.StatusCode != HttpStatusCode.OK)
+			return null;
+
+		if (akaMsUrl!.Segments is not { Length: 5 } segments)
+			return null;
+
+		_logger.Info($"aka.ms redirects to {akaMsUrl}");
+
+		return Version.From(segments[3].TrimEnd('/'));
+	}
+
+	async Task<Version?> GetDailyVersion(Channel channel)
+	{
+		var versionlessArchiveName = ConstructArchiveName();
+		Uri akaMsUrl = new Uri($"https://aka.ms/dotnet/{channel}/daily/{versionlessArchiveName}");
+		return await GetVersionFromAkaUrl(akaMsUrl);
+	}
+
+	private async Task<Version?> GetVersion(Channel channel, bool daily)
+	{
+		if (daily)
+			return await GetDailyVersion(channel);
+		var akaVersion = GetVersionFromAkaMs(channel);
+		var legacyVersion = GetVersionFromLegacyUrl(channel);
+		return (await Task.WhenAll(akaVersion, legacyVersion)) switch
+		{
+			[Version aka, _] => aka,
+			[null, var legacy] => legacy,
+			_ => throw new NotImplementedException("This should never happen"),
+		};
 	}
 
 	private const string s_envShContent = """
@@ -366,7 +437,7 @@ fi
 	}
 	sealed class SelfInstall
 	{
-		public SelfInstall(Logger logger, Options options)
+		public SelfInstall(ILogger logger, Options options)
 		{
 			_logger = logger;
 			_options = options;
@@ -374,12 +445,12 @@ fi
 
 		public record struct Options(bool Force);
 
-		Logger _logger;
+		ILogger _logger;
 		Options _options;
 
 		static Task<int> Handle(bool force)
 		{
-			var selfInstall = new SelfInstall(Program.Logger, new Options(force));
+			var selfInstall = new SelfInstall(Logger.Default, new Options(force));
 			return selfInstall.Handle();
 		}
 
@@ -394,7 +465,7 @@ fi
 			var procPath = Utilities.ProcessPath;
 			_logger.Info("Location of running exe" + procPath);
 
-			var targetPath = Path.Combine(Utilities.LocalInstallLocation, Utilities.ExeName);
+			var targetPath = Path.Combine(Utilities.LocalInstallLocation, Utilities.DnvmExeName);
 			if (!_options.Force && File.Exists(targetPath))
 			{
 				_logger.Log("dnvm is already installed at: " + targetPath);

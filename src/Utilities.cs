@@ -33,9 +33,9 @@ static class Utilities
 	public static string ProcessPath => Environment.ProcessPath
 		?? throw new InvalidOperationException("Cannot find exe name");
 
-	public static string ExeName => "dnvm" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-		? ".exe"
-		: "");
+	public static string DnvmExeName => "dnvm" + ExeFileExtension;
+
+	public static string ExeFileExtension => RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
 
 	public static string ZipSuffix => RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 			? "zip"
@@ -113,6 +113,18 @@ static class Utilities
 		};
 	}
 
+	public static ValidateSymbolResult<CommandResult> ValidateXOnlyIfY(Option x, Option y)
+		=> (CommandResult commandResult) =>
+		{
+			if (commandResult.FindResultFor(x) is not null
+				&& commandResult.FindResultFor(y) is null)
+			{
+				commandResult.ErrorMessage = XOnlyIfYText(x, y);
+			};
+		};
+
+	static string XOnlyIfYText(Option x, Option y) => $"Option {x.Name} is only valid when also using {y.Name}";
+
 	static string OneOfRequiredText(params Option[] options)
 	{
 		Debug.Assert(options.Length >= 2);
@@ -122,5 +134,14 @@ static class Utilities
 			? $"{names[0]} or {names[1]}"
 			: string.Join(", ", names[0..(names.Length - 1)]) + ", or " + names[^1];
 		return $"Exactly one of the options {list} is required.";
+	}
+
+	public static bool ExceptionFilter(DnvmException ex, ILogger logger, bool debug)
+	{
+		if (debug)
+			return false;
+
+		logger.Error(ex.Message);
+		return true;
 	}
 }

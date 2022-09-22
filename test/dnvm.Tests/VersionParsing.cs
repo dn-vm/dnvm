@@ -1,6 +1,5 @@
 using System;
 using static Dnvm.Version;
-using static Dnvm.Version.VersionKind;
 namespace Dnvm.Tests
 {
 	public class VersionParsing
@@ -8,10 +7,9 @@ namespace Dnvm.Tests
 		[Fact]
 		public void CanParseValidVersions()
 		{
-			Assert.Equal(From("latest"), new Version(Latest));
-			Assert.Equal(From("1.2.3"), new Version(Exact, 1, 2, 3));
-			Assert.Equal(From("12.234.234"), new Version(Exact, 12, 234, 234));
-			Assert.Equal(From("7.0.0-preview7"), new Version(Exact, 7, 0, 0, "preview7"));
+			Assert.Equal(From("1.2.3"), new Version(1, 2, 3));
+			Assert.Equal(From("12.234.234"), new Version(12, 234, 234));
+			Assert.Equal(From("7.0.0-preview7"), new Version(7, 0, 0, "preview7"));
 		}
 
 		[Fact]
