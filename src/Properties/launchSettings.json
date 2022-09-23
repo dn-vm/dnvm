@@ -35,9 +35,9 @@
       "commandName": "Project",
       "commandLineArgs": "install --channel lts --verbose"
     },
-    "install 6.0 daily": {
+    "install 7.0": {
       "commandName": "Project",
-      "commandLineArgs": "install --channel 6.0 --daily --force --verbose"
+      "commandLineArgs": "install --channel 7.0 --force"
     }
   }
 }

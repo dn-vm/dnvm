@@ -106,7 +106,7 @@ static class Utilities
 
 		return (CommandResult commandResult) =>
 		{
-			if (options.Count(option => commandResult.FindResultFor(option) is not null) != 1)
+			if (options.Count(option => commandResult.FindResultFor(option)?.Token is not null) != 1)
 			{
 				commandResult.ErrorMessage = OneOfRequiredText(options);
 			}

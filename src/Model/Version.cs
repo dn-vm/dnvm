@@ -1,6 +1,7 @@
 ﻿using System;
 using System.CommandLine.Parsing;
 using System.Linq;
+
 namespace Dnvm;
 
 public record class Version(int? Major = null, int? Minor = null, int? Patch = null, string? Suffix = null)
@@ -11,7 +12,7 @@ public record class Version(int? Major = null, int? Minor = null, int? Patch = n
 	public string ToStringNoSuffix()
 		=> $"{Major}.{Minor}.{Patch}";
 
-	public string[] DownloadPaths
+	public string[] UrlPaths
 	{
 		get
 		{
@@ -26,30 +27,39 @@ public record class Version(int? Major = null, int? Minor = null, int? Patch = n
 	{
 		int dot1 = token.IndexOf('.');
 		if (dot1 + 1 >= token.Length || dot1 == -1)
-			throw new FormatException($"Cannot parse {token} as Version.");
+			throw new DnvmException($"Parse error: Cannot parse {token} as version");
 
 		int dot2 = token[(dot1 + 1)..].IndexOf('.');
 		if (dot2 + 1 >= token.Length || dot2 == -1)
-			throw new FormatException($"Cannot parse {token} as Version.");
+			throw new DnvmException($"Parse error: Cannot parse {token} as version");
 		dot2 += dot1 + 1;
 
 		int dash = token[(dot2 + 1)..].IndexOf('-');
 		if (dash + 1 == token[(dot2 + 1)..].Length)
-			throw new FormatException($"Cannot parse {token} as Version.");
-
-		int major = int.Parse(token[..dot1]);
-		int minor = int.Parse(token[(dot1 + 1)..dot2]);
+			throw new DnvmException($"Parse error: Cannot parse {token} as version");
+		int major;
+		int minor;
 		int patch;
 		string? suffix;
-		if (dash == -1)
+
+		try
 		{
-			patch = int.Parse(token[(dot2 + 1)..]);
-			suffix = null;
+			major = int.Parse(token[..dot1]);
+			minor = int.Parse(token[(dot1 + 1)..dot2]);
+			if (dash == -1)
+			{
+				patch = int.Parse(token[(dot2 + 1)..]);
+				suffix = null;
+			}
+			else
+			{
+				patch = int.Parse(token[(dot2 + 1)..(dot2 + 1 + dash)]);
+				suffix = token[(dot2 + dash + 2)..];
+			}
 		}
-		else
+		catch (FormatException)
 		{
-			patch = int.Parse(token[(dot2 + 1)..(dot2 + 1 + dash)]);
-			suffix = token[(dot2 + dash + 2)..];
+			throw new DnvmException($"Parse error: Cannot parse {token} as version");
 		}
 
 		return new Version(major, minor, patch, suffix);

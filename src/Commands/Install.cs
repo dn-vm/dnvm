@@ -18,86 +18,90 @@ namespace Dnvm;
 
 sealed class Install
 {
-	public static Command Command
+	internal static Command GetCommand(ILogger? logger = null, Manifest? manifest = null, string? downloadDir = null)
 	{
-		get
-		{
-			Command install = new Command("install", "Install a dotnet sdk");
+		Command install = new Command("install", "Install a dotnet sdk");
 
-			install.Add(SelfInstall.Command);
+		install.Add(SelfInstall.Command);
 
-			Option<Channel> channel = new("--channel", Channel.Parse);
-			channel.Description = $"""
-									The channel to install from.  
-									Available options: 'lts', 'current', 'preview', A.B semver (e.g. 5.0), A.B.Cxx semver (e.g. 6.0.4xx)
-									""";
-			channel.SetDefaultValue(new Channel(Channel.ChannelKind.LTS));
-			channel.AddAlias("-c");
-			install.Add(channel);
+		Option<Channel> channel = new("--channel", Channel.Parse);
+		channel.Description = $"""
+								The channel to install from.  
+								Available options: 'lts', 'current', 'preview', A.B semver (e.g. 5.0), A.B.Cxx semver (e.g. 6.0.4xx)
+								""";
+		channel.SetDefaultValue(new Channel(Channel.ChannelKind.LTS));
+		channel.AddAlias("-c");
+		install.Add(channel);
 
-			Option<bool> verbose = new("--verbose");
-			verbose.AddAlias("-v");
-			install.AddOption(verbose);
+		Option<bool> verbose = new("--verbose");
+		verbose.AddAlias("-v");
+		install.AddOption(verbose);
 
 
-			Option<bool> global = new("--global");
-			global.AddAlias("-g");
-			install.AddOption(global);
+		Option<bool> global = new("--global");
+		global.AddAlias("-g");
+		install.AddOption(global);
 
-			Option<bool> force = new("--force");
-			force.AddAlias("-f");
-			install.AddOption(force);
+		Option<bool> force = new("--force");
+		force.AddAlias("-f");
+		install.AddOption(force);
 
-			Option<bool> installer = new("--installer");
-			installer.AddAlias("-i");
-			//install.AddOption(installer);
+		Option<bool> installer = new("--installer");
+		installer.AddAlias("-i");
+		//install.AddOption(installer);
 
-			Option<Version> version = new("--version", Version.Parse);
-			install.Add(version);
+		Option<Version> version = new("--version", Version.Parse);
+		install.Add(version);
 
-			Option<string?> path = new("--path");
-			path.AddAlias("-p");
-			install.Add(path);
+		Option<string?> path = new("--path");
+		path.AddAlias("-p");
+		install.Add(path);
 
-			Option<bool> setActive = new("--set-default");
-			setActive.AddAlias("-d");
-			//install.Add(setActive);
+		Option<bool> setActive = new("--set-default");
+		setActive.AddAlias("-d");
+		//install.Add(setActive);
 
-			Option<bool> daily = new(new[] { "--daily", "-d" }, "Use the latest daily build in a channel");
-			install.Add(daily);
+		Option<bool> daily = new(new[] { "--daily", "-d" }, "Use the latest daily build in a channel");
+		install.Add(daily);
 
-			install.AddValidator(Utilities.ValidateOneOf(channel, version));
-			install.AddValidator(Utilities.ValidateXOnlyIfY(daily, channel));
+		install.AddValidator(Utilities.ValidateOneOf(channel, version));
+		install.AddValidator(Utilities.ValidateXOnlyIfY(daily, channel));
 
+		if (true)
 			install.SetHandler(Handler, channel, version, path, force, global, verbose, daily);
 
-			return install;
+		return install;
+		async Task<int> Handler(Channel? channel, Version? version, string? path, bool force, bool global, bool verbose, bool daily)
+		{
+			var install = new Install(
+				logger ?? Logger.Default, manifest ?? ManifestHelpers.Instance, downloadDir ?? DefaultDownloadDirectory,
+				new Options(channel, version, path ?? Utilities.LocalInstallLocation, force, global, verbose, daily));
+#if DEBUG
+			var @catch = false;
+#else
+			var @catch = true;
+#endif
+			return await install.Handle(@catch);
 		}
 	}
 
+	public static Command Command => GetCommand();
+
+	public static string DefaultDownloadDirectory = Path.GetTempPath();
+
 	public sealed record Options(Channel? Channel, Version? Version, string Path, bool Force, bool Global, bool Verbose, bool Daily);
-
-	private static async Task<int> Handler(Channel? channel, Version? version, string? path, bool force, bool global, bool verbose, bool daily)
-	{
-		var install = new Install(Logger.Default, ManifestHelpers.Instance, new Options(channel, version, path ?? Utilities.LocalInstallLocation, force, global, verbose, daily));
-#if DEBUG
-		var @catch = false;
-#else
-		var @catch = true;
-#endif
-
-		return await install.Handle(@catch);
-	}
 
 	private readonly ILogger _logger;
 	private Manifest _manifest;
 	private Options _options;
+	private readonly string _downloadDir;
 
-	public Install(ILogger logger, Manifest manifest, Options options)
+	public Install(ILogger logger, Manifest manifest, string downloadDir, Options options)
 	{
 		_logger = logger;
 		_manifest = manifest;
 		_options = options;
+		_downloadDir = downloadDir;
 		if (_options.Verbose)
 		{
 			_logger.LogLevel = LogLevel.Info;
@@ -115,17 +119,18 @@ sealed class Install
 
 	public async Task EnsureExactVersion()
 	{
-		if (_options.Version is not null)
-			return;
-		_logger.Info($"Version not provided, getting version from channel {_options.Channel}");
-		if (await GetVersion(_options.Channel!, _options.Daily) is not Version newVersion)
+		Version? exactVersion = _options.Version;
+		if (exactVersion is not Version)
 		{
-			throw new DnvmException("Invalid channel - cannot determine version number");
+			_logger.Info($"Version not provided, getting version from channel {_options.Channel}");
+			if (await GetVersion(_options.Channel!, _options.Daily) is not Version newVersion)
+				throw new DnvmException("Invalid channel - cannot determine version number");
+			exactVersion = newVersion;
 		}
 		_options = _options with
 		{
-			Version = newVersion,
-			Path = Path.Combine(_options.Path, Utilities.EscapeFilename(newVersion.ToString()))
+			Version = exactVersion,
+			Path = Path.Combine(_options.Path, Utilities.EscapeFilename(exactVersion.ToString()))
 		};
 		_logger.Log($"Latest version in channel {_options.Channel} {(_options.Daily ? "(daily)" : "")} is {_options.Version}");
 	}
@@ -159,10 +164,10 @@ sealed class Install
 		_logger.Log($"Installing version {_options.Version}.");
 
 		string archiveName = ConstructArchiveName(_options.Version);
-		string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
+		string archivePath = Path.Combine(_downloadDir, archiveName);
 		_logger.Info("Archive path: " + archivePath);
 
-		string[] downloadPaths = _options.Version!.DownloadPaths;
+		string[] downloadPaths = _options.Version!.UrlPaths;
 
 
 		if (await GetCorrectDownloadLink(Feeds, downloadPaths) is not Uri link)

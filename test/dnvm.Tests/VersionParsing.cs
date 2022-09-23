@@ -16,13 +16,13 @@ namespace Dnvm.Tests
 		public void FailsToParseInvalidVersions()
 		{
 			Func<string, Action> From = (string s) => { return () => { _ = Version.From(s); }; };
-			Assert.Throws<FormatException>(From("hello"));
-			Assert.Throws<FormatException>(From("5.0"));
-			Assert.Throws<FormatException>(From("5.0"));
-			Assert.Throws<FormatException>(From("5.0.s"));
-			Assert.Throws<FormatException>(From("one.0.3"));
-			Assert.Throws<FormatException>(From("4.0.3-"));
-			Assert.Throws<FormatException>(From(""));
+			Assert.Throws<DnvmException>(From("hello"));
+			Assert.Throws<DnvmException>(From("5.0"));
+			Assert.Throws<DnvmException>(From("5.0"));
+			Assert.Throws<DnvmException>(From("5.0.s"));
+			Assert.Throws<DnvmException>(From("one.0.3"));
+			Assert.Throws<DnvmException>(From("4.0.3-"));
+			Assert.Throws<DnvmException>(From(""));
 		}
 		// ToString tests
 	}

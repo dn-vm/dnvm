@@ -1,4 +1,6 @@
 ﻿using System.CommandLine;
+using System.CommandLine.Builder;
+using System.CommandLine.Parsing;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -22,7 +24,7 @@ public static class Program
         root.Add(Update.Command);
         root.Add(Activate.Command);
 
-        root.Invoke(args);
+        new CommandLineBuilder(root).Build().Invoke(args);
         return Task.FromResult(0);
     }
 

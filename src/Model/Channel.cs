@@ -39,21 +39,29 @@ public record Channel(ChannelKind Kind, int? Major = null, int? Minor = null, in
 			default:
 				var numbers = token.Split('.');
 				int major, minor, patch;
-				switch (numbers.Length)
+				try
 				{
-					case 2:
-						major = int.Parse(numbers[0]);
-						minor = int.Parse(numbers[1]);
-						return new Channel(ChannelKind.Numbered, major, minor);
-					case 3:
-						major = int.Parse(numbers[0]);
-						minor = int.Parse(numbers[1]);
-						if (numbers[2].Length != 3 || numbers[2][^2..] != "xx")
-							throw new FormatException("");
-						patch = int.Parse(numbers[2][..^2]);
-						return new Channel(ChannelKind.Numbered, major, minor, patch);
-					default:
-						throw new FormatException($"Cannot parse {token} - it is not a valid channel string");
+					switch (numbers.Length)
+					{
+
+						case 2:
+							major = int.Parse(numbers[0]);
+							minor = int.Parse(numbers[1]);
+							return new Channel(ChannelKind.Numbered, major, minor);
+						case 3:
+							major = int.Parse(numbers[0]);
+							minor = int.Parse(numbers[1]);
+							if (numbers[2].Length != 3 || numbers[2][^2..] != "xx")
+								throw new FormatException($"Parse error: Cannot parse {token} as channel - 3 segment channel must be in format A.B.Cxx");
+							patch = int.Parse(numbers[2][..^2]);
+							return new Channel(ChannelKind.Numbered, major, minor, patch);
+						default:
+							throw new FormatException($"Parse error: Cannot parse {token} as channel");
+					}
+				}
+				catch (FormatException)
+				{
+					throw new DnvmException($"Parse error: Cannot parse {token} as channel");
 				}
 		};
 	}
