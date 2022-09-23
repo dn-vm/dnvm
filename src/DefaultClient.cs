@@ -23,11 +23,19 @@ namespace Dnvm
 				List<Task> extractions = new();
 				using (GZipInputStream gZipInputStream = new(rawStream))
 				using (TarReader tarReader = new(gZipInputStream))
-					while (tarReader.GetNextEntry() is TarEntry next)
+				{
+					while (await tarReader.GetNextEntryAsync(true) is TarEntry next)
 					{
-						extractions.Add(next.ExtractToFileAsync(Path.Combine(extractPath, next.Name), true));
+						string filePath = Path.GetFullPath(Path.Combine(extractPath, next.Name));
+						if (Path.EndsInDirectorySeparator(filePath)) {
+							Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+							continue;
+						}
+
+						extractions.Add(next.ExtractToFileAsync(filePath, true));
 					}
-				await Task.WhenAll(extractions);
+					await Task.WhenAll(extractions);
+				}
 				return;
 			}
 
@@ -44,7 +52,7 @@ namespace Dnvm
 					{
 						if (!entry.IsFile)
 							continue;
-						string filePath = Path.Combine(extractPath, entry.Name);
+						string filePath = Path.GetFullPath(Path.Combine(extractPath, entry.Name));
 						Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
 						using (var outputFile = File.Open(filePath, FileMode.OpenOrCreate, FileAccess.Write))
 						using (var zipEntry = zf.GetInputStream(entry))
