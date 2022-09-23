@@ -76,27 +76,27 @@ public abstract record InstallTest
 	public abstract string CommandLine { get; init; }
 	static string ArtifactsPath => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location)!, "..", "..", "..", ".."));
 	Manifest NewTestManifest => new Manifest(ImmutableArray<Workload>.Empty, null, TestManifestPath);
-	string TestManifestPath => Path.Combine(TestArtifactBaseDirectory, "dnvmManifest.json");
+	string TestManifestPath => Path.Combine(TestArtifactsBaseDirectory, "dnvmManifest.json");
 	Manifest? CreatedManifest => ManifestHelpers.TryGetManifest(out var m, TestManifestPath) ? m : null;
-	string InstalledDotnetExePath => Path.Combine(Directory.GetDirectories(TestArtifactBaseDirectory).Single(), "dotnet" + Utilities.ExeFileExtension);
+	string InstalledDotnetExePath => Path.Combine(Directory.GetDirectories(TestArtifactsBaseDirectory).Single(), "dotnet" + Utilities.ExeFileExtension);
 	string RunningTestName => this.GetType().Name;
-	string TestArtifactBaseDirectory => Directory.CreateDirectory(Path.Combine(ArtifactsPath, "testcases", "InstallTest", RunningTestName)).FullName;
+	string TestArtifactsBaseDirectory => Directory.CreateDirectory(Path.Combine(ArtifactsPath, "testcases", "InstallTest", RunningTestName)).FullName;
 
 	[Fact]
 	public abstract Task Test();
 	protected async Task InstallSdk()
 	{
-		Directory.Delete(TestArtifactBaseDirectory, true);
-		Directory.CreateDirectory(TestArtifactBaseDirectory);
+		Directory.Delete(TestArtifactsBaseDirectory, true);
+		Directory.CreateDirectory(TestArtifactsBaseDirectory);
 		var logger = new TestLogger(Output);
-		var exitCode = await new CommandLineBuilder(Install.GetCommand(logger, NewTestManifest, TestArtifactBaseDirectory)).Build().InvokeAsync(CommandLine);
+		var exitCode = await new CommandLineBuilder(Install.GetCommand(logger, NewTestManifest, TestArtifactsBaseDirectory)).Build().InvokeAsync($"--path {TestArtifactsBaseDirectory} " + CommandLine);
 		ValidateInstall(exitCode);
 	}
 	void ValidateInstall(int exitCode)
 	{
 		Assert.Equal(0, exitCode);
 		Assert.True(File.Exists(InstalledDotnetExePath));
-		Assert.True(CreatedManifest?.Workloads.Any(w => w.Path.Contains(TestArtifactBaseDirectory)) == true);
+		Assert.True(CreatedManifest?.Workloads.Any(w => w.Path.Contains(TestArtifactsBaseDirectory)) == true);
 		var p = Process.Start(InstalledDotnetExePath, "--version");
 		p.WaitForExit();
 		Assert.Equal(0, p.ExitCode);

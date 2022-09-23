@@ -1,4 +1,3 @@
-
 using Serde.Json;
 using System;
 using System.Collections.Generic;
@@ -6,7 +5,6 @@ using System.Collections.Immutable;
 using System.CommandLine;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.IO.MemoryMappedFiles;
 using System.Net;
 using System.Net.Http;
@@ -18,7 +16,7 @@ namespace Dnvm;
 
 sealed class Install
 {
-	internal static Command GetCommand(ILogger? logger = null, Manifest? manifest = null, string? downloadDir = null)
+	internal static Command GetCommand(ILogger? logger = null, Manifest? manifest = null, string? downloadDir = null, IClient? client = null)
 	{
 		Command install = new Command("install", "Install a dotnet sdk");
 
@@ -74,7 +72,7 @@ sealed class Install
 		async Task<int> Handler(Channel? channel, Version? version, string? path, bool force, bool global, bool verbose, bool daily)
 		{
 			var install = new Install(
-				logger ?? Logger.Default, manifest ?? ManifestHelpers.Instance, downloadDir ?? DefaultDownloadDirectory,
+				logger ?? Logger.Default, manifest ?? ManifestHelpers.Instance, downloadDir ?? DefaultDownloadDirectory, client ?? new DefaultClient(),
 				new Options(channel, version, path ?? Utilities.LocalInstallLocation, force, global, verbose, daily));
 #if DEBUG
 			var @catch = false;
@@ -95,13 +93,15 @@ sealed class Install
 	private Manifest _manifest;
 	private Options _options;
 	private readonly string _downloadDir;
+	private readonly IClient _client;
 
-	public Install(ILogger logger, Manifest manifest, string downloadDir, Options options)
+	public Install(ILogger logger, Manifest manifest, string downloadDir, IClient client, Options options)
 	{
 		_logger = logger;
 		_manifest = manifest;
 		_options = options;
 		_downloadDir = downloadDir;
+		_client = client;
 		if (_options.Verbose)
 		{
 			_logger.LogLevel = LogLevel.Info;
@@ -173,22 +173,25 @@ sealed class Install
 		if (await GetCorrectDownloadLink(Feeds, downloadPaths) is not Uri link)
 			throw new DnvmException($"Couldn't find download link for Version {_options.Version} and RID {Utilities.CurrentRID}");
 		_logger.Info("Download link: " + link);
-		using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
-		using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
-		{
-			await archiveHttpStream.CopyToAsync(tempArchiveFile);
-			await tempArchiveFile.FlushAsync();
-			_logger.Info($"Installing to {_options.Path}");
-			tempArchiveFile.Close();
-		}
 
-		_logger.Info($"Extracting downloaded archive at {archivePath} to directory at {_options.Path}");
-		if (await ExtractArchiveToDir(archivePath, _options.Path) != 0)
-		{
-			File.Delete(archivePath);
-			return 1;
-		}
-		File.Delete(archivePath);
+		await _client.DownloadArchiveAndExtractAsync(link, archivePath, _options.Path);
+		//using (var archiveHttpStream = await _client.GetStreamAsync(link))
+		//using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
+		//{
+		//	await archiveHttpStream.CopyToAsync(tempArchiveFile);
+		//	await tempArchiveFile.FlushAsync();
+		//	_logger.Info($"Installing to {_options.Path}");
+		//	tempArchiveFile.Close();
+		//}
+
+		//_logger.Info($"Extracting downloaded archive at {archivePath} to directory at {_options.Path}");
+		//if (await ExtractArchiveToDir(archivePath, _options.Path) != 0)
+		//{
+		//	File.Delete(archivePath);
+		//	return 1;
+		//}
+		//File.Delete(archivePath);
+
 
 
 		var newWorkload = new Workload(_options.Version.ToString(), _options.Path);
@@ -203,7 +206,7 @@ sealed class Install
 		return 0;
 	}
 
-	static async Task<Uri?> GetCorrectDownloadLink(string[] feeds, string[] downloadPaths)
+	async Task<Uri?> GetCorrectDownloadLink(string[] feeds, string[] downloadPaths)
 	{
 		int capacity = feeds.Length * downloadPaths.Length;
 		List<Task<HttpResponseMessage>> responseTasks = new(capacity);
@@ -214,17 +217,14 @@ sealed class Install
 			{
 				Uri link = new Uri(feeds[i] + downloadPaths[j]);
 				links.Add(link);
-				var requestMessage = new HttpRequestMessage(
-					HttpMethod.Head,
-					link);
-				responseTasks.Add(s_noRedirectClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead));
+				responseTasks.Add(_client.GetHeadersAsync(link));
 			}
 		}
 		var responses = await Task.WhenAll(responseTasks);
 		for (int i = 0; i < responses.Length; i++)
 		{
 			if (responses[i].StatusCode == HttpStatusCode.OK)
-				return links[i];
+				return responses[i].RequestMessage!.RequestUri;
 		}
 		return null;
 	}
@@ -251,7 +251,7 @@ sealed class Install
 		}
 		else
 		{
-			ZipFile.ExtractToDirectory(archivePath, dirPath, overwriteFiles: true);
+			System.IO.Compression.ZipFile.ExtractToDirectory(archivePath, dirPath, overwriteFiles: true);
 		}
 		return 0;
 	}
@@ -280,7 +280,7 @@ sealed class Install
 			_logger.Info("Fetching latest version from URL " + versionFileUrl);
 			try
 			{
-				string latestVersion = await Program.DefaultClient.GetStringAsync(versionFileUrl);
+				string latestVersion = await _client.GetStringAsync(new Uri(versionFileUrl));
 				return Version.From(latestVersion);
 			}
 			catch (HttpRequestException)
@@ -294,25 +294,19 @@ sealed class Install
 	async Task<Version?> GetVersionFromAkaUrl(Uri akaMsUrl)
 	{
 		_logger.Info("aka.ms URL: " + akaMsUrl);
-		HttpResponseMessage? response = null;
-		for (int i = 0; i < 10; i++)
-		{
-			var requestMessage = new HttpRequestMessage(
-				HttpMethod.Head,
-				akaMsUrl);
-			response = await s_noRedirectClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
-			if (response.StatusCode != HttpStatusCode.MovedPermanently)
-				break;
-			akaMsUrl = response.Headers.Location!;
-		}
 
-		if (response!.StatusCode != HttpStatusCode.OK)
+		if (await _client.GetHeadersAsync(akaMsUrl, true) is not HttpResponseMessage response)
 			return null;
 
-		if (akaMsUrl!.Segments is not { Length: 5 } segments)
+		if (response.StatusCode != HttpStatusCode.OK)
 			return null;
 
-		_logger.Info($"aka.ms redirects to {akaMsUrl}");
+		Uri redirectedUrl = response.RequestMessage!.RequestUri!;
+
+		if (redirectedUrl.Segments is not { Length: 5 } segments)
+			return null;
+
+		_logger.Info($"aka.ms redirects to {redirectedUrl}");
 
 		return Version.From(segments[3].TrimEnd('/'));
 	}
