@@ -11,7 +11,7 @@ namespace Dnvm.Tests
 			throw new NotImplementedException();
 		}
 
-		public Task DownloadArchiveAndExtractAsync(Uri uri, string archivePath, string extractPath)
+		public Task DownloadArchiveAndExtractAsync(Uri uri, string extractPath)
 		{
 			throw new NotImplementedException();
 		}

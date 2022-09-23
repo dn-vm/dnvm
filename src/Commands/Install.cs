@@ -1,20 +1,17 @@
 using Serde.Json;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.CommandLine;
 using System.Diagnostics;
 using System.IO;
-using System.IO.MemoryMappedFiles;
 using System.Net;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using static System.Environment;
 
 namespace Dnvm;
 
-sealed class Install
+sealed partial class Install
 {
 	internal static Command GetCommand(ILogger? logger = null, Manifest? manifest = null, string? downloadDir = null, IClient? client = null)
 	{
@@ -174,25 +171,7 @@ sealed class Install
 			throw new DnvmException($"Couldn't find download link for Version {_options.Version} and RID {Utilities.CurrentRID}");
 		_logger.Info("Download link: " + link);
 
-		await _client.DownloadArchiveAndExtractAsync(link, archivePath, _options.Path);
-		//using (var archiveHttpStream = await _client.GetStreamAsync(link))
-		//using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
-		//{
-		//	await archiveHttpStream.CopyToAsync(tempArchiveFile);
-		//	await tempArchiveFile.FlushAsync();
-		//	_logger.Info($"Installing to {_options.Path}");
-		//	tempArchiveFile.Close();
-		//}
-
-		//_logger.Info($"Extracting downloaded archive at {archivePath} to directory at {_options.Path}");
-		//if (await ExtractArchiveToDir(archivePath, _options.Path) != 0)
-		//{
-		//	File.Delete(archivePath);
-		//	return 1;
-		//}
-		//File.Delete(archivePath);
-
-
+		await _client.DownloadArchiveAndExtractAsync(link, _options.Path);
 
 		var newWorkload = new Workload(_options.Version.ToString(), _options.Path);
 		if (!_manifest.Workloads.Contains(newWorkload))
@@ -330,182 +309,5 @@ sealed class Install
 			[null, var legacy] => legacy,
 			_ => throw new NotImplementedException("This should never happen"),
 		};
-	}
-
-	private const string s_envShContent = """
-#!/bin/sh
-# Prepend dotnet dir to the path, unless it's already there.
-# Steal rustup trick of matching with ':' on both sides
-case ":${PATH}:" in
-    *:{install_loc}:*)
-        ;;
-    *)
-        export PATH="{install_loc}:$PATH"
-        ;;
-esac
-""";
-
-	private async Task<int> UnixAddToPathInShellFiles(string pathToAdd)
-	{
-		_logger.Info("Setting environment variables in shell files");
-		string resolvedEnvPath = Path.Combine(pathToAdd, "env");
-		// Using the full path to the install directory is usually fine, but on Unix systems
-		// people often copy their dotfiles from one machine to another and fully resolved paths present a problem
-		// there. Instead, we'll try to replace instances of the user's home directory with the $HOME
-		// variable, which should be the most common case of machine-dependence.
-		var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile), "$HOME");
-		string userShSuffix = $"""
-
-if [ -f "{portableEnvPath}" ]; then
-    . "{portableEnvPath}"
-fi
-""";
-		FileStream? envFile;
-		try
-		{
-			envFile = File.Open(resolvedEnvPath, FileMode.CreateNew);
-		}
-		catch
-		{
-			_logger.Info("env file already exists, skipping installation");
-			envFile = null;
-		}
-
-		if (envFile is not null)
-		{
-			_logger.Info("Writing env sh file");
-			using (envFile)
-			using (var writer = new StreamWriter(envFile))
-			{
-				await writer.WriteAsync(s_envShContent.Replace("{install_loc}", pathToAdd));
-				await envFile.FlushAsync();
-			}
-
-			// Scan shell files for shell suffix and add it if it doesn't exist
-			_logger.Log("Scanning for shell files to update");
-			foreach (var shellFileName in ProfileShellFiles)
-			{
-				var shellPath = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), shellFileName);
-				_logger.Info("Checking for file: " + shellPath);
-				if (File.Exists(shellPath))
-				{
-					_logger.Log("Found " + shellPath);
-				}
-				else
-				{
-					continue;
-				}
-				try
-				{
-					if (!(await FileContainsLine(shellPath, $". \"{portableEnvPath}\"")))
-					{
-						_logger.Log("Adding env import to: " + shellPath);
-						await File.AppendAllTextAsync(shellPath, userShSuffix);
-					}
-				}
-				catch (Exception e)
-				{
-					// Ignore if the file can't be accessed
-					_logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
-				}
-			}
-		}
-		return 0;
-	}
-
-	private static ImmutableArray<string> ProfileShellFiles => ImmutableArray.Create<string>(
-		".profile",
-		".bashrc",
-		".zshrc"
-	);
-
-	private static async Task<bool> FileContainsLine(string filePath, string contents)
-	{
-		using var file = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open);
-		var stream = file.CreateViewStream();
-		using var reader = new StreamReader(stream);
-		string? line;
-		while ((line = await reader.ReadLineAsync()) is not null)
-		{
-			if (line.Contains(contents))
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-	sealed class SelfInstall
-	{
-		public SelfInstall(ILogger logger, Options options)
-		{
-			_logger = logger;
-			_options = options;
-		}
-
-		public record struct Options(bool Force);
-
-		ILogger _logger;
-		Options _options;
-
-		static Task<int> Handle(bool force)
-		{
-			var selfInstall = new SelfInstall(Logger.Default, new Options(force));
-			return selfInstall.Handle();
-		}
-
-		Task<int> Handle()
-		{
-			if (!Utilities.IsAOT)
-			{
-				Console.WriteLine("Cannot self-install into target location: the current executable is not deployed as a single file.");
-				return Task.FromResult(1);
-			}
-
-			var procPath = Utilities.ProcessPath;
-			_logger.Info("Location of running exe" + procPath);
-
-			var targetPath = Path.Combine(Utilities.LocalInstallLocation, Utilities.DnvmExeName);
-			if (!_options.Force && File.Exists(targetPath))
-			{
-				_logger.Log("dnvm is already installed at: " + targetPath);
-				_logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
-			}
-			else
-			{
-				try
-				{
-					_logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
-					File.Copy(procPath, targetPath, overwrite: _options.Force);
-				}
-				catch (Exception e)
-				{
-					Console.WriteLine($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
-					return Task.FromResult(1);
-				}
-			}
-
-			// Set up path -- probably add eval(dnvm init)
-			throw new NotImplementedException();
-
-			//return Task.FromResult(0);
-		}
-
-		public static Command Command
-		{
-			get
-			{
-				Command self = new("self");
-				self.Description = $"""
-								Installs dnvm to ~/.dnvm/ and adds hook to profile to add dnvm and the active sdk to path
-								""";
-
-				Option<bool> force = new("--force");
-				force.AddAlias("-f");
-				self.Add(force);
-
-				self.SetHandler(Handle, force);
-				return self;
-			}
-		}
 	}
 }

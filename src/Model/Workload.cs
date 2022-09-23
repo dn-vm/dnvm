@@ -5,9 +5,9 @@ namespace Dnvm;
 
 [GenerateSerde]
 [SerdeTypeOptions(MemberFormat = MemberFormat.CamelCase)]
-internal partial record Workload(string Version, string Path)
+internal partial record struct Workload(string Version, string Path)
 {
-	private Workload() : this("", "") { }
+	public Workload() : this("", "") { }
 
 	public Workload(string Version)
 		: this(Version,

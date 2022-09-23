@@ -32,7 +32,7 @@ internal static class ManifestHelpers
 /// </summary>
 [GenerateSerde]
 [SerdeTypeOptions(MemberFormat = MemberFormat.CamelCase)]
-internal sealed partial record Manifest(ImmutableArray<Workload> Workloads, Workload? Active, [property: SerdeMemberOptions(SerializeNull = false)] string? ManifestPath = null)
+internal partial record Manifest(ImmutableArray<Workload> Workloads, Workload? Active, [property: SerdeMemberOptions(SerializeNull = false)] string? ManifestPath = null)
 {
 	public Manifest() : this(ImmutableArray<Workload>.Empty, null) { }
 	public void WriteOut() => File.WriteAllText(ManifestPath ?? ManifestHelpers.DefaultManifestPath, JsonSerializer.Serialize(this));

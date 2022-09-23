@@ -24,7 +24,7 @@ public static class Program
         root.Add(Update.Command);
         root.Add(Activate.Command);
 
-        new CommandLineBuilder(root).Build().Invoke(args);
+        new CommandLineBuilder(root).UseHelp().UseTypoCorrections().UseSuggestDirective().RegisterWithDotnetSuggest().Build().Invoke(args);
         return Task.FromResult(0);
     }
 

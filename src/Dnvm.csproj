@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net7.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<IlcHostArch>x64</IlcHostArch>
+		<!--<StripSymbols>true</StripSymbols>-->
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<!--<IlcOptimizationPreference>size</IlcOptimizationPreference>-->
+		<EnablePreviewFeatures>true</EnablePreviewFeatures>
+		<LangVersion>preview</LangVersion>
+		<RuntimeIdentifier>$(NETCoreSdkPortableRuntimeIdentifier)</RuntimeIdentifier>
+		<PublishAot>true</PublishAot>
+		<AssemblyName>$(MSBuildProjectName.ToLower())</AssemblyName>
+		<TrimmerSingleWarn>false</TrimmerSingleWarn>
+		<Platforms>AnyCPU;x64</Platforms>
+		<SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Include="env.sh" />
+		<PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+		<PackageReference Include="Serde" Version="0.4.0" />
+		<PackageReference Include="StaticCs" Version="0.2.0" />
+		<PackageReference Include="SharpZipLib" Version="1.4.0" />
+		<PackageReference Include="SharpCompress" Version="0.32.2" />
+	</ItemGroup>
+
+</Project>
