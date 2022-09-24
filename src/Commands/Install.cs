@@ -46,8 +46,8 @@ internal sealed partial class Install : Command
 		force.AddAlias("-f");
 		this.AddOption(force);
 
-		Option<bool> thiser = new("--thiser");
-		thiser.AddAlias("-i");
+		Option<bool> installer = new("--installer");
+		installer.AddAlias("-i");
 		//this.AddOption(thiser);
 
 		Option<Version> version = new("--version", Version.Parse);

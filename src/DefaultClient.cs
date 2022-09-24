@@ -42,23 +42,10 @@ namespace Dnvm
 				await Task.WhenAll(extractions);
 			}
 			return;
-
 		}
 
 		static async Task ExtractZip(Stream stream, string extractPath)
 		{
-
-			//var r = SharpCompress.Readers.Zip.ZipReader.Open(stream);
-			//Directory.CreateDirectory(extractPath);
-			//r.WriteAllToDirectory(extractPath, new SharpCompress.Common.ExtractionOptions() { Overwrite = true });
-			//return;
-
-			//using (System.IO.Compression.ZipArchive za = new(stream))
-			//{
-			//	za.ExtractToDirectory(extractPath, true);
-			//}
-			//return;
-
 			using (ZipInputStream zipInputStream = new ZipInputStream(stream))
 			{
 				int bufferSize = 1024 * 1024;// 81920;
