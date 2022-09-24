@@ -7,7 +7,7 @@ internal class List : Command
 {
 	Program _dnvm;
 
-	public List(Program dnvm) : base("list")
+	public List(Program dnvm) : base("list", "List versions of the dotnet sdk installed by dnvm")
 	{
 		this.SetHandler(Handle);
 		_dnvm = dnvm;

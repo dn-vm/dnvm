@@ -11,23 +11,28 @@ namespace Dnvm;
 
 sealed partial class Install
 {
-	internal class SelfInstall
+	internal class Self : Command
 	{
-		public SelfInstall(ILogger logger, Options options)
+		Options _options;
+		Program _dnvm;
+
+		public Self(Program dnvm) : base("self", "Installs the dnvm executable to ~/.dnvm and add init script to profile files")
 		{
-			_logger = logger;
-			_options = options;
+			_dnvm = dnvm;
+
+			Option<bool> force = new("--force");
+			force.AddAlias("-f");
+			this.Add(force);
+
+			this.SetHandler(Handle, force);
 		}
 
-		public record struct Options(bool Force);
+		public new record struct Options(bool Force);
 
-		ILogger _logger;
-		Options _options;
-
-		static Task<int> Handle(bool force)
+		Task<int> Handle(bool force)
 		{
-			var selfInstall = new SelfInstall(Logger.Default, new Options(force));
-			return selfInstall.Handle();
+			_options = new Options(force);
+			return this.Handle();
 		}
 
 		async Task<int> Handle()
@@ -39,19 +44,19 @@ sealed partial class Install
 			}
 
 			var procPath = Utilities.ProcessPath;
-			_logger.Info("Location of running exe" + procPath);
+			_dnvm.Logger.Info("Location of running exe" + procPath);
 
 			var targetPath = Path.Combine(Utilities.LocalInstallLocation, Utilities.DnvmExeName);
 			if (!_options.Force && File.Exists(targetPath))
 			{
-				_logger.Log("dnvm is already installed at: " + targetPath);
-				_logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
+				_dnvm.Logger.Log("dnvm is already installed at: " + targetPath);
+				_dnvm.Logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
 			}
 			else
 			{
 				try
 				{
-					_logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
+					_dnvm.Logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
 					File.Copy(procPath, targetPath, overwrite: _options.Force);
 				}
 				catch (Exception e)
@@ -71,24 +76,15 @@ sealed partial class Install
 			get
 			{
 				Command self = new("self");
-				self.Description = $"""
-								Installs dnvm to ~/.dnvm/ and adds hook to profile to add dnvm and the active sdk to path
-								""";
-
-				Option<bool> force = new("--force");
-				force.AddAlias("-f");
-				self.Add(force);
-
-				self.SetHandler(Handle, force);
 				return self;
 			}
 		}
 
 		private async Task AddInitToShellProfile(string installedDnvmPath)
 		{
-			_logger.Info("Setting environment variables in shell files");
+			_dnvm.Logger.Info("Setting environment variables in shell files");
 			// Scan shell files for shell suffix and add it if it doesn't exist
-			_logger.Log("Scanning for shell files to update");
+			_dnvm.Logger.Log("Scanning for shell files to update");
 			bool written = false;
 			foreach (var profileShellInfo in ProfileShellFiles)
 			{
@@ -96,9 +92,9 @@ sealed partial class Install
 				{
 
 					var shellPath = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), profileFile);
-					_logger.Info("Checking for file: " + shellPath);
+					_dnvm.Logger.Info("Checking for file: " + shellPath);
 					if (File.Exists(shellPath))
-						_logger.Log("Found " + shellPath);
+						_dnvm.Logger.Log("Found " + shellPath);
 					else
 						continue;
 					try
@@ -106,26 +102,26 @@ sealed partial class Install
 						string profileText = Init.ProfileText(profileShellInfo.Shell, installedDnvmPath);
 						if (!await FileContainsLine(shellPath, profileText))
 						{
-							_logger.Log($"Appending shell init `{profileText}` to {shellPath}");
+							_dnvm.Logger.Log($"Appending shell init `{profileText}` to {shellPath}");
 							await File.AppendAllTextAsync(shellPath, Environment.NewLine + profileText + Environment.NewLine);
 							written = true;
 						}
 						else
 						{
 							written = true;
-							_logger.Log($"Init script already found in {shellPath}");
+							_dnvm.Logger.Log($"Init script already found in {shellPath}");
 						}
 						break;
 					}
 					catch (IOException e)
 					{
 						// Ignore if the file can't be accessed
-						_logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
+						_dnvm.Logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
 					}
 				}
 			}
 			if (!written)
-				_logger.Log("Couldn't add init script to any profiles. Run `dnvm init <shell> --copyable` and copy output to your shell profile.");
+				_dnvm.Logger.Log("Couldn't add init script to any profiles. Run `dnvm init <shell> --copyable` and copy output to your shell profile.");
 		}
 
 		private static ImmutableArray<(Shell Shell, string[] ProfileNames)> ProfileShellFiles

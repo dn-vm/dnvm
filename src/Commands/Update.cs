@@ -24,7 +24,7 @@ sealed partial class Update : Command
         return exit;
     }
 
-    public Update(Program dnvm) : base("update")
+    public Update(Program dnvm) : base("update", "Update the dnvm executable with the latest released version")
     {
         _dnvm = dnvm;
         System.CommandLine.Option<bool> verbose = new(new[] { "--verbose", "-v" });

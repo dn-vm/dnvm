@@ -22,7 +22,7 @@ internal sealed partial class Install : Command
 	{
 		_dnvm = dnvm;
 
-		this.Add(SelfInstall.Command);
+		this.Add(Self.Command);
 
 		Option<Channel> channel = new("--channel", Channel.Parse);
 		channel.Description = $"""

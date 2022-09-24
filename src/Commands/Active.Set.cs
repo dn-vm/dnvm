@@ -13,7 +13,7 @@ internal partial class Active
 		Options? _options;
 		public new sealed record Options(Version? Version);
 
-		public Set(Program dnvm) : base("set")
+		public Set(Program dnvm) : base("set", "Set the active sdk version in the dnvm manifest. Does not update PATH")
 		{
 			_dnvm = dnvm;
 
