@@ -11,99 +11,71 @@ using System.Threading.Tasks;
 
 namespace Dnvm;
 
-sealed partial class Install
+internal sealed partial class Install : Command
 {
-	internal static Command GetCommand(ILogger? logger = null, Manifest? manifest = null, string? downloadDir = null, IClient? client = null)
-	{
-		Command install = new Command("install", "Install a dotnet sdk");
+	private Program _dnvm;
+	private Options? _options;
 
-		install.Add(SelfInstall.Command);
+	public new sealed record Options(Channel? Channel, Version? Version, string Path, bool Force, bool Global, bool Verbose, bool Daily);
+
+	public Install(Program dnvm) : base("install")
+	{
+		_dnvm = dnvm;
+
+		this.Add(SelfInstall.Command);
 
 		Option<Channel> channel = new("--channel", Channel.Parse);
 		channel.Description = $"""
-								The channel to install from.  
+								The channel to this from.  
 								Available options: 'lts', 'current', 'preview', A.B semver (e.g. 5.0), A.B.Cxx semver (e.g. 6.0.4xx)
 								""";
 		channel.SetDefaultValue(new Channel(Channel.ChannelKind.LTS));
 		channel.AddAlias("-c");
-		install.Add(channel);
+		this.Add(channel);
 
 		Option<bool> verbose = new("--verbose");
 		verbose.AddAlias("-v");
-		install.AddOption(verbose);
+		this.AddOption(verbose);
 
 
 		Option<bool> global = new("--global");
 		global.AddAlias("-g");
-		install.AddOption(global);
+		this.AddOption(global);
 
 		Option<bool> force = new("--force");
 		force.AddAlias("-f");
-		install.AddOption(force);
+		this.AddOption(force);
 
-		Option<bool> installer = new("--installer");
-		installer.AddAlias("-i");
-		//install.AddOption(installer);
+		Option<bool> thiser = new("--thiser");
+		thiser.AddAlias("-i");
+		//this.AddOption(thiser);
 
 		Option<Version> version = new("--version", Version.Parse);
-		install.Add(version);
+		this.Add(version);
 
 		Option<string?> path = new("--path");
 		path.AddAlias("-p");
-		install.Add(path);
+		this.Add(path);
 
 		Option<bool> setActive = new("--set-default");
 		setActive.AddAlias("-d");
-		//install.Add(setActive);
+		//this.Add(setActive);
 
 		Option<bool> daily = new(new[] { "--daily", "-d" }, "Use the latest daily build in a channel");
-		install.Add(daily);
+		this.Add(daily);
 
-		install.AddValidator(Utilities.ValidateOneOf(channel, version));
-		install.AddValidator(Utilities.ValidateXOnlyIfY(daily, channel));
+		this.AddValidator(Utilities.ValidateOneOf(channel, version));
+		this.AddValidator(Utilities.ValidateXOnlyIfY(daily, channel));
 
-		if (true)
-			install.SetHandler(Handler, channel, version, path, force, global, verbose, daily);
+		this.SetHandler(Handle, channel, version, path, force, global, verbose, daily);
 
-		return install;
-		async Task<int> Handler(Channel? channel, Version? version, string? path, bool force, bool global, bool verbose, bool daily)
+		Task<int> Handle(Channel? channel, Version? version, string? path, bool force, bool global, bool verbose, bool daily)
 		{
-			var install = new Install(
-				logger ?? Logger.Default, manifest ?? ManifestHelpers.Instance, downloadDir ?? DefaultDownloadDirectory, client ?? new DefaultClient(),
-				new Options(channel, version, path ?? Utilities.LocalInstallLocation, force, global, verbose, daily));
-#if DEBUG
-			var @catch = false;
-#else
-			var @catch = true;
-#endif
-			return await install.Handle(@catch);
+			_options = new Options(channel, version, path ?? Utilities.LocalInstallLocation, force, global, verbose, daily);
+			return this.Handle();
 		}
 	}
 
-	public static Command Command => GetCommand();
-
-	public static string DefaultDownloadDirectory = Path.GetTempPath();
-
-	public sealed record Options(Channel? Channel, Version? Version, string Path, bool Force, bool Global, bool Verbose, bool Daily);
-
-	private readonly ILogger _logger;
-	private Manifest _manifest;
-	private Options _options;
-	private readonly string _downloadDir;
-	private readonly IClient _client;
-
-	public Install(ILogger logger, Manifest manifest, string downloadDir, IClient client, Options options)
-	{
-		_logger = logger;
-		_manifest = manifest;
-		_options = options;
-		_downloadDir = downloadDir;
-		_client = client;
-		if (_options.Verbose)
-		{
-			_logger.LogLevel = LogLevel.Info;
-		}
-	}
 	public static string[] Feeds { get; } = new[] {
 			"https://dotnetcli.azureedge.net/dotnet",
 			"https://dotnetbuilds.azureedge.net/public"
@@ -111,7 +83,7 @@ sealed partial class Install
 
 	bool VersionIsAlreadyInstalled()
 	{
-		return _manifest.Workloads.Contains(new Workload(_options.Version!.ToString()));
+		return _dnvm.Manifest.Workloads.Contains(new Workload(_options.Version!.ToString()));
 	}
 
 	public async Task EnsureExactVersion()
@@ -119,7 +91,7 @@ sealed partial class Install
 		Version? exactVersion = _options.Version;
 		if (exactVersion is not Version)
 		{
-			_logger.Info($"Version not provided, getting version from channel {_options.Channel}");
+			_dnvm.Logger.Info($"Version not provided, getting version from channel {_options.Channel}");
 			if (await GetVersion(_options.Channel!, _options.Daily) is not Version newVersion)
 				throw new DnvmException("Invalid channel - cannot determine version number");
 			exactVersion = newVersion;
@@ -129,57 +101,38 @@ sealed partial class Install
 			Version = exactVersion,
 			Path = Path.Combine(_options.Path, Utilities.EscapeFilename(exactVersion.ToString()))
 		};
-		_logger.Log($"Latest version in channel {_options.Channel} {(_options.Daily ? "(daily)" : "")} is {_options.Version}");
-	}
-
-	public async Task<int> Handle(bool @catch = false)
-	{
-		try
-		{
-			return await Handle();
-		}
-		catch (DnvmException e) when (@catch)
-		{
-			_logger.Error(e.Message);
-			return 1;
-		}
+		_dnvm.Logger.Log($"Latest version in channel {_options.Channel} {(_options.Daily ? "(daily)" : "")} is {_options.Version}");
 	}
 
 	public async Task<int> Handle()
 	{
-		_logger.Info("Install Directory: " + _options.Path);
+		_dnvm.Logger.Info("Install Directory: " + _options.Path);
 
 		await EnsureExactVersion();
 
 
-		_logger.Info("Existing manifest: " + JsonSerializer.Serialize(_manifest));
+		_dnvm.Logger.Info("Existing manifest: " + JsonSerializer.Serialize(_dnvm.Manifest));
 		if (!_options.Force && VersionIsAlreadyInstalled())
 		{
 			throw new DnvmException($"Version {_options.Version} is already installed. Use --force to reinstall.");
 		}
 
-		_logger.Log($"Installing version {_options.Version}.");
-
-		string archiveName = ConstructArchiveName(_options.Version);
-		string archivePath = Path.Combine(_downloadDir, archiveName);
-		_logger.Info("Archive path: " + archivePath);
+		_dnvm.Logger.Log($"Installing version {_options.Version}.");
 
 		string[] downloadPaths = _options.Version!.UrlPaths;
-
-
 		if (await GetCorrectDownloadLink(Feeds, downloadPaths) is not Uri link)
 			throw new DnvmException($"Couldn't find download link for Version {_options.Version} and RID {Utilities.CurrentRID}");
-		_logger.Info("Download link: " + link);
+		_dnvm.Logger.Info("Download link: " + link);
 
-		await _client.DownloadArchiveAndExtractAsync(link, _options.Path);
+		await _dnvm.Client.DownloadArchiveAndExtractAsync(link, _options.Path);
 
 		var newWorkload = new Workload(_options.Version.ToString(), _options.Path);
-		if (!_manifest.Workloads.Contains(newWorkload))
+		if (!_dnvm.Manifest.Workloads.Contains(newWorkload))
 		{
-			_logger.Info($"Adding workload {newWorkload} to manifest.");
-			_manifest = _manifest with { Workloads = _manifest.Workloads.Add(newWorkload) };
-			_manifest = _manifest with { Active = newWorkload };
-			_manifest.WriteOut();
+			_dnvm.Logger.Info($"Adding workload {newWorkload} to manifest.");
+			_dnvm.Manifest = _dnvm.Manifest with { Workloads = _dnvm.Manifest.Workloads.Add(newWorkload) };
+			_dnvm.Manifest = _dnvm.Manifest with { Active = newWorkload };
+			_dnvm.Manifest.WriteOut();
 		}
 
 		return 0;
@@ -196,7 +149,7 @@ sealed partial class Install
 			{
 				Uri link = new Uri(feeds[i] + downloadPaths[j]);
 				links.Add(link);
-				responseTasks.Add(_client.GetHeadersAsync(link));
+				responseTasks.Add(_dnvm.Client.GetHeadersAsync(link));
 			}
 		}
 		var responses = await Task.WhenAll(responseTasks);
@@ -256,15 +209,15 @@ sealed partial class Install
 		foreach (var feed in Feeds)
 		{
 			string versionFileUrl = $"{feed}/Sdk/{channel}/latest.version";
-			_logger.Info("Fetching latest version from URL " + versionFileUrl);
+			_dnvm.Logger.Info("Fetching latest version from URL " + versionFileUrl);
 			try
 			{
-				string latestVersion = await _client.GetStringAsync(new Uri(versionFileUrl));
+				string latestVersion = await _dnvm.Client.GetStringAsync(new Uri(versionFileUrl));
 				return Version.From(latestVersion);
 			}
 			catch (HttpRequestException)
 			{
-				_logger.Info($"Couldn't find version for channel {channel} in at {versionFileUrl}");
+				_dnvm.Logger.Info($"Couldn't find version for channel {channel} in at {versionFileUrl}");
 			}
 		}
 		return null;
@@ -272,9 +225,9 @@ sealed partial class Install
 
 	async Task<Version?> GetVersionFromAkaUrl(Uri akaMsUrl)
 	{
-		_logger.Info("aka.ms URL: " + akaMsUrl);
+		_dnvm.Logger.Info("aka.ms URL: " + akaMsUrl);
 
-		if (await _client.GetHeadersAsync(akaMsUrl, true) is not HttpResponseMessage response)
+		if (await _dnvm.Client.GetHeadersAsync(akaMsUrl, true) is not HttpResponseMessage response)
 			return null;
 
 		if (response.StatusCode != HttpStatusCode.OK)
@@ -285,7 +238,7 @@ sealed partial class Install
 		if (redirectedUrl.Segments is not { Length: 5 } segments)
 			return null;
 
-		_logger.Info($"aka.ms redirects to {redirectedUrl}");
+		_dnvm.Logger.Info($"aka.ms redirects to {redirectedUrl}");
 
 		return Version.From(segments[3].TrimEnd('/'));
 	}

@@ -7,42 +7,37 @@ using System.Threading.Tasks;
 
 namespace Dnvm
 {
-	internal class Init
+	internal class Init : Command
 	{
-		public record struct Options(Shell Shell, bool Copyable, bool RegisterCompletions);
+		public new record Options(Shell Shell, bool Copyable, bool RegisterCompletions);
 
-		public static Command Command
+		Program _dnvm;
+		Options? _options;
+
+		public Init(Program dnvm) : base("init")
 		{
-			get
-			{
-				Command init = new("init", "Prints the shell commands to add dnvm and the active sdk to the PATH.");
+			_dnvm = dnvm;
 
-				Argument<Shell> shell = new Argument<Shell>("shell");
-				init.Add(shell);
+			Argument<Shell> shell = new Argument<Shell>("shell");
+			this.Add(shell);
 
-				Option<bool> copyable = new(new[] { "--copyable", "-c" }, "Print the line to be copied and pasted into your profile to add the active sdk to the PATH.");
-				init.Add(copyable);
+			Option<bool> copyable = new(new[] { "--copyable", "-c" }, "Print the line to be copied and pasted into your profile to add the active sdk to the PATH.");
+			this.Add(copyable);
 
-				init.SetHandler(Handle, shell, copyable);
-				return init;
-			}
+			this.SetHandler(Handle, shell, copyable);
 		}
 
-		ILogger _logger;
-		Options _options;
-		Manifest _manifest;
-
-		internal static Task<int> Handle(Shell shell, bool copyable)
+		internal Task<int> Handle(Shell shell, bool copyable)
 		{
-			var init = new Init(Logger.Default, ManifestHelpers.Instance, new Options(shell, copyable, true));
-			return init.Handle();
+			_options = new Options(shell, copyable, true);
+			return this.Handle();
 		}
 
 		public Task<int> Handle()
 		{
 			if (_options.Copyable)
 			{
-				_logger.Log(ProfileText(_options.Shell));
+				_dnvm.Logger.Log(ProfileText(_options.Shell));
 				return Task.FromResult(0);
 			}
 			string output = "";
@@ -54,11 +49,11 @@ namespace Dnvm
 			output = AddToPathText(_options.Shell, Path.GetDirectoryName(Utilities.ProcessPath)!);
 			output += ActivateAliasText(_options.Shell);
 
-			string? activePath = _manifest.Active?.Path;
+			string? activePath = _dnvm.Manifest.Active?.Path;
 			if (!string.IsNullOrEmpty(activePath))
 				output += AddToPathText(_options.Shell, activePath);
 
-			_logger.Log(output);
+			_dnvm.Logger.Log(output);
 			return Task.FromResult(0);
 		}
 
@@ -178,18 +173,23 @@ namespace Dnvm
 			""";
 
 		public static string ProfileText(Shell shell, string? dnvmPath = null)
-			=> shell switch
+			=> Eval(shell, $"{dnvmPath ?? Utilities.ProcessPath} init {shell}");
+		//shell switch
+		//{
+		//	Shell.Powershell => $"Invoke-Expression -Command $({dnvmPath ?? Utilities.ProcessPath} init powershell | out-string)",
+		//	Shell.Bash => $"eval \"$({dnvmPath ?? Utilities.ProcessPath} init bash)\"",
+		//	Shell.Zsh => $"eval \"$({dnvmPath ?? Utilities.ProcessPath} init zsh)\""
+		//};
+
+		public static string Eval(Shell shell, string command)
+		{
+			return shell switch
 			{
-				Shell.Powershell => $"Invoke-Expression -Command $({dnvmPath ?? Utilities.ProcessPath} init powershell | out-string)",
-				Shell.Bash => $"eval \"$({dnvmPath ?? Utilities.ProcessPath} init bash)\"",
-				Shell.Zsh => $"eval \"$({dnvmPath ?? Utilities.ProcessPath} init zsh)\""
+				Shell.Powershell => $"Invoke-Expression -Command $({command} | out-string)",
+				Shell.Bash => $"eval \"$({command})\"",
+				Shell.Zsh => $"eval \"$({command})\""
 			};
 
-		public Init(ILogger logger, Manifest manifest, Options options)
-		{
-			_logger = logger;
-			_manifest = manifest;
-			_options = options;
 		}
 
 		// TODO: add an alias to evaluate the init script after calling dnvm activate
@@ -221,26 +221,8 @@ namespace Dnvm
 		static string ZshAddToPathText(string pathToAdd)
 			=> $"export PATH=\"{ConvertWindowPathToGitBash(pathToAdd)}:$PATH\"";
 
-		public void Activate(Workload workload)
-		{
-			var envPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User)!;
-			envPath = ReplaceOrAddActiveWorkloadInPath(envPath, workload.Path);
-			Environment.SetEnvironmentVariable("PATH", envPath, EnvironmentVariableTarget.User);
-		}
-
-		public static string ReplaceOrAddActiveWorkloadInPath(string path, string newActivePath)
-		{
-			string flag = "#dnvm-active;";
-			int firstFlagStart = path.IndexOf(flag);
-			// If flag not there, add to front
-			if (firstFlagStart == -1)
-				return flag + newActivePath + ";" + flag + path;
-			int startReplace = firstFlagStart + flag.Length;
-			int endReplace = path.LastIndexOf(flag);
-			path = path.Remove(startReplace, endReplace - startReplace);
-			path = path.Insert(startReplace, newActivePath + ';');
-			return path;
-		}
+		static string PowershellDnvmActivateAlias(string dnvmPath)
+			=> $"Set-Alias -Name \"dnvm activate\" -Value ";
 
 		[Closed]
 		internal enum Shell

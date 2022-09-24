@@ -11,7 +11,7 @@ internal static class ManifestHelpers
 {
 	public static string DefaultManifestPath = Path.Combine(Utilities.LocalInstallLocation, "dnvmManifest.json");
 
-	public static Manifest Instance { get; set; } = TryGetManifest(out var manifest, DefaultManifestPath) ? manifest : new Manifest();
+	public static Manifest DefaultManifest { get; set; } = TryGetManifest(out var manifest, DefaultManifestPath) ? manifest : new Manifest();
 
 	public static bool TryGetManifest([NotNullWhen(true)] out Manifest? manifest, string manifestPath)
 	{

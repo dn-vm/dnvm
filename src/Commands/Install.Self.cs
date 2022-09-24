@@ -107,7 +107,7 @@ sealed partial class Install
 						if (!await FileContainsLine(shellPath, profileText))
 						{
 							_logger.Log($"Appending shell init `{profileText}` to {shellPath}");
-							await File.AppendAllTextAsync(shellPath, profileText);
+							await File.AppendAllTextAsync(shellPath, Environment.NewLine + profileText + Environment.NewLine);
 							written = true;
 						}
 						else

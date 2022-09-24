@@ -1,7 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.CommandLine;
-using System.CommandLine.Builder;
-using System.CommandLine.Parsing;
+﻿using System.CommandLine.Parsing;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -36,10 +33,9 @@ public record Install7_0_100_rc_1_22431_12(ITestOutputHelper Output, string Comm
 
 public record ChannelAndVersionFails(ITestOutputHelper Output, string CommandLine = "--version 8.0.1 --channel 7.0") : InstallFailure(Output);
 
+public record ChannelAndVersionShortFails(ITestOutputHelper Output, string CommandLine = "--version 8.0.1 -c 7.0") : InstallFailure(Output);
+
 public record DailyAndVersionFails(ITestOutputHelper Output, string CommandLine = "--version 7.0.1 --daily") : InstallFailure(Output);
-
-
-
 
 
 public abstract record InstallSuccess(ITestOutputHelper Output) : InstallTest(Output)
@@ -62,44 +58,22 @@ public abstract record InstallFailure(ITestOutputHelper Output) : InstallTest(Ou
 	}
 }
 
-public abstract record InstallTest
+public abstract record InstallTest(ITestOutputHelper Output) : TestBase(Output)
 {
-	private InstallTest()
-	{
-		Output = null!;
-	}
-	public InstallTest(ITestOutputHelper output)
-	{
-		Output = output;
-	}
-	ITestOutputHelper Output;
-	public abstract string CommandLine { get; init; }
-	static string ArtifactsPath => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location)!, "..", "..", "..", ".."));
-	Manifest NewTestManifest => new Manifest(ImmutableArray<Workload>.Empty, null, TestManifestPath);
-	string TestManifestPath => Path.Combine(TestArtifactsBaseDirectory, "dnvmManifest.json");
-	Manifest? CreatedManifest => ManifestHelpers.TryGetManifest(out var m, TestManifestPath) ? m : null;
-	string InstalledDotnetExePath => Path.Combine(Directory.GetDirectories(TestArtifactsBaseDirectory).Single(), "dotnet" + Utilities.ExeFileExtension);
-	string RunningTestName => this.GetType().Name;
-	string TestArtifactsBaseDirectory => Directory.CreateDirectory(Path.Combine(ArtifactsPath, "testcases", "InstallTest", RunningTestName)).FullName;
-
-	[Fact]
-	public abstract Task Test();
 	protected async Task InstallSdk()
 	{
-		Directory.Delete(TestArtifactsBaseDirectory, true);
-		Directory.CreateDirectory(TestArtifactsBaseDirectory);
-		var logger = new TestLogger(Output);
-		var exitCode = await new CommandLineBuilder(Install.GetCommand(logger, NewTestManifest, TestArtifactsBaseDirectory)).Build().InvokeAsync($"--path {TestArtifactsBaseDirectory} " + CommandLine);
+		var exitCode = await Program.Command.InvokeAsync($"install --path {TestSuiteArtifactsPath} " + CommandLine);
 		ValidateInstall(exitCode);
 	}
 	void ValidateInstall(int exitCode)
 	{
 		Assert.Equal(0, exitCode);
 		Assert.True(File.Exists(InstalledDotnetExePath));
-		Assert.True(CreatedManifest?.Workloads.Any(w => w.Path.Contains(TestArtifactsBaseDirectory)) == true);
+		Assert.True(CreatedManifest?.Workloads.Any(w => w.Path.Contains(TestSuiteArtifactsPath)) == true);
 		var p = Process.Start(InstalledDotnetExePath, "--version");
 		p.WaitForExit();
 		Assert.Equal(0, p.ExitCode);
 		return;
 	}
+	public override string TestSuiteName => "InstallTest";
 }

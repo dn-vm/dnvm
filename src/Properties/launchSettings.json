@@ -45,7 +45,7 @@
     },
     "init -h": {
       "commandName": "Project",
-      "commandLineArgs": "init -h"
+      "commandLineArgs": "active"
     }
   }
 }

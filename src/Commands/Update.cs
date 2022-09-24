@@ -11,41 +11,26 @@ using System.Threading.Tasks;
 
 namespace Dnvm;
 
-sealed partial class Update
+sealed partial class Update : Command
 {
-    public sealed record Options(bool Verbose);
-    private readonly ILogger _logger;
-    private readonly Options _options;
+    Program _dnvm;
+    Options? _options;
+    public new sealed record Options(bool Verbose);
 
-    public static Command Command
+    public async Task<int> Handle(bool verbose)
     {
-        get
-        {
-            Command update = new("update", "Update dnvm itself with the latest released version.");
-
-            System.CommandLine.Option<bool> verbose = new(new[] { "--verbose", "-v" });
-            update.Add(verbose);
-
-            update.SetHandler(Handle, verbose);
-            return update;
-        }
-    }
-
-    public static async Task<int> Handle(bool verbose)
-    {
-        var update = new Update(Logger.Default, new Options(verbose));
-        var exit = await update.Handle();
+        _options = new Options(verbose);
+        var exit = await this.Handle();
         return exit;
     }
 
-    public Update(ILogger logger, Options options)
+    public Update(Program dnvm) : base("update")
     {
-        _logger = logger;
-        _options = options;
-        if (_options.Verbose)
-        {
-            _logger.LogLevel = LogLevel.Info;
-        }
+        _dnvm = dnvm;
+        System.CommandLine.Option<bool> verbose = new(new[] { "--verbose", "-v" });
+        this.Add(verbose);
+
+        this.SetHandler(Handle, verbose);
     }
 
     public async Task<int> Handle()
@@ -61,12 +46,12 @@ sealed partial class Update
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Action<string> handleDownload = tempDownloadPath =>
         {
-            _logger.Info("Extraction directory: " + tempArchiveDir);
+            _dnvm.Logger.Info("Extraction directory: " + tempArchiveDir);
             ZipFile.ExtractToDirectory(tempDownloadPath, tempArchiveDir);
         };
 
-        await DownloadBinaryToTempAndDelete(artifactDownloadLink, handleDownload);
-        _logger.Info($"Downloaded binary to {tempArchiveDir}");
+        await DownloadBinaryToTempAndDelete(new Uri(artifactDownloadLink), tempArchiveDir);
+        _dnvm.Logger.Info($"Downloaded binary to {tempArchiveDir}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.DnvmExeName);
         bool success =
@@ -94,31 +79,18 @@ sealed partial class Update
 
     private async Task<string> GetReleaseLink()
     {
-        string releasesJson = await Program.DefaultClient.GetStringAsync("https://commentout.com/dnvm/releases.json");
-        _logger.Info("Releases JSON: " + releasesJson);
+        string releasesJson = await new DefaultClient().GetStringAsync(new Uri("https://commentout.com/dnvm/releases.json"));
+        _dnvm.Logger.Info("Releases JSON: " + releasesJson);
         var releases = JsonSerializer.Deserialize<Releases>(releasesJson);
         var rid = Utilities.CurrentRID.ToString();
         var artifactDownloadLink = releases.LatestVersion.Artifacts[rid];
-        _logger.Info("Artifact download link: " + artifactDownloadLink);
+        _dnvm.Logger.Info("Artifact download link: " + artifactDownloadLink);
         return artifactDownloadLink;
     }
 
-    private async Task DownloadBinaryToTempAndDelete(string uri, Action<string> action)
+    private async Task DownloadBinaryToTempAndDelete(Uri uri, string action)
     {
-        string tempDownloadPath = Path.GetTempFileName();
-        using (var tempFile = new FileStream(
-            tempDownloadPath,
-            FileMode.Open,
-            FileAccess.Write,
-            FileShare.Read,
-            64 * 1024 /* 64kB */,
-            FileOptions.WriteThrough | FileOptions.DeleteOnClose))
-        using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri))
-        {
-            await archiveHttpStream.CopyToAsync(tempFile);
-            await tempFile.FlushAsync();
-            action(tempDownloadPath);
-        }
+        await _dnvm.Client.DownloadArchiveAndExtractAsync(uri, action);
     }
 
     public async Task<bool> ValidateBinary(string fileName)
@@ -128,7 +100,7 @@ sealed partial class Update
         {
             var chmod = Process.Start("chmod", $"+x \"{fileName}\"");
             await chmod.WaitForExitAsync();
-            _logger.Info("chmod return: " + chmod.ExitCode);
+            _dnvm.Logger.Info("chmod return: " + chmod.ExitCode);
         }
 
         // Run exe and make sure it's OK
@@ -145,7 +117,7 @@ sealed partial class Update
             var output = await ps.StandardOutput.ReadToEndAsync();
             if (ps.ExitCode != 0 || !output.Contains("usage: "))
             {
-                _logger.Error("Could not run downloaded dnvm");
+                _dnvm.Logger.Error("Could not run downloaded dnvm");
                 return false;
             }
         }
@@ -157,16 +129,16 @@ sealed partial class Update
         try
         {
             string backupPath = Utilities.ProcessPath + ".bak";
-            _logger.Info($"Swapping {Utilities.ProcessPath} with downloaded version at {newFileName}");
+            _dnvm.Logger.Info($"Swapping {Utilities.ProcessPath} with downloaded version at {newFileName}");
             File.Move(Utilities.ProcessPath, backupPath);
             File.Move(newFileName, Utilities.ProcessPath, overwrite: false);
-            _logger.Log("Process successfully upgraded");
+            _dnvm.Logger.Log("Process successfully upgraded");
             File.Delete(backupPath);
             return true;
         }
         catch (Exception e)
         {
-            _logger.Error("Couldn't replace existing binary: " + e.Message);
+            _dnvm.Logger.Error("Couldn't replace existing binary: " + e.Message);
             return false;
         }
     }
