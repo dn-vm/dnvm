@@ -55,6 +55,7 @@ namespace Dnvm
 			return acc;
 		}
 
+		// Tar manual: https://www.gnu.org/software/tar/manual/html_node/Standard.html
 		public static void ExtractTar(Stream stream, string outputDir)
 		{
 			int bufSize = 1024 * 1024;
