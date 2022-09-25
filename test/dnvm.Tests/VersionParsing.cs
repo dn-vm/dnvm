@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Tasks;
 using static Dnvm.Version;
 namespace Dnvm.Tests
 {
@@ -26,10 +25,5 @@ namespace Dnvm.Tests
 			Assert.Throws<DnvmException>(From(""));
 		}
 		// ToString tests
-		[Fact]
-		public async Task ASDF()
-		{
-			await new DefaultClient().DownloadArchiveAndExtractAsync(new Uri("https://dotnetbuilds.azureedge.net/public/Sdk/7.0.100-rtm.22473.5/dotnet-sdk-7.0.100-rtm.22473.5-linux-x64.tar.gz"), "C:\\Users\\jschuster\\Downloads\\");
-		}
 	}
 }
