@@ -19,7 +19,7 @@ namespace Dnvm
 				if (!uri.Segments[^1].EndsWith(".zip"))
 					ExtractTarGz(rawStream, extractPath);
 				else
-					await ExtractZip(rawStream, extractPath);
+					ExtractZip(rawStream, extractPath);
 			}
 		}
 
@@ -106,7 +106,7 @@ namespace Dnvm
 			}
 		}
 
-		static async Task ExtractZip(Stream stream, string extractPath)
+		static void ExtractZip(Stream stream, string extractPath)
 		{
 			ZipArchive za = new(stream);
 			za.ExtractToDirectory(extractPath);

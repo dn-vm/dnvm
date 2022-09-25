@@ -14,5 +14,4 @@ internal partial class Active : Command
 		this.Add(get);
 	}
 
-	static string PathFlag = "#<!- DNVM_DIR ->";
 }

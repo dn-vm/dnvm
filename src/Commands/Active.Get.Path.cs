@@ -23,6 +23,9 @@ internal partial class Active
 				_dnvm.Logger.Log(NewPath);
 				return Task.FromResult(0);
 			}
+
+			static string PathFlag = "*!--DNVM_DIR--*";
+
 			public string NewPath
 			{
 				get
