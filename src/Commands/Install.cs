@@ -106,6 +106,10 @@ internal sealed partial class Install : Command
 
 	public async Task<int> Handle()
 	{
+		if (_options.Verbose)
+		{
+			_dnvm.Logger.LogLevel = LogLevel.Info;
+		}
 		_dnvm.Logger.Info("Install Directory: " + _options.Path);
 
 		await EnsureExactVersion();
