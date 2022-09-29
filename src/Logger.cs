@@ -3,13 +3,13 @@ using System;
 
 namespace Dnvm;
 
-enum LogLevel
+public enum LogLevel
 {
     Normal = 1,
     Info = 2
 }
 
-internal sealed class Logger
+public sealed class Logger
 {
     // Mutable for now, should be immutable once the command line parser supports global options
     public LogLevel LogLevel = LogLevel.Normal;

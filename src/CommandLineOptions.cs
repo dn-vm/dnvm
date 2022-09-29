@@ -4,14 +4,14 @@ using Internal.CommandLine;
 
 namespace Dnvm;
 
-enum Channel
+public enum Channel
 {
     LTS,
     Current,
     Preview
 }
 
-abstract record Command
+public abstract record Command
 {
     private Command() {}
     public sealed record InstallOptions : Command
@@ -22,6 +22,7 @@ abstract record Command
         public bool Self { get; init; } = false;
         public bool Prereqs { get; init; } = false;
         public bool Global { get; init; } = false;
+        public string? TargetUrl { get; init; } = null;
     }
 
     public sealed record UpdateOptions : Command

@@ -14,16 +14,13 @@ using static System.Environment;
 
 namespace Dnvm;
 
-sealed class Install
+public sealed class Install
 {
-    private static string s_defaultInstallDir = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
-    private static string s_globalInstallDir =
-        Utilities.CurrentRID.OS == OSPlatform.Windows ?
-            Path.Combine(Environment.GetFolderPath(SpecialFolder.ProgramFiles), "dotnet")
-        : Utilities.CurrentRID.OS == OSPlatform.OSX ?
-            "/usr/local/share/dotnet" // MacOS no longer lets anyone mess with /usr/share, even as root
-        :
-            "/usr/share/dotnet";
+    private static readonly string s_defaultInstallDir = Path.Combine(GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
+    private static readonly string s_globalInstallDir =
+        Utilities.CurrentRID.OS == OSPlatform.Windows ? Path.Combine(GetFolderPath(SpecialFolder.ProgramFiles), "dotnet")
+        : Utilities.CurrentRID.OS == OSPlatform.OSX ? "/usr/local/share/dotnet" // MacOS no longer lets anyone mess with /usr/share, even as root
+        : "/usr/share/dotnet";
 
     private readonly string _installDir;
     private readonly string _manifestPath;
@@ -108,10 +105,12 @@ sealed class Install
             return await RunSelfInstall();
         }
 
-        var feeds = new[] {
-            "https://dotnetcli.azureedge.net/dotnet",
-            "https://dotnetbuilds.azureedge.net/public"
-        };
+        var feeds = _options.TargetUrl is not null
+            ? new[] { _options.TargetUrl }
+            : new[] {
+                "https://dotnetcli.azureedge.net/dotnet",
+                "https://dotnetbuilds.azureedge.net/public"
+            };
 
         string feed = feeds[0];
 
