@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\dnvm.csproj" />
+    <ProjectReference Include="..\src\dnvm.csproj" />
   </ItemGroup>
 
 </Project>

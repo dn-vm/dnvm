@@ -4,8 +4,10 @@ using StaticCs;
 
 namespace Dnvm;
 
-static class Utilities
+public static class Utilities
 {
+    public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? "zip" : "tar.gz";
+
     public static readonly RID CurrentRID = new RID(
         GetCurrentOSPlatform(),
         RuntimeInformation.ProcessArchitecture,
@@ -28,13 +30,13 @@ static class Utilities
 }
 
 [Closed]
-internal enum Libc
+public enum Libc
 {
     Default, // Not a real libc, refers to the most common platform libc
     Musl
 }
 
-internal readonly record struct RID(
+public readonly record struct RID(
     OSPlatform OS,
     Architecture Arch,
     Libc Libc = Libc.Default)
@@ -50,6 +52,7 @@ internal readonly record struct RID(
         string arch = Arch switch
         {
             Architecture.X64 => "x64",
+            Architecture.Arm64 => "arm64",
             _ => throw new NotSupportedException("Unsupported architecture")
         };
         return Libc switch

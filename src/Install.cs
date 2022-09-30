@@ -28,6 +28,19 @@ public sealed class Install
     private readonly Logger _logger;
     private readonly Command.InstallOptions _options;
 
+    public Install(Logger logger, Command.InstallOptions options)
+    {
+        _logger = logger;
+        _options = options;
+        if (_options.Verbose)
+        {
+            _logger.LogLevel = LogLevel.Info;
+        }
+        _installDir = options.InstallPath ??
+            (options.Global ? s_globalInstallDir : s_defaultInstallDir);
+        _manifestPath = Path.Combine(_installDir, "dnvmManifest.json");
+    }
+
     private async Task<int> LinuxAddToPath(string pathToAdd)
     {
         string addToPath = $"PATH=$PATH:{pathToAdd}";
@@ -71,18 +84,6 @@ public sealed class Install
         return await UnixAddToPathInShellFiles(pathToAdd);
     }
 
-    public Install(Logger logger, Command.InstallOptions options)
-    {
-        _logger = logger;
-        _options = options;
-        if (_options.Verbose)
-        {
-            _logger.LogLevel = LogLevel.Info;
-        }
-        _installDir = options.Global ? s_globalInstallDir : s_defaultInstallDir;
-        _manifestPath = Path.Combine(_installDir, "dnvmManifest.json");
-    }
-
     public async Task<int> Handle()
     {
         _logger.Info("Install Directory: " + _installDir);
@@ -105,8 +106,8 @@ public sealed class Install
             return await RunSelfInstall();
         }
 
-        var feeds = _options.TargetUrl is not null
-            ? new[] { _options.TargetUrl }
+        var feeds = _options.FeedUrl is not null
+            ? new[] { _options.FeedUrl }
             : new[] {
                 "https://dotnetcli.azureedge.net/dotnet",
                 "https://dotnetbuilds.azureedge.net/public"
@@ -116,11 +117,7 @@ public sealed class Install
 
         RID rid = Utilities.CurrentRID;
 
-        string zipSuffiz = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "zip"
-            : "tar.gz";
-
-        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, zipSuffiz);
+        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, Utilities.ZipSuffix);
         if (latestVersion is null)
         {
             Console.Error.WriteLine("Could not fetch the latest package version");
@@ -144,7 +141,7 @@ public sealed class Install
             return 0;
         }
 
-        string archiveName = ConstructArchiveName(latestVersion, rid, zipSuffiz);
+        string archiveName = ConstructArchiveName(latestVersion, rid, Utilities.ZipSuffix);
         string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
         _logger.Info("Archive path: " + archivePath);
 
@@ -166,7 +163,7 @@ public sealed class Install
             }
         }
 
-        await AddToPath(_installDir);
+        await AddToPath();
 
         var newWorkload = new Workload { Version = latestVersion };
         if (!manifest.Workloads.Contains(newWorkload))
@@ -215,7 +212,7 @@ public sealed class Install
 
     static string ConstructDownloadLink(string feed, string latestVersion, string archiveName)
     {
-        return $"{feed}/Sdk/{latestVersion}/{archiveName}";
+        return $"{feed}Sdk/{latestVersion}/{archiveName}";
     }
 
     private async Task<string?> GetLatestVersion(
@@ -225,16 +222,16 @@ public sealed class Install
         string suffix)
     {
         string latestVersion;
-        // The dotnet service provides an endpoint for fetching the latest LTS and Current versions,
-        // but not preview. We'll have to construct that ourselves from aka.ms.
+        // The dotnet service provides an endpoint for fetching the latest LTS and Current versions
         if (channel != Channel.Preview)
         {
-            string versionFileUrl = $"{feed}/Sdk/{channel.ToString()}/latest.version";
+            string versionFileUrl = $"{feed}Sdk/{channel.ToString()}/latest.version";
             _logger.Info("Fetching latest version from URL " + versionFileUrl);
             latestVersion = await Program.DefaultClient.GetStringAsync(versionFileUrl);
         }
         else
         {
+            // There's no endpoint for preview versions. We'll have to construct that ourselves from aka.ms.
             const string PreviewMajorVersion = "7.0";
             var versionlessArchiveName = ConstructArchiveName(null, rid, suffix);
             string akaMsUrl = $"https://aka.ms/dotnet/{PreviewMajorVersion}/preview/{versionlessArchiveName}";
@@ -306,12 +303,12 @@ esac
         }
 
         // Set up path
-        await AddToPath(_installDir);
+        await AddToPath();
 
         return 0;
     }
 
-    private async Task<int> AddToPath(string path)
+    private async Task<int> AddToPath()
     {
         if (Utilities.CurrentRID.OS == OSPlatform.Windows)
         {
