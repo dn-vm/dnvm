@@ -26,15 +26,12 @@ internal readonly record struct TempDirectory(string Path) : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(Path))
+        try
         {
-            try
-            {
-                Directory.Delete(Path, recursive: true);
-            }
-            catch
-            {
-            }
+            Directory.Delete(Path, recursive: true);
+        }
+        catch
+        {
         }
     }
 }
