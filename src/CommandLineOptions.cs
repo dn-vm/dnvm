@@ -4,14 +4,14 @@ using Internal.CommandLine;
 
 namespace Dnvm;
 
-enum Channel
+public enum Channel
 {
     LTS,
     Current,
     Preview
 }
 
-abstract record Command
+public abstract record Command
 {
     private Command() {}
     public sealed record InstallOptions : Command
@@ -22,6 +22,14 @@ abstract record Command
         public bool Self { get; init; } = false;
         public bool Prereqs { get; init; } = false;
         public bool Global { get; init; } = false;
+        /// <summary>
+        /// Set the URL to the dotnet feed to install from.
+        /// </summary>
+        public string? FeedUrl { get; init; } = null;
+        /// <summary>
+        /// Path to install to.
+        /// </summary>
+        public string? InstallPath { get; init; } = null;
     }
 
     public sealed record UpdateOptions : Command
