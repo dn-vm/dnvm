@@ -13,12 +13,16 @@
     <RuntimeIdentifier>$(NETCoreSdkPortableRuntimeIdentifier)</RuntimeIdentifier>
   </PropertyGroup>
 
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'osx-x64'">
+    <CustomLinkerArg Include="-target x86_64-apple-darwin-macho" />
+  </ItemGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="env.sh" />
 
     <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.5.22301.12" />
-
     <PackageReference Include="runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.5.22301.12" />
+
     <PackageReference Include="serde-dn" Version="0.3.1" />
     <PackageReference Include="StaticCs" Version="0.2.0" />
   </ItemGroup>

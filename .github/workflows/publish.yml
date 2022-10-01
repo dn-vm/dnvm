@@ -24,10 +24,14 @@ jobs:
       uses: actions/setup-dotnet@v2
       with:
         dotnet-version: 7.0.100-preview.4.22252.9
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet publish -r ${{ matrix.rid }} -c Release
+    - name: Restore local tools
+      run: dotnet tool restore
+    - name: Publish
+      if: ${{ matrix.os }} == 'windows-latest'
+      run: ./publish.ps1
+    - name: Publish
+      if: ${{ matrix.os }} != 'windows-latest'
+      run: ./publish.sh
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
@@ -35,4 +39,3 @@ jobs:
          name: dnvm ${{ matrix.rid }}
          # A file, directory or wildcard pattern that describes what to upload
          path: artifacts/bin/dnvm/Release/net7.0/${{ matrix.rid }}/publish/dnvm${{ matrix.exeSuffix }}
-        # The desired behavior if no files are found using the provided path.
