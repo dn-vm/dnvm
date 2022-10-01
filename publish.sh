@@ -5,7 +5,7 @@ set -u
 
 echo "Running"
 
-version=`dotnet gitversion /showvariable semver`
+version=$(dotnet gitversion /showvariable semver)
 
 # On osx we always use x64 for the moment as NativeAOT doesn't support osx-arm64
 if [[ $(uname) == 'Darwin' ]]; then
