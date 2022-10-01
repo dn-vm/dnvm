@@ -121,16 +121,18 @@ public sealed class Install
         var result = JsonSerializer.Serialize(manifest);
         _logger.Info("Existing manifest: " + result);
 
-        using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough | FileOptions.DeleteOnClose))
+        using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
         using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
         {
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
-            _logger.Info($"Installing to {_installDir}");
-            if (await ExtractArchiveToDir(archivePath, _installDir) != 0)
-            {
-                return Result.ExtractFailed;
-            }
+        }
+        _logger.Info($"Installing to {_installDir}");
+        int extractResult = await ExtractArchiveToDir(archivePath, _installDir);
+        File.Delete(archivePath);
+        if (extractResult != 0)
+        {
+            return Result.ExtractFailed;
         }
 
         await AddToPath();
@@ -302,7 +304,7 @@ esac
             return 1;
         }
 
-        var procPath = Environment.ProcessPath;
+        var procPath = Utilities.ProcessPath;
         _logger.Info("Location of running exe" + procPath);
 
         var targetPath = Path.Combine(_installDir, Utilities.ExeName);
