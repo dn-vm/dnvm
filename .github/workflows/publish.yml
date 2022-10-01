@@ -28,6 +28,7 @@ jobs:
       run: dotnet tool restore
     - name: Publish Windows
       if: matrix.os == "windows-latest"
+      shell: pwsh
       run: ./publish.ps1
     - name: Publish Unix
       if: matrix.os != "windows-latest"
