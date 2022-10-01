@@ -13,4 +13,4 @@ else
 fi
 
 dotnet publish --sc -r $rid -c Release src/dnvm.csproj
-tar -C artifacts/bin/dnvm/Release/net7.0/$rid/publish/ -cvzf artifacts/dnvm-$version-$rid.tar.gz dnvm
+tar -C ./artifacts/bin/dnvm/Release/net7.0/$rid/publish/ -cvzf ./artifacts/dnvm-$version-$rid.tar.gz dnvm
