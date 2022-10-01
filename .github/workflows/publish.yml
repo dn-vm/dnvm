@@ -27,11 +27,11 @@ jobs:
     - name: Restore local tools
       run: dotnet tool restore
     - name: Publish Windows
-      if: matrix.os == "windows-latest"
+      if: matrix.os == 'windows-latest'
       shell: pwsh
       run: ./publish.ps1
     - name: Publish Unix
-      if: matrix.os != "windows-latest"
+      if: matrix.os != 'windows-latest'
       run: ./publish.sh
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0

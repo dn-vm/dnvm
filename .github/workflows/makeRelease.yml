@@ -32,7 +32,7 @@ jobs:
     - name: Build
       run: dotnet publish -r ${{ matrix.rid }} -c Release
     - name: Zip Output Windows
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == "windows-latest"
       shell: pwsh
       run: Compress-Archive artifacts/bin/dnvm/Release/net7.0/${{ matrix.rid }}/publish/dnvm.exe  dnvm-win-x64.zip
     - name: Zip Output Unix
