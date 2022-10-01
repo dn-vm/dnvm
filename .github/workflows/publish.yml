@@ -26,11 +26,11 @@ jobs:
         dotnet-version: 7.0.100-preview.4.22252.9
     - name: Restore local tools
       run: dotnet tool restore
-    - name: Publish
-      if: matrix.os == "windows-latest"
+    - if: matrix.os == "windows-latest"
+      name: Publish
       run: ./publish.ps1
-    - name: Publish
-      if: matrix.os != "windows-latest"
+    - if: matrix.os != "windows-latest"
+      name: Publish
       run: ./publish.sh
 
     - name: Upload a Build Artifact
