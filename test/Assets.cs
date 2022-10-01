@@ -1,5 +1,7 @@
 
 using System.Diagnostics;
+using System.IO.Compression;
+using System.Runtime.InteropServices;
 using static Dnvm.Test.TestUtils;
 
 namespace Dnvm.Test;
@@ -18,21 +20,29 @@ sealed class Assets
         var archivePath = Path.Combine(ArtifactsTestDir.FullName, archiveName);
         try
         {
-            return File.OpenRead(archivePath);
+            return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         }
         catch { }
 
         try
         {
-            Process.Start(new ProcessStartInfo
+            var srcDir = Path.Combine(AssetsDir, FakeSdkNameAndVersion);
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
             {
-                FileName = "tar",
-                Arguments = $"-cvzf {archivePath} .",
-                WorkingDirectory = Path.Combine(AssetsDir, FakeSdkNameAndVersion)
-            })!.WaitForExit();
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "tar",
+                    Arguments = $"-cvzf {archivePath} .",
+                    WorkingDirectory = srcDir
+                })!.WaitForExit();
+            }
+            else
+            {
+                ZipFile.CreateFromDirectory(srcDir, archivePath);
+            }
         }
         catch { }
-        return File.OpenRead(archivePath);
+        return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
     }
 
     private const string FakeSdkNameAndVersion = "fakesdk-42.42.42";
