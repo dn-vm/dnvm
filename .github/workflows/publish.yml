@@ -27,10 +27,10 @@ jobs:
     - name: Restore local tools
       run: dotnet tool restore
     - name: Publish
-      if: ${{ matrix.os }} == 'windows-latest'
+      if: matrix.os == "windows-latest"
       run: ./publish.ps1
     - name: Publish
-      if: ${{ matrix.os }} != 'windows-latest'
+      if: matrix.os != "windows-latest"
       run: ./publish.sh
 
     - name: Upload a Build Artifact
