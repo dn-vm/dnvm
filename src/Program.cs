@@ -15,9 +15,15 @@ public static class Program
         var logger = new Logger();
         return options.Command switch
         {
-            Command.InstallOptions o => new Install(logger, o).Handle(),
+            Command.InstallOptions o => RunInstall(logger, o),
             Command.UpdateOptions o => new Update(logger, o).Handle(),
             _ => throw new InvalidOperationException("Should be unreachable")
         };
+
+        static async Task<int> RunInstall(Logger logger, Command.InstallOptions o)
+        {
+            var result = await (new Install(logger, o).Handle());
+            return (int)result;
+        }
     }
 }

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.IO.MemoryMappedFiles;
 using System.Net;
 using System.Net.Http;
@@ -28,6 +29,16 @@ public sealed class Install
     private readonly Logger _logger;
     private readonly Command.InstallOptions _options;
 
+    public enum Result
+    {
+        Success = 0,
+        CouldntFetchLatestVersion,
+        InstallLocationNotWritable,
+        NotASingleFile,
+        ExtractFailed,
+        SelfInstallFailed,
+    }
+
     public Install(Logger logger, Command.InstallOptions options)
     {
         _logger = logger;
@@ -39,6 +50,100 @@ public sealed class Install
         _installDir = options.InstallPath ??
             (options.Global ? s_globalInstallDir : s_defaultInstallDir);
         _manifestPath = Path.Combine(_installDir, "dnvmManifest.json");
+    }
+
+    public async Task<Result> Handle()
+    {
+        _logger.Info("Install Directory: " + _installDir);
+        if (_options.Global)
+        {
+            try
+            {
+                Directory.CreateDirectory(_installDir);
+                using var _ = File.OpenWrite(_manifestPath);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                _logger.Error($"Cannot access global install location. Make sure you are running as {(Utilities.CurrentRID.OS == OSPlatform.Windows ? "administrator" : "root")}.");
+                return Result.InstallLocationNotWritable;
+            }
+        }
+
+        if (_options.Self)
+        {
+            return await RunSelfInstall() == 0
+                ? Result.Success
+                : Result.SelfInstallFailed;
+        }
+
+        var feeds = _options.FeedUrl is not null
+            ? new[] { _options.FeedUrl }
+            : new[] {
+                "https://dotnetcli.azureedge.net/dotnet",
+                "https://dotnetbuilds.azureedge.net/public"
+            };
+
+        string feed = feeds[0];
+
+        RID rid = Utilities.CurrentRID;
+
+        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, Utilities.ZipSuffix);
+        if (latestVersion is null)
+        {
+            Console.Error.WriteLine("Could not fetch the latest package version");
+            return Result.CouldntFetchLatestVersion;
+        }
+
+        Manifest? manifest = null;
+        try
+        {
+            manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_manifestPath));
+        }
+        catch
+        {
+            // Ignore exceptions
+            manifest = new Manifest();
+        }
+
+        if (!_options.Force && manifest.Workloads.Contains(new Workload() { Version = latestVersion }))
+        {
+            Console.WriteLine($"Version {latestVersion} is the latest available version and is already installed.");
+            return 0;
+        }
+
+        string archiveName = ConstructArchiveName(latestVersion, rid, Utilities.ZipSuffix);
+        string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
+        _logger.Info("Archive path: " + archivePath);
+
+        string link = ConstructDownloadLink(feed, latestVersion, archiveName);
+        _logger.Info("Download link: " + link);
+
+        var result = JsonSerializer.Serialize(manifest);
+        _logger.Info("Existing manifest: " + result);
+
+        using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough | FileOptions.DeleteOnClose))
+        using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
+        {
+            await archiveHttpStream.CopyToAsync(tempArchiveFile);
+            await tempArchiveFile.FlushAsync();
+            _logger.Info($"Installing to {_installDir}");
+            if (await ExtractArchiveToDir(archivePath, _installDir) != 0)
+            {
+                return Result.ExtractFailed;
+            }
+        }
+
+        await AddToPath();
+
+        var newWorkload = new Workload { Version = latestVersion };
+        if (!manifest.Workloads.Contains(newWorkload))
+        {
+            _logger.Info($"Adding workload {newWorkload} to manifest.");
+            manifest = manifest with { Workloads = manifest.Workloads.Add(newWorkload) };
+        }
+        File.WriteAllText(_manifestPath, JsonSerializer.Serialize(manifest));
+        _logger.Info("Writing manifest");
+        return 0;
     }
 
     private async Task<int> LinuxAddToPath(string pathToAdd)
@@ -84,102 +189,10 @@ public sealed class Install
         return await UnixAddToPathInShellFiles(pathToAdd);
     }
 
-    public async Task<int> Handle()
-    {
-        _logger.Info("Install Directory: " + _installDir);
-        if (_options.Global)
-        {
-            try
-            {
-                Directory.CreateDirectory(_installDir);
-                using var _ = File.OpenWrite(_manifestPath);
-            }
-            catch (System.UnauthorizedAccessException)
-            {
-                _logger.Error($"Cannot access global install location. Make sure you are running as {(Utilities.CurrentRID.OS == OSPlatform.Windows ? "administrator" : "root")}.");
-                return 1;
-            }
-        }
-
-        if (_options.Self)
-        {
-            return await RunSelfInstall();
-        }
-
-        var feeds = _options.FeedUrl is not null
-            ? new[] { _options.FeedUrl }
-            : new[] {
-                "https://dotnetcli.azureedge.net/dotnet",
-                "https://dotnetbuilds.azureedge.net/public"
-            };
-
-        string feed = feeds[0];
-
-        RID rid = Utilities.CurrentRID;
-
-        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, Utilities.ZipSuffix);
-        if (latestVersion is null)
-        {
-            Console.Error.WriteLine("Could not fetch the latest package version");
-            return 1;
-        }
-
-        Manifest? manifest = null;
-        try
-        {
-            manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_manifestPath));
-        }
-        catch
-        {
-            // Ignore exceptions
-            manifest = new Manifest();
-        }
-
-        if (!_options.Force && manifest.Workloads.Contains(new Workload() { Version = latestVersion }))
-        {
-            Console.WriteLine($"Version {latestVersion} is the latest available version and is already installed.");
-            return 0;
-        }
-
-        string archiveName = ConstructArchiveName(latestVersion, rid, Utilities.ZipSuffix);
-        string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
-        _logger.Info("Archive path: " + archivePath);
-
-        string link = ConstructDownloadLink(feed, latestVersion, archiveName);
-        _logger.Info("Download link: " + link);
-
-        var result = JsonSerializer.Serialize(manifest);
-        _logger.Info("Existing manifest: " + result);
-
-        using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough | FileOptions.DeleteOnClose))
-        using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
-        {
-            await archiveHttpStream.CopyToAsync(tempArchiveFile);
-            await tempArchiveFile.FlushAsync();
-            _logger.Info($"Installing to {_installDir}");
-            if (await ExtractArchiveToDir(archivePath, _installDir) != 0)
-            {
-                return 1;
-            }
-        }
-
-        await AddToPath();
-
-        var newWorkload = new Workload { Version = latestVersion };
-        if (!manifest.Workloads.Contains(newWorkload))
-        {
-            _logger.Info($"Adding workload {newWorkload} to manifest.");
-            manifest = manifest with { Workloads = manifest.Workloads.Add(newWorkload) };
-        }
-        File.WriteAllText(_manifestPath, JsonSerializer.Serialize(manifest));
-        _logger.Info("Writing manifest");
-        return 0;
-    }
-
     static async Task<int> ExtractArchiveToDir(string archivePath, string dirPath)
     {
         Directory.CreateDirectory(dirPath);
-        if (!(Utilities.CurrentRID.OS == OSPlatform.Windows))
+        if (Utilities.CurrentRID.OS != OSPlatform.Windows)
         {
             var psi = new ProcessStartInfo()
             {
@@ -194,6 +207,17 @@ public sealed class Install
                 return p.ExitCode;
             }
             return 1;
+        }
+        else
+        {
+            try
+            {
+                ZipFile.ExtractToDirectory(archivePath, dirPath);
+            }
+            catch
+            {
+                return 1;
+            }
         }
         return 0;
     }

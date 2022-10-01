@@ -53,7 +53,7 @@ sealed partial class Update
         _logger.Info($"Downloaded binary to {tempArchiveDir}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
-        bool success = 
+        bool success =
             await ValidateBinary(dnvmTmpPath) &&
             SwapWithRunningFile(dnvmTmpPath);
         return success ? 0 : 1;
@@ -66,7 +66,7 @@ sealed partial class Update
     {
         public Release LatestVersion { get; init; }
     }
-    
+
     [GenerateDeserialize]
     [SerdeTypeOptions(MemberFormat = MemberFormat.CamelCase)]
     partial struct Release
@@ -136,7 +136,7 @@ sealed partial class Update
         return true;
     }
 
-    public bool SwapWithRunningFile(string newFileName) 
+    public bool SwapWithRunningFile(string newFileName)
     {
         try
         {
