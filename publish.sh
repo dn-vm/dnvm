@@ -2,9 +2,6 @@
 
 set -e
 set -u
-set -x
-
-echo "Running"
 
 version=$(dotnet gitversion /showvariable semver)
 
