@@ -11,7 +11,7 @@ using Serde.Json;
 
 namespace Dnvm;
 
-sealed partial class Update
+public sealed partial class Update
 {
     private readonly Logger _logger;
     private readonly Command.UpdateOptions _options;
@@ -60,21 +60,13 @@ sealed partial class Update
     }
 
 
-    [GenerateDeserialize]
-    [SerdeTypeOptions(MemberFormat = MemberFormat.CamelCase)]
-    partial struct Releases
-    {
-        public Release LatestVersion { get; init; }
-    }
+    [GenerateSerialize, GenerateDeserialize]
+    public partial record struct Releases(Release LatestVersion);
 
-    [GenerateDeserialize]
-    [SerdeTypeOptions(MemberFormat = MemberFormat.CamelCase)]
-    partial struct Release
-    {
-        public string Version { get; init; }
-
-        public Dictionary<string, string> Artifacts { get; init; }
-    }
+    [GenerateSerialize, GenerateDeserialize]
+    public partial record struct Release(
+        string Version,
+        Dictionary<string, string> Artifacts);
 
     private async Task<string> GetReleaseLink()
     {
@@ -132,8 +124,9 @@ sealed partial class Update
                 _logger.Error("Could not run downloaded dnvm");
                 return false;
             }
+            return true;
         }
-        return true;
+        return false;
     }
 
     public bool SwapWithRunningFile(string newFileName)
