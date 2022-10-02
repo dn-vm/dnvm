@@ -1,7 +1,7 @@
 name: Publish
 
 on:
-  pull_request:
+  merge:
     branches: [ "main" ]
 
 jobs:
@@ -20,17 +20,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
     - name: Setup .NET
       uses: actions/setup-dotnet@v2
       with:
         dotnet-version: 7.0.100-preview.4.22252.9
     - name: Restore local tools
       run: dotnet tool restore
-    - name: Publish
-      if: ${{ matrix.os }} == 'windows-latest'
+    - name: Publish Windows
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
       run: ./publish.ps1
-    - name: Publish
-      if: ${{ matrix.os }} != 'windows-latest'
+    - name: Publish Unix
+      if: matrix.os != 'windows-latest'
       run: ./publish.sh
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
