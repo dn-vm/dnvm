@@ -11,6 +11,7 @@ public static class Program
 
     static Task<int> Main(string[] args)
     {
+        Console.WriteLine("dnvm " + GitVersionInformation.SemVer + " " + GitVersionInformation.Sha);
         var options = CommandLineOptions.Parse(args);
         var logger = new Logger();
         return options.Command switch
@@ -22,7 +23,7 @@ public static class Program
 
         static async Task<int> RunInstall(Logger logger, Command.InstallOptions o)
         {
-            var result = await (new Install(logger, o).Handle());
+            var result = await new Install(logger, o).Handle();
             return (int)result;
         }
     }

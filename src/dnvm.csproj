@@ -19,6 +19,9 @@
 
   <ItemGroup>
     <EmbeddedResource Include="env.sh" />
+    <PackageReference Include="GitVersion.MSBuild" Version="5.10.3">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
 
     <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.5.22301.12" />
     <PackageReference Include="runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.5.22301.12" />
