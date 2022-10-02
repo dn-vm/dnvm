@@ -67,7 +67,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Build web content
-        run: dotnet run tools/UpdateVersionJson/UpdateVersionJson.csproj
+        run: dotnet run --project tools/UpdateVersionJson/UpdateVersionJson.csproj
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v3
         with:
