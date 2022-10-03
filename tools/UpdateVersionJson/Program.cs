@@ -1,11 +1,11 @@
 ﻿
-// Usage: UpdateVersionJson <version>
+// Usage: UpdateVersionJson [version]
 
 using System.Runtime.CompilerServices;
 using Dnvm;
 using Serde.Json;
 
-var version = GitVersionInformation.SemVer;
+var version = args.Length > 0 ? args[0] : GitVersionInformation.SemVer;
 var rids = new[] { "linux-x64", "osx-x64", "win-x64" };
 var artifacts = new Dictionary<string, string>();
 foreach (var rid in rids)
