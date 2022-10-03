@@ -10,7 +10,7 @@ var rids = new[] { "linux-x64", "osx-x64", "win-x64" };
 var artifacts = new Dictionary<string, string>();
 foreach (var rid in rids)
 {
-    var zipSuffix = rid.StartsWith("windows") ? "zip" : "tar.gz";
+    var zipSuffix = rid.StartsWith("win") ? "zip" : "tar.gz";
     artifacts[rid] = $"https://github.com/agocke/dnvm/releases/download/v{version}/dnvm-{version}-{rid}.{zipSuffix}";
 }
 var releases = new Update.Releases(new Update.Release(version, artifacts));
