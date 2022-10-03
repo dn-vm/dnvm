@@ -58,7 +58,7 @@ jobs:
           prerelease: true
           draft: true
           files:
-            dnvm/dnvm-*
+            dnvm-*/dnvm-*
   gh-pages:
     needs: release
     runs-on: ubuntu-latest
