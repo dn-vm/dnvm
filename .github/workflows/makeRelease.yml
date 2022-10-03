@@ -56,9 +56,9 @@ jobs:
           prerelease: true
           draft: true
           files:
-            dnvm-*
+            dnvm/dnvm-*
   gh-pages:
-    needs: publish
+    needs: release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
