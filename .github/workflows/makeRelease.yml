@@ -43,7 +43,7 @@ jobs:
       with:
         name: dnvm-${{ matrix.rid }}.${{ matrix.zipSuffix }}
          # A file, directory or wildcard pattern that describes what to upload
-         path: artifacts/dnvm-*-${{ matrix.rid }}.${{ matrix.zipSuffix }}
+        path: artifacts/dnvm-*-${{ matrix.rid }}.${{ matrix.zipSuffix }}
   release:
     needs: publish
     runs-on: ubuntu-latest
