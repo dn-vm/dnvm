@@ -6,11 +6,12 @@ using Dnvm;
 using Serde.Json;
 
 var version = GitVersionInformation.SemVer;
-var rids = new[] { "linux-x64", "osx-x64", "windows-x64" };
+var rids = new[] { "linux-x64", "osx-x64", "win-x64" };
 var artifacts = new Dictionary<string, string>();
 foreach (var rid in rids)
 {
-    artifacts[rid] = $"https://github.com/agocke/dnvm/releases/download/v{version}/dnvm.{rid}.zip";
+    var zipSuffix = rid.StartsWith("windows") ? "zip" : "tar.gz";
+    artifacts[rid] = $"https://github.com/agocke/dnvm/releases/download/v{version}/dnvm-{version}-{rid}.{zipSuffix}";
 }
 var releases = new Update.Releases(new Update.Release(version, artifacts));
 
