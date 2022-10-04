@@ -43,10 +43,10 @@ public sealed partial class Update
         string artifactDownloadLink = await GetReleaseLink();
 
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Action<string> handleDownload = tempDownloadPath =>
+        Func<string, Task> handleDownload = async tempDownloadPath =>
         {
             _logger.Info("Extraction directory: " + tempArchiveDir);
-            ZipFile.ExtractToDirectory(tempDownloadPath, tempArchiveDir);
+            await Utilities.ExtractArchiveToDir(tempDownloadPath, tempArchiveDir);
         };
 
         await DownloadBinaryToTempAndDelete(artifactDownloadLink, handleDownload);
@@ -68,9 +68,10 @@ public sealed partial class Update
         string Version,
         Dictionary<string, string> Artifacts);
 
-    private async Task<string> GetReleaseLink()
+    public async Task<string> GetReleaseLink()
     {
-        string releasesJson = await Program.DefaultClient.GetStringAsync("https://commentout.com/dnvm/releases.json");
+        var releasesUrl = _options.ReleasesUrl ?? "https://agocke.github.io/dnvm/releases.json";
+        string releasesJson = await Program.DefaultClient.GetStringAsync(releasesUrl);
         _logger.Info("Releases JSON: " + releasesJson);
         var releases = JsonSerializer.Deserialize<Releases>(releasesJson);
         var rid = Utilities.CurrentRID.ToString();
@@ -79,22 +80,20 @@ public sealed partial class Update
         return artifactDownloadLink;
     }
 
-    private async Task DownloadBinaryToTempAndDelete(string uri, Action<string> action)
+    private static async Task DownloadBinaryToTempAndDelete(string uri, Func<string, Task> action)
     {
         string tempDownloadPath = Path.GetTempFileName();
-        using (var tempFile = new FileStream(
+        using var tempFile = new FileStream(
             tempDownloadPath,
             FileMode.Open,
             FileAccess.Write,
             FileShare.Read,
             64 * 1024 /* 64kB */,
-            FileOptions.WriteThrough | FileOptions.DeleteOnClose))
-        using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri))
-        {
-            await archiveHttpStream.CopyToAsync(tempFile);
-            await tempFile.FlushAsync();
-            action(tempDownloadPath);
-        }
+            FileOptions.WriteThrough | FileOptions.DeleteOnClose);
+        using var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri);
+        await archiveHttpStream.CopyToAsync(tempFile);
+        await tempFile.FlushAsync();
+        await action(tempDownloadPath);
     }
 
     public async Task<bool> ValidateBinary(string fileName)

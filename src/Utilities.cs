@@ -1,7 +1,11 @@
 
 
 using System;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using StaticCs;
 
 namespace Dnvm;
@@ -12,7 +16,7 @@ public static class Utilities
 
     public static readonly RID CurrentRID = new RID(
         GetCurrentOSPlatform(),
-        RuntimeInformation.ProcessArchitecture,
+        RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? Architecture.X64 : RuntimeInformation.ProcessArchitecture,
         RuntimeInformation.RuntimeIdentifier.Contains("musl") ? Libc.Musl : Libc.Default);
 
     private static OSPlatform GetCurrentOSPlatform()
@@ -29,6 +33,40 @@ public static class Utilities
     public static string ExeName = "dnvm" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
         ? ".exe"
         : "");
+
+    public static async Task<int> ExtractArchiveToDir(string archivePath, string dirPath)
+    {
+        Directory.CreateDirectory(dirPath);
+        if (Utilities.CurrentRID.OS != OSPlatform.Windows)
+        {
+            var psi = new ProcessStartInfo()
+            {
+                FileName = "tar",
+                ArgumentList = { "-xzf", $"{archivePath}", "-C", $"{dirPath}" },
+            };
+
+            var p = Process.Start(psi);
+            if (p is not null)
+            {
+                await p.WaitForExitAsync();
+                return p.ExitCode;
+            }
+            return 1;
+        }
+        else
+        {
+            try
+            {
+                ZipFile.ExtractToDirectory(archivePath, dirPath);
+            }
+            catch
+            {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
 }
 
 [Closed]

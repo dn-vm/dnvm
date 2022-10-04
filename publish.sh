@@ -3,6 +3,8 @@
 set -e
 set -u
 
+cd "$(dirname "$0")"
+
 version=$(dotnet gitversion /showvariable semver)
 
 # On osx we always use x64 for the moment as NativeAOT doesn't support osx-arm64

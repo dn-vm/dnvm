@@ -36,6 +36,7 @@ public abstract record Command
     {
         public bool Verbose { get; init; } = false;
         public bool Self { get; init; } = false;
+        public string? ReleasesUrl { get; init; } = null;
     }
 }
 
@@ -81,7 +82,8 @@ sealed record class CommandLineOptions(Command Command)
                     Force = force,
                     Self = self,
                     Prereqs = prereqs,
-                    Global = global
+                    Global = global,
+
                 };
             }
 
@@ -90,13 +92,16 @@ sealed record class CommandLineOptions(Command Command)
             {
                 bool self = default;
                 bool verbose = default;
+                string? releasesUrl = default;
                 syntax.DefineOption("self", ref self, "Update dnvm itself in the current location");
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
+                syntax.DefineOption("releases-url", ref releasesUrl, "Url to fetch info for location of latest releases.");
 
                 command = new Command.UpdateOptions
                 {
                     Self = self,
-                    Verbose = verbose
+                    Verbose = verbose,
+                    ReleasesUrl = releasesUrl
                 };
             }
         });
