@@ -16,6 +16,8 @@ public sealed partial class Update
     private readonly Logger _logger;
     private readonly Command.UpdateOptions _options;
 
+    public const string DefaultReleasesUrl = "https://commentout.com/dnvm/releases.json";
+
     public Update(Logger logger, Command.UpdateOptions options)
     {
         _logger = logger;
@@ -74,7 +76,7 @@ public sealed partial class Update
 
     public async Task<string> GetReleaseLink()
     {
-        var releasesUrl = _options.ReleasesUrl ?? "https://agocke.github.io/dnvm/releases.json";
+        var releasesUrl = _options.ReleasesUrl ?? DefaultReleasesUrl;
         string releasesJson = await Program.DefaultClient.GetStringAsync(releasesUrl);
         _logger.Info("Releases JSON: " + releasesJson);
         var releases = JsonSerializer.Deserialize<Releases>(releasesJson);
