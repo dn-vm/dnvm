@@ -126,9 +126,18 @@ public sealed partial class Update
         {
             await testProc.WaitForExitAsync();
             var output = await ps.StandardOutput.ReadToEndAsync();
-            if (ps.ExitCode != 0 || !output.Contains("usage: "))
+            string error = await ps.StandardError.ReadToEndAsync();
+            const string usageString = "usage: ";
+            if (ps.ExitCode != 0)
             {
-                _logger.Error("Could not run downloaded dnvm");
+                _logger.Error("Could not run downloaded dnvm:");
+                _logger.Error(error);
+                return false;
+            }
+            else if (!output.Contains(usageString))
+            {
+                _logger.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
+                _logger.Log(output);
                 return false;
             }
             return true;
