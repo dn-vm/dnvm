@@ -53,7 +53,7 @@ namespace Internal.CommandLine
             if (HandleHelp && IsHelpRequested())
             {
                 var helpText = GetHelpText();
-                Console.Error.Write(helpText);
+                Console.Out.Write(helpText);
                 Environment.Exit(0);
             }
 

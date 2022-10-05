@@ -36,4 +36,14 @@ public class UpdateTests
         Assert.Contains("Hello from dnvm test", proc.StandardOutput.ReadToEnd());
         Assert.Equal(0, proc.ExitCode);
     }
+
+    [Fact]
+    public async Task ValidateBinary()
+    {
+        using var tmpDir = TestUtils.CreateTempDirectory();
+        var dnvmTmpPath = tmpDir.CopyFile(DnvmExe);
+        var logger = new Logger();
+        var update = new Update(logger, new Command.UpdateOptions());
+        Assert.True(await update.ValidateBinary(dnvmTmpPath));
+    }
 }
