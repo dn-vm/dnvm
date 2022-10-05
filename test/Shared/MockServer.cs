@@ -79,7 +79,7 @@ public sealed class MockServer : IDisposable
 
     private static void GetDnvm(HttpListenerResponse response)
     {
-        using var f = Assets.GetOrMakeFakeDnvmArchive();
+        using var f = Assets.MakeFakeDnvmArchive();
         response.ContentLength64 = f.Length;
         f.CopyTo(response.OutputStream);
         response.OutputStream.Close();

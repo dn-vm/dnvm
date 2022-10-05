@@ -128,10 +128,11 @@ public sealed class Install
             await tempArchiveFile.FlushAsync();
         }
         _logger.Info($"Installing to {_installDir}");
-        int extractResult = await Utilities.ExtractArchiveToDir(archivePath, _installDir);
+        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, _installDir);
         File.Delete(archivePath);
-        if (extractResult != 0)
+        if (extractResult != null)
         {
+            _logger.Error("Extract failed: " + extractResult);
             return Result.ExtractFailed;
         }
 

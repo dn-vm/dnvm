@@ -34,7 +34,7 @@ public static class Utilities
         ? ".exe"
         : "");
 
-    public static async Task<int> ExtractArchiveToDir(string archivePath, string dirPath)
+    public static async Task<string?> ExtractArchiveToDir(string archivePath, string dirPath)
     {
         Directory.CreateDirectory(dirPath);
         if (Utilities.CurrentRID.OS != OSPlatform.Windows)
@@ -49,9 +49,9 @@ public static class Utilities
             if (p is not null)
             {
                 await p.WaitForExitAsync();
-                return p.ExitCode;
+                return p.ExitCode == 0 ? null : p.StandardError.ReadToEnd();
             }
-            return 1;
+            return "Could not start process";
         }
         else
         {
@@ -59,12 +59,12 @@ public static class Utilities
             {
                 ZipFile.ExtractToDirectory(archivePath, dirPath);
             }
-            catch
+            catch (Exception e)
             {
-                return 1;
+                return e.Message;
             }
         }
-        return 0;
+        return null;
     }
 
 }

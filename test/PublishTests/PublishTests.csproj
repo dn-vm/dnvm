@@ -32,7 +32,8 @@
 
   <Target Name="PublishDnvm" AfterTargets="Build" Inputs="$(RepoRoot)src/**/*;$(RepoRoot)test/**/*" Outputs="$(DnvmPath)">
     <Message Text="Publishing dnvm" />
-    <Exec Command="$(RepoRoot)/publish.sh" />
+    <Exec Command="$(RepoRoot)/publish.sh" Condition="'$(OS)' != 'Windows_NT'" />
+    <Exec Command="powershell.exe $(RepoRoot)/publish.ps1" Condition="'$(OS)' == 'Windows_NT'" />
     <Copy SourceFiles="$(DnvmPath)" DestinationFolder="$(OutDir)/dnvm_aot" />
   </Target>
 

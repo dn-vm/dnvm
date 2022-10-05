@@ -45,26 +45,24 @@ public sealed class Assets
         return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
     }
 
-    public static FileStream GetOrMakeFakeDnvmArchive()
+    public static FileStream MakeFakeDnvmArchive()
     {
         var archiveName = $"dnvm.{Utilities.ZipSuffix}";
         var archivePath = Path.Combine(ArtifactsTmpDir.FullName, archiveName);
-        try
-        {
-            // If the file already exists, return it
-            return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        }
-        catch { }
+        File.Delete(archivePath);
 
         try
         {
             // rather than use an actual copy of dnvm, we'll use an executable bash/powershell script
+            const string outputString = "Hello from dnvm test. This output must contain the string << usage: >>";
             using var tmpDir = TestUtils.CreateTempDirectory();
             var dnvmScriptPath = Path.Combine(tmpDir.Path, "dnvm");
             if (Environment.OSVersion.Platform != PlatformID.Win32NT)
             {
-                File.WriteAllText(dnvmScriptPath, @"#!/bin/bash
-echo 'Hello from dnvm test. This output must contain the string << usage: >>'");
+                File.WriteAllText(dnvmScriptPath, $$"""
+#!/bin/bash
+echo '{{outputString}}'
+""");
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "tar",
@@ -74,6 +72,22 @@ echo 'Hello from dnvm test. This output must contain the string << usage: >>'");
             }
             else
             {
+                var helloCs = Path.Combine(tmpDir.Path, "hello.cs");
+                File.WriteAllText(helloCs, $$"""
+using System;
+class Program {
+    public static void Main() {
+        Console.WriteLine("{{outputString}}");
+    }
+}
+""");
+                Process.Start(new ProcessStartInfo {
+                    FileName = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe",
+                    Arguments = "-out:dnvm.exe hello.cs",
+                    WorkingDirectory = tmpDir.Path
+                })!.WaitForExit();
+                File.Delete(helloCs);
+                ZipFile.CreateFromDirectory(tmpDir.Path, archivePath);
             }
         }
         catch { }

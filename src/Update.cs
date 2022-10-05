@@ -46,11 +46,15 @@ public sealed partial class Update
         Func<string, Task> handleDownload = async tempDownloadPath =>
         {
             _logger.Info("Extraction directory: " + tempArchiveDir);
-            await Utilities.ExtractArchiveToDir(tempDownloadPath, tempArchiveDir);
+            string? retMsg = await Utilities.ExtractArchiveToDir(tempDownloadPath, tempArchiveDir);
+            if (retMsg != null)
+            {
+                _logger.Error("Extraction failed: " + retMsg);
+            }
         };
 
         await DownloadBinaryToTempAndDelete(artifactDownloadLink, handleDownload);
-        _logger.Info($"Downloaded binary to {tempArchiveDir}");
+        _logger.Info($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
         bool success =
@@ -80,19 +84,21 @@ public sealed partial class Update
         return artifactDownloadLink;
     }
 
-    private static async Task DownloadBinaryToTempAndDelete(string uri, Func<string, Task> action)
+    private async Task DownloadBinaryToTempAndDelete(string uri, Func<string, Task> action)
     {
         string tempDownloadPath = Path.GetTempFileName();
-        using var tempFile = new FileStream(
+        using (var tempFile = new FileStream(
             tempDownloadPath,
             FileMode.Open,
             FileAccess.Write,
             FileShare.Read,
             64 * 1024 /* 64kB */,
-            FileOptions.WriteThrough | FileOptions.DeleteOnClose);
-        using var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri);
-        await archiveHttpStream.CopyToAsync(tempFile);
-        await tempFile.FlushAsync();
+            FileOptions.WriteThrough))
+        {
+            using var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri);
+            await archiveHttpStream.CopyToAsync(tempFile);
+            await tempFile.FlushAsync();
+        }
         await action(tempDownloadPath);
     }
 
@@ -134,10 +140,14 @@ public sealed partial class Update
         {
             string backupPath = Utilities.ProcessPath + ".bak";
             _logger.Info($"Swapping {Utilities.ProcessPath} with downloaded version at {newFileName}");
-            File.Move(Utilities.ProcessPath, backupPath);
+            File.Move(Utilities.ProcessPath, backupPath, overwrite: true);
             File.Move(newFileName, Utilities.ProcessPath, overwrite: false);
             _logger.Log("Process successfully upgraded");
-            File.Delete(backupPath);
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                // Can't delete the open file on Windows
+                File.Delete(backupPath);
+            }
             return true;
         }
         catch (Exception e)
