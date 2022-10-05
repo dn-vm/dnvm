@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Rid>$(NETCoreSdkPortableRuntimeIdentifier)</Rid>
+    <!-- NativeAOT currently doesn't support osx-arm64 -->
+    <Rid Condition="'$(Rid)' == 'osx-arm64'">osx-x64</Rid>
+    <DnvmPath>$(ArtifactsPath)/bin/dnvm/Release/$(TargetFramework)/$(Rid)/publish/dnvm$(ExeSuffix)</DnvmPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\Dnvm.Test.Shared.csproj" />
+  </ItemGroup>
+
+  <Target Name="PublishDnvm" AfterTargets="Build" Inputs="$(RepoRoot)src/**/*;$(RepoRoot)test/**/*" Outputs="$(DnvmPath)">
+    <Message Text="Publishing dnvm" />
+    <Exec Command="$(RepoRoot)/publish.sh" Condition="'$(OS)' != 'Windows_NT'" />
+    <Exec Command="powershell.exe $(RepoRoot)/publish.ps1" Condition="'$(OS)' == 'Windows_NT'" />
+    <Copy SourceFiles="$(DnvmPath)" DestinationFolder="$(OutDir)/dnvm_aot" />
+  </Target>
+
+</Project>

@@ -88,7 +88,7 @@ namespace Internal.CommandLine
             return option;
         }
 
-        public Argument<string> DefineOption(string name, ref string value, string help)
+        public Argument<string?> DefineOption(string name, ref string? value, string help)
         {
             return DefineOption(name, ref value, s_stringParser, help);
         }
@@ -243,7 +243,7 @@ namespace Internal.CommandLine
 
         public ArgumentList<string> DefineParameterList(string name, ref IReadOnlyList<string> value, string help)
         {
-            return DefineParameterList(name, ref value, s_stringParser, help);
+            return DefineParameterList(name, ref value, (Func<string, string>)s_stringParser, help);
         }
 
         public ArgumentList<int> DefineParameterList(string name, ref IReadOnlyList<int> value, string help)

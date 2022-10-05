@@ -5,5 +5,7 @@
         <BaseOutputPath>$(ArtifactsPath)bin/$(MSBuildProjectName)/</BaseOutputPath>
         <BaseIntermediateOutputPath>$(ArtifactsPath)obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
         <Nullable>enable</Nullable>
+        <ExeSuffix />
+        <ExeSuffix Condition="'$(OS)' == 'Windows_NT'">.exe</ExeSuffix>
     </PropertyGroup>
 </Project>

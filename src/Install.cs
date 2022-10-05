@@ -128,10 +128,11 @@ public sealed class Install
             await tempArchiveFile.FlushAsync();
         }
         _logger.Info($"Installing to {_installDir}");
-        int extractResult = await ExtractArchiveToDir(archivePath, _installDir);
+        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, _installDir);
         File.Delete(archivePath);
-        if (extractResult != 0)
+        if (extractResult != null)
         {
+            _logger.Error("Extract failed: " + extractResult);
             return Result.ExtractFailed;
         }
 
@@ -189,39 +190,6 @@ public sealed class Install
             }
         }
         return await UnixAddToPathInShellFiles(pathToAdd);
-    }
-
-    static async Task<int> ExtractArchiveToDir(string archivePath, string dirPath)
-    {
-        Directory.CreateDirectory(dirPath);
-        if (Utilities.CurrentRID.OS != OSPlatform.Windows)
-        {
-            var psi = new ProcessStartInfo()
-            {
-                FileName = "tar",
-                ArgumentList = { "-xzf", $"{archivePath}", "-C", $"{dirPath}" },
-            };
-
-            var p = Process.Start(psi);
-            if (p is not null)
-            {
-                await p.WaitForExitAsync();
-                return p.ExitCode;
-            }
-            return 1;
-        }
-        else
-        {
-            try
-            {
-                ZipFile.ExtractToDirectory(archivePath, dirPath);
-            }
-            catch
-            {
-                return 1;
-            }
-        }
-        return 0;
     }
 
     static string ConstructArchiveName(

@@ -1,7 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 set -u
+
+cd "$(dirname "$0")"
+
+dotnet tool restore
 
 version=$(dotnet gitversion /showvariable semver)
 

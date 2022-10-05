@@ -43,14 +43,18 @@ public sealed partial class Update
         string artifactDownloadLink = await GetReleaseLink();
 
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Action<string> handleDownload = tempDownloadPath =>
+        Func<string, Task> handleDownload = async tempDownloadPath =>
         {
             _logger.Info("Extraction directory: " + tempArchiveDir);
-            ZipFile.ExtractToDirectory(tempDownloadPath, tempArchiveDir);
+            string? retMsg = await Utilities.ExtractArchiveToDir(tempDownloadPath, tempArchiveDir);
+            if (retMsg != null)
+            {
+                _logger.Error("Extraction failed: " + retMsg);
+            }
         };
 
         await DownloadBinaryToTempAndDelete(artifactDownloadLink, handleDownload);
-        _logger.Info($"Downloaded binary to {tempArchiveDir}");
+        _logger.Info($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
         bool success =
@@ -68,9 +72,10 @@ public sealed partial class Update
         string Version,
         Dictionary<string, string> Artifacts);
 
-    private async Task<string> GetReleaseLink()
+    public async Task<string> GetReleaseLink()
     {
-        string releasesJson = await Program.DefaultClient.GetStringAsync("https://commentout.com/dnvm/releases.json");
+        var releasesUrl = _options.ReleasesUrl ?? "https://agocke.github.io/dnvm/releases.json";
+        string releasesJson = await Program.DefaultClient.GetStringAsync(releasesUrl);
         _logger.Info("Releases JSON: " + releasesJson);
         var releases = JsonSerializer.Deserialize<Releases>(releasesJson);
         var rid = Utilities.CurrentRID.ToString();
@@ -79,7 +84,7 @@ public sealed partial class Update
         return artifactDownloadLink;
     }
 
-    private async Task DownloadBinaryToTempAndDelete(string uri, Action<string> action)
+    private async Task DownloadBinaryToTempAndDelete(string uri, Func<string, Task> action)
     {
         string tempDownloadPath = Path.GetTempFileName();
         using (var tempFile = new FileStream(
@@ -88,13 +93,13 @@ public sealed partial class Update
             FileAccess.Write,
             FileShare.Read,
             64 * 1024 /* 64kB */,
-            FileOptions.WriteThrough | FileOptions.DeleteOnClose))
-        using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri))
+            FileOptions.WriteThrough))
         {
+            using var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri);
             await archiveHttpStream.CopyToAsync(tempFile);
             await tempFile.FlushAsync();
-            action(tempDownloadPath);
         }
+        await action(tempDownloadPath);
     }
 
     public async Task<bool> ValidateBinary(string fileName)
@@ -135,10 +140,14 @@ public sealed partial class Update
         {
             string backupPath = Utilities.ProcessPath + ".bak";
             _logger.Info($"Swapping {Utilities.ProcessPath} with downloaded version at {newFileName}");
-            File.Move(Utilities.ProcessPath, backupPath);
+            File.Move(Utilities.ProcessPath, backupPath, overwrite: true);
             File.Move(newFileName, Utilities.ProcessPath, overwrite: false);
             _logger.Log("Process successfully upgraded");
-            File.Delete(backupPath);
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                // Can't delete the open file on Windows
+                File.Delete(backupPath);
+            }
             return true;
         }
         catch (Exception e)
