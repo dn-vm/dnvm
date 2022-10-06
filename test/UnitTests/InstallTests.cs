@@ -13,7 +13,7 @@ public class InstallTests
         using var server = new MockServer();
         var options = new Command.InstallOptions()
         {
-            FeedUrl = $"http://localhost:{server.Port}/",
+            FeedUrl = server.PrefixString,
             InstallPath = tempDir.Path
         };
         var logger = new Logger();
