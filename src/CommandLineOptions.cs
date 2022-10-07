@@ -59,6 +59,7 @@ sealed record class CommandLineOptions(Command Command)
                 bool self = default;
                 bool prereqs = default;
                 bool global = default;
+                string? feedUrl = null;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption(
                     "c|channel",
@@ -75,6 +76,7 @@ sealed record class CommandLineOptions(Command Command)
                 syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
                 syntax.DefineOption("g|global", ref global, "Install to the global location");
+                syntax.DefineOption("feed-url", ref feedUrl, "Set the feed URL to download the SDK from.");
                 command = new Command.InstallOptions
                 {
                     Channel = channel,
@@ -83,7 +85,7 @@ sealed record class CommandLineOptions(Command Command)
                     Self = self,
                     Prereqs = prereqs,
                     Global = global,
-
+                    FeedUrl = feedUrl,
                 };
             }
 

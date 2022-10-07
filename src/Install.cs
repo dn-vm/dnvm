@@ -83,7 +83,11 @@ public sealed class Install
                 "https://dotnetbuilds.azureedge.net/public"
             };
 
-        var feed = new Uri(feeds[0]);
+        var feed = feeds[0];
+        if (feed[^1] == '/')
+        {
+            feed = feed[..^1];
+        }
 
         RID rid = Utilities.CurrentRID;
 
@@ -204,13 +208,13 @@ public sealed class Install
 
     private static readonly HttpClient s_noRedirectClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false });
 
-    static Uri ConstructDownloadLink(Uri feed, string latestVersion, string archiveName)
+    static string ConstructDownloadLink(string feed, string latestVersion, string archiveName)
     {
-        return new Uri(feed, $"/Sdk/{latestVersion}/{archiveName}");
+        return $"{feed}/Sdk/{latestVersion}/{archiveName}";
     }
 
     private async Task<string?> GetLatestVersion(
-        Uri feed,
+        string feed,
         Channel channel,
         RID rid,
         string suffix)
@@ -219,7 +223,7 @@ public sealed class Install
         // The dotnet service provides an endpoint for fetching the latest LTS and Current versions
         if (channel != Channel.Preview)
         {
-            var versionFileUrl = new Uri(feed, $"/Sdk/{channel}/latest.version");
+            var versionFileUrl = $"{feed}/Sdk/{channel}/latest.version";
             _logger.Info("Fetching latest version from URL " + versionFileUrl);
             latestVersion = await Program.DefaultClient.GetStringAsync(versionFileUrl);
         }
