@@ -153,7 +153,7 @@ public sealed class Install
         File.WriteAllText(_manifestPath, JsonSerializer.Serialize(manifest));
         _logger.Info("Writing manifest");
 
-        _logger.Log("Successfully installed")
+        _logger.Log("Successfully installed");
         return 0;
     }
 
