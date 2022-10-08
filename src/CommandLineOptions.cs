@@ -30,6 +30,12 @@ public abstract record Command
         /// Path to install to.
         /// </summary>
         public string? InstallPath { get; init; } = null;
+
+        /// <summary>
+        /// When true, add dnvm update lines to the user's config files
+        /// or environment variables.
+        /// </summary>
+        public bool UpdateUserEnvironment { get; init; } = true;
     }
 
     public sealed record UpdateOptions : Command

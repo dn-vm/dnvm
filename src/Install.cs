@@ -142,7 +142,10 @@ public sealed class Install
             return Result.ExtractFailed;
         }
 
-        await AddToPath();
+        if (_options.UpdateUserEnvironment)
+        {
+            await AddToPath();
+        }
 
         var newWorkload = new Workload { Version = latestVersion };
         if (!manifest.Workloads.Contains(newWorkload))
@@ -259,18 +262,13 @@ public sealed class Install
         return latestVersion;
     }
 
-    private const string s_envShContent = """
-#!/bin/sh
-# Prepend dotnet dir to the path, unless it's already there.
-# Steal rustup trick of matching with ':' on both sides
-case ":${PATH}:" in
-    *:{install_loc}:*)
-        ;;
-    *)
-        export PATH="{install_loc}:$PATH"
-        ;;
-esac
-""";
+    private string GetEnvShContent()
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        using var stream = asm.GetManifestResourceStream("env.sh")!;
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
 
     private async Task<int> RunSelfInstall()
     {
@@ -378,7 +376,7 @@ fi
             using (envFile)
             using (var writer = new StreamWriter(envFile))
             {
-                await writer.WriteAsync(s_envShContent.Replace("{install_loc}", pathToAdd));
+                await writer.WriteAsync(GetEnvShContent().Replace("{install_loc}", pathToAdd));
                 await envFile.FlushAsync();
             }
 

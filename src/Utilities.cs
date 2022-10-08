@@ -16,7 +16,7 @@ public static class Utilities
 
     public static readonly RID CurrentRID = new RID(
         GetCurrentOSPlatform(),
-        RuntimeInformation.ProcessArchitecture,
+        RuntimeInformation.OSArchitecture,
         RuntimeInformation.RuntimeIdentifier.Contains("musl") ? Libc.Musl : Libc.Default);
 
     private static OSPlatform GetCurrentOSPlatform()

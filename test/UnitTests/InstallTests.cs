@@ -14,7 +14,8 @@ public class InstallTests
         var options = new Command.InstallOptions()
         {
             FeedUrl = server.PrefixString,
-            InstallPath = tempDir.Path
+            InstallPath = tempDir.Path,
+            UpdateUserEnvironment = false,
         };
         var logger = new Logger();
         var task = new Install(logger, options).Handle();
