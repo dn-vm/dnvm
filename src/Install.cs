@@ -17,7 +17,7 @@ namespace Dnvm;
 
 public sealed class Install
 {
-    private static readonly string s_defaultInstallDir = Path.Combine(GetFolderPath(SpecialFolder.UserProfile), ".dotnet");
+    private static readonly string s_defaultInstallDir = Path.Combine(GetFolderPath(SpecialFolder.LocalApplicationData), "dnvm");
     private static readonly string s_globalInstallDir =
         Utilities.CurrentRID.OS == OSPlatform.Windows ? Path.Combine(GetFolderPath(SpecialFolder.ProgramFiles), "dotnet")
         : Utilities.CurrentRID.OS == OSPlatform.OSX ? "/usr/local/share/dotnet" // MacOS no longer lets anyone mess with /usr/share, even as root
@@ -97,6 +97,7 @@ public sealed class Install
             Console.Error.WriteLine("Could not fetch the latest package version");
             return Result.CouldntFetchLatestVersion;
         }
+        _logger.Log("Found latest version: " + latestVersion);
 
         Manifest? manifest = null;
         try
@@ -111,7 +112,8 @@ public sealed class Install
 
         if (!_options.Force && manifest.Workloads.Contains(new Workload() { Version = latestVersion }))
         {
-            Console.WriteLine($"Version {latestVersion} is the latest available version and is already installed.");
+            _logger.Log($"Version {latestVersion} is the latest available version and is already installed." +
+                " Skipping installation. To install anyway, pass --force.");
             return 0;
         }
 
@@ -131,7 +133,7 @@ public sealed class Install
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
         }
-        _logger.Info($"Installing to {_installDir}");
+        _logger.Log($"Installing to {_installDir}");
         string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, _installDir);
         File.Delete(archivePath);
         if (extractResult != null)
@@ -150,6 +152,8 @@ public sealed class Install
         }
         File.WriteAllText(_manifestPath, JsonSerializer.Serialize(manifest));
         _logger.Info("Writing manifest");
+
+        _logger.Log("Successfully installed");
         return 0;
     }
 
