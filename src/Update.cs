@@ -80,7 +80,10 @@ public sealed partial class Update
         string releasesJson = await Program.DefaultClient.GetStringAsync(releasesUrl);
         _logger.Info("Releases JSON: " + releasesJson);
         var releases = JsonSerializer.Deserialize<Releases>(releasesJson);
-        var rid = Utilities.CurrentRID.ToString();
+        // Dnvm doesn't currently publish ARM64 binaries for any platform
+        var rid = (Utilities.CurrentRID with {
+            Arch = Architecture.X64
+        }).ToString();
         var artifactDownloadLink = releases.LatestVersion.Artifacts[rid];
         _logger.Info("Artifact download link: " + artifactDownloadLink);
         return artifactDownloadLink;
