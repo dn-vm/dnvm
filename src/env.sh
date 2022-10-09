@@ -8,6 +8,4 @@ case ":${PATH}:" in
         export PATH="{install_loc}:$PATH"
         ;;
 esac
-if [ -z "$DOTNET_ROOT" ]; then
-    export DOTNET_ROOT="{install_loc}"
-fi
+export DOTNET_ROOT="{install_loc}"

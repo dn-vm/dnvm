@@ -262,10 +262,10 @@ public sealed class Install
         return latestVersion;
     }
 
-    private string GetEnvShContent()
+    private static string GetEnvShContent()
     {
         var asm = Assembly.GetExecutingAssembly();
-        using var stream = asm.GetManifestResourceStream("env.sh")!;
+        using var stream = asm.GetManifestResourceStream("dnvm.env.sh")!;
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
