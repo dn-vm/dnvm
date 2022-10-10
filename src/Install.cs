@@ -55,18 +55,15 @@ public sealed class Install
     public async Task<Result> Handle()
     {
         _logger.Info("Install Directory: " + _installDir);
-        if (_options.Global)
+        try
         {
-            try
-            {
-                Directory.CreateDirectory(_installDir);
-                using var _ = File.OpenWrite(_manifestPath);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                _logger.Error($"Cannot access global install location. Make sure you are running as {(Utilities.CurrentRID.OS == OSPlatform.Windows ? "administrator" : "root")}.");
-                return Result.InstallLocationNotWritable;
-            }
+            Directory.CreateDirectory(_installDir);
+            using var _ = File.OpenWrite(_manifestPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _logger.Error($"Cannot write to install location. Ensure you have appropriate permissions."); 
+            return Result.InstallLocationNotWritable;
         }
 
         if (_options.Self)

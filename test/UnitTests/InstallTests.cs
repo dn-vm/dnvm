@@ -25,4 +25,25 @@ public class InstallTests
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
     }
+
+    [Fact]
+    public async Task InstallDirMissing()
+    {
+        using var tempDir = TestUtils.CreateTempDirectory();
+        using var server = new MockServer();
+        var installPath = Path.Combine(tempDir.Path, "subdir");
+        var options = new Command.InstallOptions()
+        {
+            FeedUrl = server.PrefixString,
+            InstallPath = installPath,
+            UpdateUserEnvironment = false,
+        };
+        var logger = new Logger();
+        var task = new Install(logger, options).Handle();
+        Result retVal = await task;
+        Assert.Equal(Result.Success, retVal);
+        var dotnetFile = Path.Combine(installPath, "dotnet");
+        Assert.True(File.Exists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
+    }
 }
