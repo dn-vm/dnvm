@@ -17,7 +17,7 @@ namespace Dnvm;
 
 public sealed class Install
 {
-    private static readonly string s_defaultInstallDir = Path.Combine(GetFolderPath(SpecialFolder.LocalApplicationData), "dnvm");
+    private static readonly string s_defaultInstallDir = Path.Combine(GetFolderPath(SpecialFolder.LocalApplicationData, SpecialFolderOption.DoNotVerify), "dnvm");
     private static readonly string s_globalInstallDir =
         Utilities.CurrentRID.OS == OSPlatform.Windows ? Path.Combine(GetFolderPath(SpecialFolder.ProgramFiles), "dotnet")
         : Utilities.CurrentRID.OS == OSPlatform.OSX ? "/usr/local/share/dotnet" // MacOS no longer lets anyone mess with /usr/share, even as root
@@ -349,7 +349,7 @@ public sealed class Install
         // people often copy their dotfiles from one machine to another and fully resolved paths present a problem
         // there. Instead, we'll try to replace instances of the user's home directory with the $HOME
         // variable, which should be the most common case of machine-dependence.
-        var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile), "$HOME");
+        var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify), "$HOME");
         string userShSuffix = $"""
 
 if [ -f "{portableEnvPath}" ]; then
@@ -381,7 +381,7 @@ fi
             _logger.Log("Scanning for shell files to update");
             foreach (var shellFileName in ProfileShellFiles)
             {
-                var shellPath = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile), shellFileName);
+                var shellPath = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify), shellFileName);
                 _logger.Info("Checking for file: " + shellPath);
                 if (File.Exists(shellPath))
                 {
