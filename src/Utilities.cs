@@ -1,9 +1,9 @@
 
-
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using StaticCs;
@@ -26,6 +26,11 @@ public static class Utilities
             RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? OSPlatform.Linux :
             throw new NotSupportedException("Current OS is not supported: " + RuntimeInformation.OSDescription);
     }
+
+    public static bool IsSingleFile =>
+#pragma warning disable IL3000
+        Assembly.GetExecutingAssembly()?.Location == "";
+#pragma warning restore IL3000
 
     public static string ProcessPath = Environment.ProcessPath
         ?? throw new InvalidOperationException("Cannot find exe name");

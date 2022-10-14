@@ -36,7 +36,7 @@ public sealed partial class Update
             return 1;
         }
 
-        if (Assembly.GetEntryAssembly()?.Location != "")
+        if (!Utilities.IsSingleFile)
         {
             Console.WriteLine("Cannot self-update: the current executable is not deployed as a single file.");
             return 1;
