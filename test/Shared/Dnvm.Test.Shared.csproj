@@ -8,8 +8,6 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <EnablePreviewFeatures>true</EnablePreviewFeatures>
-    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
 </Project>

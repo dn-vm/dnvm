@@ -8,13 +8,20 @@ cd "$(dirname "$0")"
 dotnet tool restore
 
 version=$(dotnet gitversion /showvariable semver)
-
-# On osx we always use x64 for the moment as NativeAOT doesn't support osx-arm64
 if [[ $(uname) == 'Darwin' ]]; then
-    rid='osx-x64'
+    osname='osx'
 else
-    rid='linux-x64'
+    osname='linux'
 fi
+
+name=$(uname -m)
+if [[ $name == 'arm64' || $name == 'aarch64' ]]; then
+    arch='arm64'
+else
+    arch='x64'
+fi
+
+rid=$osname-$arch
 
 dotnet publish --sc -r $rid -c Release src/dnvm.csproj
 tar -C ./artifacts/bin/dnvm/Release/net7.0/$rid/publish/ -cvzf ./artifacts/dnvm-$version-$rid.tar.gz dnvm
