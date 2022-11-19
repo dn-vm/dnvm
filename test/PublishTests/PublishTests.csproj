@@ -6,14 +6,10 @@
     <Nullable>enable</Nullable>
 
     <IsPackable>false</IsPackable>
-    <EnablePreviewFeatures>true</EnablePreviewFeatures>
-    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup>
     <Rid>$(NETCoreSdkPortableRuntimeIdentifier)</Rid>
-    <!-- NativeAOT currently doesn't support osx-arm64 -->
-    <Rid Condition="'$(Rid)' == 'osx-arm64'">osx-x64</Rid>
     <DnvmPath>$(ArtifactsPath)/bin/dnvm/Release/$(TargetFramework)/$(Rid)/publish/dnvm$(ExeSuffix)</DnvmPath>
   </PropertyGroup>
 
