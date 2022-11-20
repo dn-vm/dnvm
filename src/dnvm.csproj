@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
     <InvariantGlobalization>true</InvariantGlobalization>
     <PublishAot>true</PublishAot>
+    <StripSymbols>true</StripSymbols>
+    <!-- Error that osx isn't supported on net7.0. Disable for now, since we're fine taking a
+    dependency on preview bits. Will move to net8.0 previews ASAP. -->
     <DisableUnsupportedError>true</DisableUnsupportedError>
   </PropertyGroup>
 
