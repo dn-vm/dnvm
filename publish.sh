@@ -45,4 +45,7 @@ if [[ -z "${rid}" ]]; then
 fi
 
 dotnet publish --sc -r $rid -c Release src/dnvm.csproj
+if [[ $(uname) == 'Darwin' ]]; then
+    strip ./artifacts/bin/dnvm/Release/net7.0/$rid/publish/dnvm
+fi
 tar -C ./artifacts/bin/dnvm/Release/net7.0/$rid/publish/ -cvzf ./artifacts/dnvm-$version-$rid.tar.gz dnvm
