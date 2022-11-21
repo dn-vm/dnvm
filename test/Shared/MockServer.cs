@@ -37,7 +37,7 @@ public sealed class MockServer : IDisposable
     private async Task WaitForConnection()
     {
         var ctx = await _listener.GetContextAsync();
-        if (UrlToHandler.TryGetValue(ctx.Request.Url!.LocalPath, out var action))
+        if (UrlToHandler.TryGetValue(ctx.Request.Url!.LocalPath.ToLowerInvariant(), out var action))
         {
             action(ctx.Response);
         }
@@ -51,8 +51,8 @@ public sealed class MockServer : IDisposable
 
     private Dictionary<string, Action<HttpListenerResponse>> UrlToHandler => new()
     {
-        ["/Sdk/LTS/latest.version"] = GetLatestVersionUrl,
-        [$"/Sdk/{VersionString}/dotnet-sdk-{VersionString}-{CurrentRID}.{ZipSuffix}"] = GetSdk,
+        ["/sdk/lts/latest.version"] = GetLatestVersionUrl,
+        [$"/sdk/{VersionString}/dotnet-sdk-{VersionString}-{CurrentRID}.{ZipSuffix}"] = GetSdk,
         ["/releases.json"] = GetReleasesJson,
         [$"/dnvm/dnvm.{ZipSuffix}"] = GetDnvm,
     };

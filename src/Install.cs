@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.IO.MemoryMappedFiles;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
@@ -37,6 +38,9 @@ public sealed class Install
         NotASingleFile,
         ExtractFailed,
         SelfInstallFailed,
+        ManifestIOError,
+        ManifestFileCorrupted,
+        ChannelAlreadyTracked
     }
 
     public Install(Logger logger, Command.InstallOptions options)
@@ -49,7 +53,7 @@ public sealed class Install
         }
         _installDir = options.InstallPath ??
             (options.Global ? s_globalInstallDir : s_defaultInstallDir);
-        _manifestPath = Path.Combine(_installDir, "dnvmManifest.json");
+        _manifestPath = Path.Combine(_installDir, ManifestUtils.FileName);
     }
 
     public async Task<Result> Handle()
@@ -58,11 +62,10 @@ public sealed class Install
         try
         {
             Directory.CreateDirectory(_installDir);
-            using var _ = File.OpenWrite(_manifestPath);
         }
         catch (UnauthorizedAccessException)
         {
-            _logger.Error($"Cannot write to install location. Ensure you have appropriate permissions."); 
+            _logger.Error($"Cannot write to install location. Ensure you have appropriate permissions.");
             return Result.InstallLocationNotWritable;
         }
 
@@ -71,6 +74,49 @@ public sealed class Install
             return await RunSelfInstall() == 0
                 ? Result.Success
                 : Result.SelfInstallFailed;
+        }
+
+        string? text = null;
+        try
+        {
+            text = File.ReadAllText(_manifestPath);
+        }
+        // Not found is expected
+        catch (DirectoryNotFoundException) {}
+        catch (FileNotFoundException) {}
+        catch (Exception e)
+        {
+            Console.Error.WriteLine("Error reading manifest file: " + e.Message);
+            return Result.ManifestIOError;
+        }
+
+        Manifest manifest;
+        if (text is not null)
+        {
+            var manifestOpt = ManifestUtils.ReadNewOrOldManifest(text);
+            if (manifestOpt is null)
+            {
+                Console.Error.WriteLine("Manifest file corrupted");
+                return Result.ManifestFileCorrupted;
+            }
+            else
+            {
+                manifest = manifestOpt;
+            }
+        }
+        else
+        {
+            manifest = new Manifest() {
+                InstalledVersions = ImmutableArray<string>.Empty,
+                TrackedChannels = ImmutableArray<TrackedChannel>.Empty
+            };
+        }
+
+        if (manifest.TrackedChannels.Any(c => c.ChannelName == _options.Channel))
+        {
+            Console.WriteLine($"Channel '{_options.Channel}' is already being tracked." +
+                " Did you mean to run 'dnvm update'?");
+            return Result.ChannelAlreadyTracked;
         }
 
         var feeds = _options.FeedUrl is not null
@@ -96,20 +142,9 @@ public sealed class Install
         }
         _logger.Log("Found latest version: " + latestVersion);
 
-        Manifest? manifest = null;
-        try
+        if (!_options.Force && manifest.InstalledVersions.Contains(latestVersion))
         {
-            manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_manifestPath));
-        }
-        catch
-        {
-            // Ignore exceptions
-            manifest = new Manifest();
-        }
-
-        if (!_options.Force && manifest.Workloads.Contains(new Workload() { Version = latestVersion }))
-        {
-            _logger.Log($"Version {latestVersion} is the latest available version and is already installed." +
+            _logger.Log($"Version {latestVersion} is already installed." +
                 " Skipping installation. To install anyway, pass --force.");
             return 0;
         }
@@ -144,14 +179,19 @@ public sealed class Install
             await AddToPath();
         }
 
-        var newWorkload = new Workload { Version = latestVersion };
-        if (!manifest.Workloads.Contains(newWorkload))
-        {
-            _logger.Info($"Adding workload {newWorkload} to manifest.");
-            manifest = manifest with { Workloads = manifest.Workloads.Add(newWorkload) };
-        }
-        File.WriteAllText(_manifestPath, JsonSerializer.Serialize(manifest));
+        _logger.Info($"Adding installed version '{latestVersion}' to manifest.");
+        manifest = manifest with { InstalledVersions = manifest.InstalledVersions.Add(latestVersion) };
+        var tracked = new TrackedChannel {
+            ChannelName = _options.Channel,
+            InstalledVersions = ImmutableArray.Create(latestVersion)
+        };
+        _logger.Info($"Adding channel {tracked} to manifest.");
+        manifest = manifest with { TrackedChannels = manifest.TrackedChannels.Add(tracked) };
+
         _logger.Info("Writing manifest");
+        var tmpFile = Path.GetTempFileName();
+        File.WriteAllText(tmpFile, JsonSerializer.Serialize(manifest));
+        File.Move(tmpFile, _manifestPath, overwrite: true);
 
         _logger.Log("Successfully installed");
         return 0;

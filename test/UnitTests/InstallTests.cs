@@ -1,11 +1,18 @@
 using System.Runtime.CompilerServices;
 using Xunit;
+using Xunit.Abstractions;
 using static Dnvm.Install;
 
 namespace Dnvm.Test;
 
 public class InstallTests
 {
+    private readonly ITestOutputHelper _testOutput;
+    public InstallTests(ITestOutputHelper testOutput)
+    {
+        _testOutput = testOutput;
+    }
+
     [Fact]
     public async Task Install()
     {
@@ -13,6 +20,7 @@ public class InstallTests
         using var server = new MockServer();
         var options = new Command.InstallOptions()
         {
+            Channel = Channel.Lts,
             FeedUrl = server.PrefixString,
             InstallPath = tempDir.Path,
             UpdateUserEnvironment = false,
@@ -24,6 +32,11 @@ public class InstallTests
         var dotnetFile = Path.Combine(tempDir.Path, "dotnet");
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
+
+        var manifest = File.ReadAllText(Path.Combine(tempDir.Path, ManifestUtils.FileName));
+        Assert.Equal("""
+{"version":2,"installedVersions":["42.42.42"],"trackedChannels":[{"channelName":"lts","installedVersions":["42.42.42"]}]}
+""", manifest);
     }
 
     [Fact]
@@ -34,6 +47,7 @@ public class InstallTests
         var installPath = Path.Combine(tempDir.Path, "subdir");
         var options = new Command.InstallOptions()
         {
+            Channel = Channel.Lts,
             FeedUrl = server.PrefixString,
             InstallPath = installPath,
             UpdateUserEnvironment = false,

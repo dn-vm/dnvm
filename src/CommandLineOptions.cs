@@ -4,20 +4,13 @@ using Internal.CommandLine;
 
 namespace Dnvm;
 
-public enum Channel
-{
-    LTS,
-    Current,
-    Preview
-}
-
 public abstract record Command
 {
     private Command() {}
     public sealed record InstallOptions : Command
     {
+        public required Channel Channel { get; init; }
         public bool Verbose { get; init; } = false;
-        public Channel Channel { get; init; } = Channel.LTS;
         public bool Force { get; init; } = false;
         public bool Self { get; init; } = false;
         public bool Prereqs { get; init; } = false;
@@ -59,7 +52,7 @@ sealed record class CommandLineOptions(Command Command)
             var install = syntax.DefineCommand("install", ref commandName, "Install a new SDK");
             if (install.IsActive)
             {
-                Channel channel = default;
+                Channel channel = Channel.Latest;
                 bool verbose = default;
                 bool force = default;
                 bool self = default;
@@ -67,22 +60,23 @@ sealed record class CommandLineOptions(Command Command)
                 bool global = default;
                 string? feedUrl = null;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
-                syntax.DefineOption(
-                    "c|channel",
-                    ref channel,
-                    c => c.ToLower() switch
-                    {
-                        "lts" => Channel.LTS,
-                        "current" => Channel.Current,
-                        "preview" => Channel.Preview,
-                        _ => throw new FormatException("Channel must be one of 'lts' or 'current'")
-                    },
-                    $"Download from the channel specified, Defaults to ${channel}.");
                 syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
+                syntax.DefineOption("g|global", ref global, "Install to the global location");
                 syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
-                syntax.DefineOption("g|global", ref global, "Install to the global location");
                 syntax.DefineOption("feed-url", ref feedUrl, "Set the feed URL to download the SDK from.");
+                syntax.DefineParameter("channel", ref channel, c =>
+                {
+                    if (Enum.TryParse<Channel>(c, ignoreCase: true, out var result))
+                    {
+                        return result;
+                    }
+                    var sep = Environment.NewLine + "\t- ";
+                    throw new FormatException(
+                        "Channel must be one of:"
+                        + sep + string.Join(sep, Enum.GetNames<Channel>()));
+                },
+                $"Download from the channel specified. Defaults to '{channel.ToString().ToLowerInvariant()}'.");
                 command = new Command.InstallOptions
                 {
                     Channel = channel,
