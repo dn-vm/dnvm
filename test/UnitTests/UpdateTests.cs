@@ -11,7 +11,7 @@ public class UpdateTests
     {
         using var mockServer = new MockServer();
         var update = new Dnvm.Update(new Logger(), new Command.UpdateOptions {
-            ReleasesUrl = $"http://localhost:{mockServer.Port}/releases.json"
+            FeedUrl = $"http://localhost:{mockServer.Port}/releases.json"
         });
         var link = await update.GetReleaseLink();
         Assert.Equal($"{mockServer.PrefixString}dnvm/dnvm.{Utilities.ZipSuffix}", link);
@@ -22,8 +22,7 @@ public class UpdateTests
     [Fact]
     public async Task ReleasesEndpointIsUp()
     {
-        var responseString = await Program.DefaultClient.GetStringAsync(Update.DefaultReleasesUrl);
-        var releases = JsonSerializer.Deserialize<Update.Releases>(responseString);
-        Assert.NotEmpty(releases.LatestVersion.Version);
+        var releasesIndex = await VersionInfoClient.FetchLatestIndex(DefaultConfig.FeedUrl);
+        Assert.NotEmpty(releasesIndex.Releases);
     }
 }

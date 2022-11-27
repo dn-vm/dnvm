@@ -7,7 +7,7 @@ namespace Dnvm;
 
 public static class Program
 {
-    public static readonly HttpClient DefaultClient = new HttpClient();
+    public static readonly HttpClient HttpClient = new();
 
     static Task<int> Main(string[] args)
     {
