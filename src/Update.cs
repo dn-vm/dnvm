@@ -76,8 +76,8 @@ public sealed partial class Update
 
     public async Task<string> GetReleaseLink()
     {
-        var releasesUrl = _options.ReleasesUrl ?? DefaultReleasesUrl;
-        string releasesJson = await Program.DefaultClient.GetStringAsync(releasesUrl);
+        var releasesUrl = _options.FeedUrl ?? DefaultReleasesUrl;
+        string releasesJson = await Program.HttpClient.GetStringAsync(releasesUrl);
         _logger.Info("Releases JSON: " + releasesJson);
         var releases = JsonSerializer.Deserialize<Releases>(releasesJson);
         // Dnvm doesn't currently publish ARM64 binaries for any platform
@@ -100,7 +100,7 @@ public sealed partial class Update
             64 * 1024 /* 64kB */,
             FileOptions.WriteThrough))
         {
-            using var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(uri);
+            using var archiveHttpStream = await Program.HttpClient.GetStreamAsync(uri);
             await archiveHttpStream.CopyToAsync(tempFile);
             await tempFile.FlushAsync();
         }

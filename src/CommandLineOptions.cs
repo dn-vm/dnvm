@@ -1,5 +1,6 @@
 
 using System;
+using System.Diagnostics;
 using Internal.CommandLine;
 
 namespace Dnvm;
@@ -10,15 +11,15 @@ public abstract record Command
     public sealed record InstallOptions : Command
     {
         public required Channel Channel { get; init; }
+        /// <summary>
+        /// URL to the dotnet feed containing the releases index and download artifacts.
+        /// </summary>
+        public required string FeedUrl { get; init; }
         public bool Verbose { get; init; } = false;
         public bool Force { get; init; } = false;
         public bool Self { get; init; } = false;
         public bool Prereqs { get; init; } = false;
         public bool Global { get; init; } = false;
-        /// <summary>
-        /// Set the URL to the dotnet feed to install from.
-        /// </summary>
-        public string? FeedUrl { get; init; } = null;
         /// <summary>
         /// Path to install to.
         /// </summary>
@@ -33,9 +34,9 @@ public abstract record Command
 
     public sealed record UpdateOptions : Command
     {
+        public required string FeedUrl { get; init; }
         public bool Verbose { get; init; } = false;
         public bool Self { get; init; } = false;
-        public string? ReleasesUrl { get; init; } = null;
     }
 }
 
@@ -58,13 +59,13 @@ sealed record class CommandLineOptions(Command Command)
                 bool self = default;
                 bool prereqs = default;
                 bool global = default;
-                string? feedUrl = null;
+                string? feedUrl = DefaultConfig.FeedUrl;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
                 syntax.DefineOption("g|global", ref global, "Install to the global location");
                 syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
-                syntax.DefineOption("feed-url", ref feedUrl, "Set the feed URL to download the SDK from.");
+                syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from. Default is {feedUrl}");
                 syntax.DefineParameter("channel", ref channel, c =>
                 {
                     if (Enum.TryParse<Channel>(c, ignoreCase: true, out var result))
@@ -94,16 +95,16 @@ sealed record class CommandLineOptions(Command Command)
             {
                 bool self = default;
                 bool verbose = default;
-                string? releasesUrl = default;
+                string feedUrl = DefaultConfig.FeedUrl;
                 syntax.DefineOption("self", ref self, "Update dnvm itself in the current location");
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
-                syntax.DefineOption("releases-url", ref releasesUrl, "Url to fetch info for location of latest releases.");
+                syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from. Default is {feedUrl}");
 
                 command = new Command.UpdateOptions
                 {
                     Self = self,
                     Verbose = verbose,
-                    ReleasesUrl = releasesUrl
+                    FeedUrl = feedUrl
                 };
             }
         });

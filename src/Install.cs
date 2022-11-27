@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Serde.Json;
 using static System.Environment;
@@ -18,11 +19,6 @@ namespace Dnvm;
 
 public sealed class Install
 {
-    private static readonly string s_defaultInstallDir = Path.Combine(GetFolderPath(SpecialFolder.LocalApplicationData, SpecialFolderOption.DoNotVerify), "dnvm");
-    private static readonly string s_globalInstallDir =
-        Utilities.CurrentRID.OS == OSPlatform.Windows ? Path.Combine(GetFolderPath(SpecialFolder.ProgramFiles), "dotnet")
-        : Utilities.CurrentRID.OS == OSPlatform.OSX ? "/usr/local/share/dotnet" // MacOS no longer lets anyone mess with /usr/share, even as root
-        : "/usr/share/dotnet";
 
     private readonly string _installDir;
     private readonly string _manifestPath;
@@ -40,7 +36,8 @@ public sealed class Install
         SelfInstallFailed,
         ManifestIOError,
         ManifestFileCorrupted,
-        ChannelAlreadyTracked
+        ChannelAlreadyTracked,
+        CouldntFetchIndex
     }
 
     public Install(Logger logger, Command.InstallOptions options)
@@ -52,7 +49,7 @@ public sealed class Install
             _logger.LogLevel = LogLevel.Info;
         }
         _installDir = options.InstallPath ??
-            (options.Global ? s_globalInstallDir : s_defaultInstallDir);
+            (options.Global ? DefaultConfig.GlobalInstallDir : DefaultConfig.InstallDir);
         _manifestPath = Path.Combine(_installDir, ManifestUtils.FileName);
     }
 
@@ -119,22 +116,27 @@ public sealed class Install
             return Result.ChannelAlreadyTracked;
         }
 
-        var feeds = _options.FeedUrl is not null
-            ? new[] { _options.FeedUrl }
-            : new[] {
-                "https://dotnetcli.azureedge.net/dotnet",
-                "https://dotnetbuilds.azureedge.net/public"
-            };
-
-        var feed = feeds[0];
+        var feed = _options.FeedUrl;
         if (feed[^1] == '/')
         {
             feed = feed[..^1];
         }
 
+        DotnetReleasesIndex versionIndex;
+        try
+        {
+            versionIndex = await VersionInfoClient.FetchLatestIndex(feed);
+        }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine("Could not fetch the releases index: ");
+            Console.Error.WriteLine(e.Message);
+            return Result.CouldntFetchIndex;
+        }
+
         RID rid = Utilities.CurrentRID;
 
-        string? latestVersion = await GetLatestVersion(feed, _options.Channel, rid, Utilities.ZipSuffix);
+        string? latestVersion = VersionInfoClient.GetLatestReleaseForChannel(versionIndex, _options.Channel)?.LatestSdk;
         if (latestVersion is null)
         {
             Console.Error.WriteLine("Could not fetch the latest package version");
@@ -160,7 +162,7 @@ public sealed class Install
         _logger.Info("Existing manifest: " + result);
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
-        using (var archiveHttpStream = await Program.DefaultClient.GetStreamAsync(link))
+        using (var archiveHttpStream = await Program.HttpClient.GetStreamAsync(link))
         {
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
@@ -269,7 +271,7 @@ public sealed class Install
         {
             var versionFileUrl = $"{feed}/Sdk/{channel}/latest.version";
             _logger.Info("Fetching latest version from URL " + versionFileUrl);
-            latestVersion = await Program.DefaultClient.GetStringAsync(versionFileUrl);
+            latestVersion = await Program.HttpClient.GetStringAsync(versionFileUrl);
         }
         else
         {

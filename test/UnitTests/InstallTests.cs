@@ -7,12 +7,6 @@ namespace Dnvm.Test;
 
 public class InstallTests
 {
-    private readonly ITestOutputHelper _testOutput;
-    public InstallTests(ITestOutputHelper testOutput)
-    {
-        _testOutput = testOutput;
-    }
-
     [Fact]
     public async Task Install()
     {

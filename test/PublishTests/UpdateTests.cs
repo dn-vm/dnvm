@@ -19,7 +19,7 @@ public class UpdateTests
         using var mockServer = new MockServer();
         var proc = Process.Start(new ProcessStartInfo() {
             FileName = dnvmTmpPath,
-            Arguments = $"update --self -v --releases-url {mockServer.PrefixString}releases.json",
+            Arguments = $"update --self -v --feed-url {mockServer.PrefixString}releases.json",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         });
@@ -43,7 +43,7 @@ public class UpdateTests
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(DnvmExe);
         var logger = new Logger();
-        var update = new Update(logger, new Command.UpdateOptions());
+        var update = new Update(logger, new Command.UpdateOptions() { FeedUrl = DefaultConfig.FeedUrl });
         Assert.True(await update.ValidateBinary(dnvmTmpPath));
     }
 }

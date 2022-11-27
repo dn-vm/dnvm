@@ -1,6 +1,8 @@
 
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Unicode;
 using static Dnvm.Utilities;
 
 namespace Dnvm.Test;
@@ -13,6 +15,20 @@ public sealed class MockServer : IDisposable
 
     public string PrefixString => $"http://localhost:{Port}/";
     private const string VersionString = "42.42.42";
+
+    public string ReleasesIndexJson { get; set; } = """
+{
+    "releases-index": [
+        {
+            "channel-version": "42.42",
+            "latest-release": "42.42.42",
+            "latest-sdk": "42.42.42",
+            "release-type" : "lts",
+            "support-phase": "active"
+        }
+    ]
+}
+""";
 
     public MockServer()
     {
@@ -51,11 +67,33 @@ public sealed class MockServer : IDisposable
 
     private Dictionary<string, Action<HttpListenerResponse>> UrlToHandler => new()
     {
+        ["/release-metadata/releases-index.json"] = GetReleasesIndexJson,
         ["/sdk/lts/latest.version"] = GetLatestVersionUrl,
         [$"/sdk/{VersionString}/dotnet-sdk-{VersionString}-{CurrentRID}.{ZipSuffix}"] = GetSdk,
         ["/releases.json"] = GetReleasesJson,
         [$"/dnvm/dnvm.{ZipSuffix}"] = GetDnvm,
     };
+
+    private void GetReleasesIndexJson(HttpListenerResponse response)
+    {
+        byte[] buffer;
+        if (ReleasesIndexJson is null)
+        {
+            buffer = Encoding.UTF8.GetBytes(nameof(ReleasesIndexJson) + " property must be set");
+            response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        }
+        else
+        {
+            buffer = Encoding.UTF8.GetBytes(ReleasesIndexJson);
+            response.StatusCode = (int)HttpStatusCode.OK;
+        }
+        // Get a response stream and write the response to it.
+        response.ContentLength64 = buffer.Length;
+        var output = response.OutputStream;
+        output.Write(buffer, 0, buffer.Length);
+        // You must close the output stream.
+        output.Close();
+    }
 
     private static void GetLatestVersionUrl(HttpListenerResponse response)
     {
