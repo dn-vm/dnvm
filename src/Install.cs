@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.IO.MemoryMappedFiles;
@@ -19,9 +20,12 @@ namespace Dnvm;
 
 public sealed class Install
 {
-
-    private readonly string _installDir;
-    private readonly string _manifestPath;
+    // Place to install dnvm
+    public readonly string InstallDir;
+    // Place to install SDKs
+    public readonly string SdkInstallDir;
+    // Place to install or read manifest file.
+    public readonly string ManifestPath;
 
     private readonly Logger _logger;
     private readonly Command.InstallOptions _options;
@@ -48,17 +52,19 @@ public sealed class Install
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _installDir = options.InstallPath ??
-            (options.Global ? DefaultConfig.GlobalInstallDir : DefaultConfig.InstallDir);
-        _manifestPath = Path.Combine(_installDir, ManifestUtils.FileName);
+        InstallDir = options.DnvmInstallPath ?? DefaultConfig.InstallDir;
+        SdkInstallDir = options.SdkInstallPath ?? Path.Combine(InstallDir, "dotnet");
+        ManifestPath = Path.Combine(InstallDir, ManifestUtils.FileName);
     }
 
     public async Task<Result> Handle()
     {
-        _logger.Info("Install Directory: " + _installDir);
+        _logger.Info("Install Directory: " + InstallDir);
+        _logger.Info("SDK install directory: " + SdkInstallDir);
         try
         {
-            Directory.CreateDirectory(_installDir);
+            Directory.CreateDirectory(InstallDir);
+            Directory.CreateDirectory(SdkInstallDir);
         }
         catch (UnauthorizedAccessException)
         {
@@ -73,40 +79,20 @@ public sealed class Install
                 : Result.SelfInstallFailed;
         }
 
-        string? text = null;
+        Manifest manifest;
         try
         {
-            text = File.ReadAllText(_manifestPath);
+            manifest = ManifestUtils.ReadOrCreateManifest(ManifestPath);
         }
-        // Not found is expected
-        catch (DirectoryNotFoundException) {}
-        catch (FileNotFoundException) {}
+        catch (InvalidDataException)
+        {
+            Console.Error.WriteLine("Manifest file corrupted");
+            return Result.ManifestFileCorrupted;
+        }
         catch (Exception e)
         {
             Console.Error.WriteLine("Error reading manifest file: " + e.Message);
             return Result.ManifestIOError;
-        }
-
-        Manifest manifest;
-        if (text is not null)
-        {
-            var manifestOpt = ManifestUtils.ReadNewOrOldManifest(text);
-            if (manifestOpt is null)
-            {
-                Console.Error.WriteLine("Manifest file corrupted");
-                return Result.ManifestFileCorrupted;
-            }
-            else
-            {
-                manifest = manifestOpt;
-            }
-        }
-        else
-        {
-            manifest = new Manifest() {
-                InstalledVersions = ImmutableArray<string>.Empty,
-                TrackedChannels = ImmutableArray<TrackedChannel>.Empty
-            };
         }
 
         if (manifest.TrackedChannels.Any(c => c.ChannelName == _options.Channel))
@@ -167,8 +153,8 @@ public sealed class Install
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
         }
-        _logger.Log($"Installing to {_installDir}");
-        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, _installDir);
+        _logger.Log($"Installing to {SdkInstallDir}");
+        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, SdkInstallDir);
         File.Delete(archivePath);
         if (extractResult != null)
         {
@@ -193,52 +179,20 @@ public sealed class Install
         _logger.Info("Writing manifest");
         var tmpFile = Path.GetTempFileName();
         File.WriteAllText(tmpFile, JsonSerializer.Serialize(manifest));
-        File.Move(tmpFile, _manifestPath, overwrite: true);
+        File.Move(tmpFile, ManifestPath, overwrite: true);
 
         _logger.Log("Successfully installed");
         return 0;
     }
 
+
     private async Task<int> LinuxAddToPath(string pathToAdd)
     {
-        string addToPath = $"PATH=$PATH:{pathToAdd}";
-        if (_options.Global)
-        {
-            _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/profile.d/dotnet.sh");
-            try
-            {
-                using (var f = File.OpenWrite("/etc/profile.d/dotnet.sh"))
-                {
-                    await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(addToPath).AsMemory());
-                }
-                return 0;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                _logger.Error("Unable to write to /etc/profile.d/dotnet.sh, attempting to write to local environment");
-            }
-        }
         return await UnixAddToPathInShellFiles(pathToAdd);
     }
 
     private async Task<int> MacAddToPath(string pathToAdd)
     {
-        if (_options.Global)
-        {
-            _logger.Info($"Adding {pathToAdd} to the global PATH in /etc/paths.d/dotnet");
-            try
-            {
-                using (var f = File.OpenWrite("/etc/paths.d/dotnet"))
-                {
-                    await f.WriteAsync(System.Text.Encoding.UTF8.GetBytes(pathToAdd).AsMemory());
-                }
-                return 0;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                _logger.Error("Unable to write path to /etc/paths.d/dotnet, attempting to write to local environment");
-            }
-        }
         return await UnixAddToPathInShellFiles(pathToAdd);
     }
 
@@ -320,7 +274,7 @@ public sealed class Install
         var procPath = Utilities.ProcessPath;
         _logger.Info("Location of running exe" + procPath);
 
-        var targetPath = Path.Combine(_installDir, Utilities.ExeName);
+        var targetPath = Path.Combine(InstallDir, Utilities.ExeName);
         if (!_options.Force && File.Exists(targetPath))
         {
             _logger.Log("dnvm is already installed at: " + targetPath);
@@ -351,12 +305,12 @@ public sealed class Install
     {
         if (Utilities.CurrentRID.OS == OSPlatform.Windows)
         {
-            Console.WriteLine("Adding install directory to user path: " + _installDir);
-            WindowsAddToPath(_installDir);
+            Console.WriteLine("Adding install directory to user path: " + InstallDir);
+            WindowsAddToPath(InstallDir);
         }
         else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
         {
-            int result = await MacAddToPath(_installDir);
+            int result = await MacAddToPath(InstallDir);
             if (result != 0)
             {
                 _logger.Error("Failed to add to path");
@@ -364,7 +318,7 @@ public sealed class Install
         }
         else
         {
-            int result = await LinuxAddToPath(_installDir);
+            int result = await LinuxAddToPath(InstallDir);
             if (result != 0)
             {
                 _logger.Error("Failed to add to path");
@@ -373,12 +327,12 @@ public sealed class Install
         return 0;
     }
 
-    private int WindowsAddToPath(string pathToAdd)
+    private static int WindowsAddToPath(string pathToAdd)
     {
         var currentPathVar = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
-        if (!(":" + currentPathVar + ":").Contains(_installDir))
+        if (!(":" + currentPathVar + ":").Contains(pathToAdd))
         {
-            Environment.SetEnvironmentVariable("PATH", _installDir + ":" + currentPathVar, _options.Global ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User);
+            Environment.SetEnvironmentVariable("PATH", pathToAdd + ":" + currentPathVar, EnvironmentVariableTarget.User);
         }
         return 0;
     }

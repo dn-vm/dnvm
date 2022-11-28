@@ -16,14 +16,15 @@ public class InstallTests
         {
             Channel = Channel.Lts,
             FeedUrl = server.PrefixString,
-            InstallPath = tempDir.Path,
+            DnvmInstallPath = tempDir.Path,
             UpdateUserEnvironment = false,
         };
         var logger = new Logger();
-        var task = new Install(logger, options).Handle();
+        var installCmd = new Install(logger, options);
+        var task = installCmd.Handle();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
-        var dotnetFile = Path.Combine(tempDir.Path, "dotnet");
+        var dotnetFile = Path.Combine(installCmd.SdkInstallDir, "dotnet");
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
 
@@ -43,14 +44,15 @@ public class InstallTests
         {
             Channel = Channel.Lts,
             FeedUrl = server.PrefixString,
-            InstallPath = installPath,
+            DnvmInstallPath = installPath,
             UpdateUserEnvironment = false,
         };
         var logger = new Logger();
-        var task = new Install(logger, options).Handle();
+        var installCmd = new Install(logger, options);
+        var task = installCmd.Handle();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
-        var dotnetFile = Path.Combine(installPath, "dotnet");
+        var dotnetFile = Path.Combine(installCmd.SdkInstallDir, "dotnet");
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
     }

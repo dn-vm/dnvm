@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Reflection.PortableExecutable;
 using Serde;
@@ -31,7 +32,7 @@ public static partial class ManifestUtils
     /// Either reads a manifest in the current format, or reads a
     /// manifest in the old format and converts it to the new format.
     /// </summary>
-    public static Manifest? ReadNewOrOldManifest(string manifestSrc)
+    private static Manifest? ReadNewOrOldManifest(string manifestSrc)
     {
         try
         {
@@ -46,6 +47,42 @@ public static partial class ManifestUtils
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Tries to read or create a manifest from the given path. If an IO exception other than <see
+    /// cref="DirectoryNotFoundException" /> or <see cref="FileNotFoundException" /> occurs, it will
+    /// be rethrown. Throws <see cref="InvalidDataException" />.
+    /// </summary>
+    public static Manifest ReadOrCreateManifest(string manifestPath)
+    {
+        string? text = null;
+        try
+        {
+            text = File.ReadAllText(manifestPath);
+        }
+        // Not found is expected
+        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) {}
+
+        if (text is not null)
+        {
+            var manifestOpt = ManifestUtils.ReadNewOrOldManifest(text);
+            if (manifestOpt is null)
+            {
+                throw new InvalidDataException();
+            }
+            else
+            {
+                return manifestOpt;
+            }
+        }
+        else
+        {
+            return new Manifest() {
+                InstalledVersions = ImmutableArray<string>.Empty,
+                TrackedChannels = ImmutableArray<TrackedChannel>.Empty
+            };
         }
     }
 
