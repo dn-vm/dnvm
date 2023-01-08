@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\dnvm.csproj" />
+    <ProjectReference Include="..\..\src\dnvm\dnvm.csproj" />
     <ProjectReference Include="..\Shared\Dnvm.Test.Shared.csproj" />
   </ItemGroup>
 

@@ -206,53 +206,9 @@ public sealed class Install
             : $"dotnet-sdk-{specificVersion}-{rid}.{suffix}";
     }
 
-    private static readonly HttpClient s_noRedirectClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false });
-
     static string ConstructDownloadLink(string feed, string latestVersion, string archiveName)
     {
         return $"{feed}/Sdk/{latestVersion}/{archiveName}";
-    }
-
-    private async Task<string?> GetLatestVersion(
-        string feed,
-        Channel channel,
-        RID rid,
-        string suffix)
-    {
-        string latestVersion;
-        // The dotnet service provides an endpoint for fetching the latest LTS and Current versions
-        if (channel != Channel.Preview)
-        {
-            var versionFileUrl = $"{feed}/Sdk/{channel}/latest.version";
-            _logger.Info("Fetching latest version from URL " + versionFileUrl);
-            latestVersion = await Program.HttpClient.GetStringAsync(versionFileUrl);
-        }
-        else
-        {
-            // There's no endpoint for preview versions. We'll have to construct that ourselves from aka.ms.
-            const string PreviewMajorVersion = "7.0";
-            var versionlessArchiveName = ConstructArchiveName(null, rid, suffix);
-            string akaMsUrl = $"https://aka.ms/dotnet/{PreviewMajorVersion}/preview/{versionlessArchiveName}";
-            _logger.Info("aka.ms URL: " + akaMsUrl);
-            var requestMessage = new HttpRequestMessage(
-                HttpMethod.Head,
-                akaMsUrl);
-            var response = await s_noRedirectClient.SendAsync(requestMessage);
-
-            if (response.StatusCode != HttpStatusCode.MovedPermanently)
-            {
-                return null;
-            }
-
-            if (response.Headers.Location?.Segments is not { Length: 5 } segments)
-            {
-                return null;
-            }
-
-            latestVersion = segments[3].TrimEnd('/');
-        }
-        _logger.Info(latestVersion);
-        return latestVersion;
     }
 
     private static string GetEnvShContent()

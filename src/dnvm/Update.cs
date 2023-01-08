@@ -65,15 +65,6 @@ public sealed partial class Update
         return success ? 0 : 1;
     }
 
-
-    [GenerateSerialize, GenerateDeserialize]
-    public partial record struct Releases(Release LatestVersion);
-
-    [GenerateSerialize, GenerateDeserialize]
-    public partial record struct Release(
-        string Version,
-        Dictionary<string, string> Artifacts);
-
     public async Task<string> GetReleaseLink()
     {
         var releasesUrl = _options.FeedUrl ?? DefaultReleasesUrl;
