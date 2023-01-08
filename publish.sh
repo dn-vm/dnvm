@@ -44,7 +44,7 @@ if [[ -z "${rid}" ]]; then
     rid=$osname-$arch
 fi
 
-dotnet publish --sc -r $rid -c Release src/dnvm.csproj
+dotnet publish --sc -r $rid -c Release src/dnvm/dnvm.csproj
 if [[ $(uname) == 'Darwin' ]]; then
     strip ./artifacts/bin/dnvm/Release/net7.0/$rid/publish/dnvm
 fi

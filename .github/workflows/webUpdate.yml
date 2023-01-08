@@ -18,7 +18,7 @@ jobs:
         with:
           dotnet-version: 7.0.100
       - name: Build web content
-        run: dotnet run --project tools/UpdateVersionJson/UpdateVersionJson.csproj
+        run: dotnet build tools/gh-pages/gh-pages.proj
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v3
         with:

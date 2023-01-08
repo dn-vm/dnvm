@@ -13,7 +13,7 @@ foreach (var rid in rids)
     var zipSuffix = rid.StartsWith("win") ? "zip" : "tar.gz";
     artifacts[rid] = $"https://github.com/agocke/dnvm/releases/download/v{version}/dnvm-{version}-{rid}.{zipSuffix}";
 }
-var releases = new Update.Releases(new Update.Release(version, artifacts));
+var releases = new Releases(new Release(version, artifacts));
 
 var serialized = JsonSerializer.Serialize(releases);
 Console.WriteLine(serialized);
