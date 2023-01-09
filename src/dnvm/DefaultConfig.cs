@@ -8,7 +8,7 @@ public static class DefaultConfig
 {
     public const string FeedUrl = "https://dotnetcli.azureedge.net/dotnet";
 
-    public static readonly string InstallDir = Path.Combine(
+    public static readonly string DnvmHome = Path.Combine(
         GetFolderPath(SpecialFolder.LocalApplicationData, SpecialFolderOption.DoNotVerify),
         "dnvm");
 }

@@ -29,6 +29,7 @@ public sealed class Install
 
     private readonly Logger _logger;
     private readonly Command.InstallOptions _options;
+    private readonly string _feedUrl;
 
     public enum Result
     {
@@ -52,12 +53,23 @@ public sealed class Install
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        InstallDir = options.DnvmInstallPath ?? DefaultConfig.InstallDir;
+        InstallDir = options.DnvmInstallPath ?? DefaultConfig.DnvmHome;
         SdkInstallDir = options.SdkInstallPath ?? Path.Combine(InstallDir, "dotnet");
         ManifestPath = Path.Combine(InstallDir, ManifestUtils.FileName);
+        var feed = _options.FeedUrl ?? DefaultConfig.FeedUrl;
+        if (feed[^1] == '/')
+        {
+            feed = feed[..^1];
+        }
+        _feedUrl = feed;
     }
 
-    public async Task<Result> Handle()
+    public static Task<Result> Run(Logger logger, Command.InstallOptions options)
+    {
+        return new Install(logger, options).Run();
+    }
+
+    public async Task<Result> Run()
     {
         _logger.Info("Install Directory: " + InstallDir);
         _logger.Info("SDK install directory: " + SdkInstallDir);
@@ -102,16 +114,10 @@ public sealed class Install
             return Result.ChannelAlreadyTracked;
         }
 
-        var feed = _options.FeedUrl;
-        if (feed[^1] == '/')
-        {
-            feed = feed[..^1];
-        }
-
         DotnetReleasesIndex versionIndex;
         try
         {
-            versionIndex = await VersionInfoClient.FetchLatestIndex(feed);
+            versionIndex = await VersionInfoClient.FetchLatestIndex(_feedUrl);
         }
         catch (Exception e)
         {
@@ -141,7 +147,7 @@ public sealed class Install
         string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
         _logger.Info("Archive path: " + archivePath);
 
-        var link = ConstructDownloadLink(feed, latestVersion, archiveName);
+        var link = ConstructDownloadLink(_feedUrl, latestVersion, archiveName);
         _logger.Info("Download link: " + link);
 
         var result = JsonSerializer.Serialize(manifest);

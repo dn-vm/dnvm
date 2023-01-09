@@ -25,9 +25,28 @@ public enum Channel
     Preview,
 }
 
+[GenerateSerde]
+public sealed partial record Manifest
+{
+    [SerdeMemberOptions(SkipDeserialize = true)]
+    public int Version => 2;
+    public required ImmutableArray<string> InstalledVersions { get; init; }
+    public required ImmutableArray<TrackedChannel> TrackedChannels { get; init; }
+}
+
+[GenerateSerde]
+public partial record struct TrackedChannel
+{
+    public Channel ChannelName { get; init; }
+    public ImmutableArray<string> InstalledVersions { get; init; }
+}
+
 public static partial class ManifestUtils
 {
     public const string FileName = "dnvmManifest.json";
+
+    public static string ManifestPath => Path.Combine(Program.DnvmHome, FileName);
+
     /// <summary>
     /// Either reads a manifest in the current format, or reads a
     /// manifest in the old format and converts it to the new format.
@@ -91,21 +110,4 @@ public static partial class ManifestUtils
     {
         public int? Version { get; init; }
     }
-}
-
-
-[GenerateSerde]
-public sealed partial record Manifest
-{
-    [SerdeMemberOptions(SkipDeserialize = true)]
-    public int Version => 2;
-    public required ImmutableArray<string> InstalledVersions { get; init; }
-    public required ImmutableArray<TrackedChannel> TrackedChannels { get; init; }
-}
-
-[GenerateSerde]
-public partial record struct TrackedChannel
-{
-    public Channel ChannelName { get; init; }
-    public ImmutableArray<string> InstalledVersions { get; init; }
 }

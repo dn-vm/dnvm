@@ -14,7 +14,7 @@ public abstract record Command
         /// <summary>
         /// URL to the dotnet feed containing the releases index and download artifacts.
         /// </summary>
-        public required string FeedUrl { get; init; }
+        public string? FeedUrl { get; init; }
         public bool Verbose { get; init; } = false;
         public bool Force { get; init; } = false;
         public bool Self { get; init; } = false;
@@ -34,7 +34,7 @@ public abstract record Command
 
     public sealed record UpdateOptions : Command
     {
-        public required string FeedUrl { get; init; }
+        public string? FeedUrl { get; init; }
         public bool Verbose { get; init; } = false;
         public bool Self { get; init; } = false;
     }
@@ -58,12 +58,12 @@ sealed record class CommandLineOptions(Command Command)
                 bool force = default;
                 bool self = default;
                 bool prereqs = default;
-                string? feedUrl = DefaultConfig.FeedUrl;
+                string? feedUrl = default;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
                 syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
-                syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from. Default is {feedUrl}");
+                syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from.");
                 syntax.DefineParameter("channel", ref channel, c =>
                 {
                     if (Enum.TryParse<Channel>(c, ignoreCase: true, out var result))
@@ -92,7 +92,7 @@ sealed record class CommandLineOptions(Command Command)
             {
                 bool self = default;
                 bool verbose = default;
-                string feedUrl = DefaultConfig.FeedUrl;
+                string? feedUrl = default;
                 syntax.DefineOption("self", ref self, "Update dnvm itself in the current location");
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from. Default is {feedUrl}");

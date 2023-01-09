@@ -5,8 +5,10 @@ namespace Dnvm;
 
 public enum LogLevel
 {
-    Normal = 1,
-    Info = 2
+    Info = 1,
+    Normal,
+    Warn,
+    Error
 }
 
 public sealed class Logger
@@ -16,7 +18,10 @@ public sealed class Logger
 
     public void Error(string msg)
     {
-        Console.Error.WriteLine("Error: " + msg);
+        if (LogLevel >= LogLevel.Error)
+        {
+            Console.Error.WriteLine("Error: " + msg);
+        }
     }
 
     public void Info(string msg)
@@ -27,8 +32,19 @@ public sealed class Logger
         }
     }
 
+    public void Warn(string msg)
+    {
+        if (LogLevel >= LogLevel.Warn)
+        {
+            Console.WriteLine("Warning: " + msg);
+        }
+    }
+
     public void Log(string msg)
     {
-        Console.WriteLine(msg);
+        if (LogLevel >= LogLevel.Normal)
+        {
+            Console.WriteLine(msg);
+        }
     }
 }

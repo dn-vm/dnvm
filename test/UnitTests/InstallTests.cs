@@ -21,7 +21,7 @@ public class InstallTests
         };
         var logger = new Logger();
         var installCmd = new Install(logger, options);
-        var task = installCmd.Handle();
+        var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
         var dotnetFile = Path.Combine(installCmd.SdkInstallDir, "dotnet");
@@ -49,7 +49,7 @@ public class InstallTests
         };
         var logger = new Logger();
         var installCmd = new Install(logger, options);
-        var task = installCmd.Handle();
+        var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
         var dotnetFile = Path.Combine(installCmd.SdkInstallDir, "dotnet");

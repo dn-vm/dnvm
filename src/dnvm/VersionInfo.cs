@@ -19,7 +19,7 @@ public static class VersionInfoClient
         return JsonSerializer.Deserialize<DotnetReleasesIndex>(response);
     }
 
-    public static DotnetReleasesIndex.Release? GetLatestReleaseForChannel(DotnetReleasesIndex index, Channel c)
+    public static DotnetReleasesIndex.Release? GetLatestReleaseForChannel(this DotnetReleasesIndex index, Channel c)
     {
         (DotnetReleasesIndex.Release Release, SemVersion Version)? latestRelease = null;
         foreach (var release in index.Releases)

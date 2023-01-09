@@ -1,13 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Serde;
 using Serde.Json;
+using static Dnvm.Update.Result;
 
 namespace Dnvm;
 
@@ -15,6 +12,7 @@ public sealed partial class Update
 {
     private readonly Logger _logger;
     private readonly Command.UpdateOptions _options;
+    private readonly string _feedUrl;
 
     public const string DefaultReleasesUrl = "https://commentout.com/dnvm/releases.json";
 
@@ -26,26 +24,74 @@ public sealed partial class Update
         {
             _logger.LogLevel = LogLevel.Info;
         }
+        var feed = _options.FeedUrl ?? DefaultConfig.FeedUrl;
+        if (feed[^1] == '/')
+        {
+            feed = feed[..^1];
+        }
+        _feedUrl = feed;
     }
 
-    public async Task<int> Handle()
+    public static Task<Result> Run(Logger logger, Command.UpdateOptions options)
     {
-        if (!_options.Self)
+        return new Update(logger, options).Run();
+    }
+
+    public enum Result
+    {
+        Success,
+        CouldntFetchIndex,
+        NotASingleFile,
+        SelfUpdateFailed
+    }
+
+    public async Task<Result> Run()
+    {
+        if (_options.Self)
         {
-            _logger.Error("update is currently only supported with --self");
-            return 1;
+            return await UpdateSelf();
         }
 
+        DotnetReleasesIndex versionIndex;
+        try
+        {
+            versionIndex = await VersionInfoClient.FetchLatestIndex(_feedUrl);
+        }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine("Could not fetch the releases index: ");
+            Console.Error.WriteLine(e.Message);
+            return CouldntFetchIndex;
+        }
+
+        var manifest = ManifestUtils.ReadOrCreateManifest(ManifestUtils.ManifestPath);
+        foreach (var tracked in manifest.TrackedChannels)
+        {
+            var latestOpt = versionIndex.GetLatestReleaseForChannel(tracked.ChannelName);
+            if (latestOpt is {} latest)
+            {
+                _logger.Info($"Found version: {latest.LatestSdk}");
+            }
+            else
+            {
+                _logger.Warn($"No supported releases found for channel: {tracked.ChannelName}");
+            }
+        }
+        return Success;
+    }
+
+    private async Task<Result> UpdateSelf()
+    {
         if (!Utilities.IsSingleFile)
         {
             Console.WriteLine("Cannot self-update: the current executable is not deployed as a single file.");
-            return 1;
+            return Result.NotASingleFile;
         }
 
         string artifactDownloadLink = await GetReleaseLink();
 
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Func<string, Task> handleDownload = async tempDownloadPath =>
+        async Task HandleDownload(string tempDownloadPath)
         {
             _logger.Info("Extraction directory: " + tempArchiveDir);
             string? retMsg = await Utilities.ExtractArchiveToDir(tempDownloadPath, tempArchiveDir);
@@ -53,16 +99,16 @@ public sealed partial class Update
             {
                 _logger.Error("Extraction failed: " + retMsg);
             }
-        };
+        }
 
-        await DownloadBinaryToTempAndDelete(artifactDownloadLink, handleDownload);
+        await DownloadBinaryToTempAndDelete(artifactDownloadLink, HandleDownload);
         _logger.Info($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
         bool success =
             await ValidateBinary(dnvmTmpPath) &&
             SwapWithRunningFile(dnvmTmpPath);
-        return success ? 0 : 1;
+        return success ? Success : SelfUpdateFailed;
     }
 
     public async Task<string> GetReleaseLink()

@@ -88,7 +88,7 @@ namespace Internal.CommandLine
             return option;
         }
 
-        public Argument<string?> DefineOption(string name, ref string value, string help)
+        public Argument<string?> DefineOption(string name, ref string? value, string help)
         {
             return DefineOption(name, ref value, s_stringParser, help)!;
         }
