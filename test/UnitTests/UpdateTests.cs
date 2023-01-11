@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using Semver;
 using Serde.Json;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Dnvm.Test;
 
@@ -10,12 +11,14 @@ public sealed class UpdateTests : IDisposable
 {
     private readonly MockServer _mockServer = new MockServer();
     private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
-    private readonly Logger _logger = new Logger();
+    private readonly Logger _logger;
     private readonly string _manifestPath;
     private readonly CommandArguments.UpdateArguments _updateArguments;
 
-    public UpdateTests()
+    public UpdateTests(ITestOutputHelper output)
     {
+        var wrapper = new OutputWrapper(output);
+        _logger = new Logger(wrapper, wrapper);
         _manifestPath = Path.Combine(_dnvmHome.Path, ManifestUtils.FileName);
         _updateArguments = new() {
             FeedUrl = _mockServer.PrefixString,
@@ -33,7 +36,7 @@ public sealed class UpdateTests : IDisposable
     [Fact]
     public async Task CheckUrl()
     {
-        var update = new Update(_dnvmHome.Path, new Logger(), new CommandArguments.UpdateArguments {
+        var update = new Update(_dnvmHome.Path, _logger, new CommandArguments.UpdateArguments {
             FeedUrl = $"http://localhost:{_mockServer.Port}/releases.json"
         });
         var link = await update.GetReleaseLink();

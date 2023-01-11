@@ -1,5 +1,6 @@
 
 using System;
+using System.IO;
 
 namespace Dnvm;
 
@@ -13,6 +14,15 @@ public enum LogLevel
 
 public sealed class Logger
 {
+    private readonly TextWriter _output;
+    private readonly TextWriter _error;
+
+    public Logger(TextWriter output, TextWriter error)
+    {
+        _output = output;
+        _error = error;
+    }
+
     // Mutable for now, should be immutable once the command line parser supports global options
     public LogLevel LogLevel = LogLevel.Normal;
 
@@ -20,7 +30,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Error)
         {
-            Console.Error.WriteLine("Error: " + msg);
+            _error.WriteLine("Error: " + msg);
         }
     }
 
@@ -28,7 +38,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Info)
         {
-            Console.WriteLine("Log: " + msg);
+            _output.WriteLine("Log: " + msg);
         }
     }
 
@@ -36,7 +46,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Warn)
         {
-            Console.WriteLine("Warning: " + msg);
+            _output.WriteLine("Warning: " + msg);
         }
     }
 
@@ -44,7 +54,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Normal)
         {
-            Console.WriteLine(msg);
+            _output.WriteLine(msg);
         }
     }
 }

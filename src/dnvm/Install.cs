@@ -24,7 +24,6 @@ public sealed class Install
     private readonly Logger _logger;
     private readonly CommandArguments.InstallArguments _options;
     private readonly string _feedUrl;
-    private readonly string _dnvmHome;
 
     public enum Result
     {
@@ -42,7 +41,6 @@ public sealed class Install
 
     public Install(string dnvmHome, Logger logger, CommandArguments.InstallArguments options)
     {
-        _dnvmHome = dnvmHome;
         _logger = logger;
         _options = options;
         if (_options.Verbose)
@@ -94,18 +92,18 @@ public sealed class Install
         }
         catch (InvalidDataException)
         {
-            Console.Error.WriteLine("Manifest file corrupted");
+            _logger.Error("Manifest file corrupted");
             return Result.ManifestFileCorrupted;
         }
         catch (Exception e)
         {
-            Console.Error.WriteLine("Error reading manifest file: " + e.Message);
+            _logger.Error("Error reading manifest file: " + e.Message);
             return Result.ManifestIOError;
         }
 
         if (manifest.TrackedChannels.Any(c => c.ChannelName == _options.Channel))
         {
-            Console.WriteLine($"Channel '{_options.Channel}' is already being tracked." +
+            _logger.Log($"Channel '{_options.Channel}' is already being tracked." +
                 " Did you mean to run 'dnvm update'?");
             return Result.ChannelAlreadyTracked;
         }
@@ -124,8 +122,8 @@ public sealed class Install
         }
         catch (Exception e)
         {
-            Console.Error.WriteLine("Could not fetch the releases index: ");
-            Console.Error.WriteLine(e.Message);
+            _logger.Error("Could not fetch the releases index: ");
+            _logger.Error(e.Message);
             return Result.CouldntFetchIndex;
         }
 
@@ -134,7 +132,7 @@ public sealed class Install
         string? latestVersion = versionIndex.GetLatestReleaseForChannel(_options.Channel)?.LatestSdk;
         if (latestVersion is null)
         {
-            Console.Error.WriteLine("Could not fetch the latest package version");
+            _logger.Error("Could not fetch the latest package version");
             return Result.CouldntFetchLatestVersion;
         }
         _logger.Log("Found latest version: " + latestVersion);
@@ -254,7 +252,7 @@ public sealed class Install
     {
         if (!Utilities.IsSingleFile)
         {
-            Console.WriteLine("Cannot self-install into target location: the current executable is not deployed as a single file.");
+            _logger.Log("Cannot self-install into target location: the current executable is not deployed as a single file.");
             return 1;
         }
 
@@ -276,7 +274,7 @@ public sealed class Install
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
+                _logger.Log($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
                 return 1;
             }
 
@@ -295,7 +293,7 @@ public sealed class Install
     {
         if (Utilities.CurrentRID.OS == OSPlatform.Windows)
         {
-            Console.WriteLine("Adding install directory to user path: " + InstallDir);
+            _logger.Log("Adding install directory to user path: " + InstallDir);
             WindowsAddToPath(InstallDir);
         }
         else if (Utilities.CurrentRID.OS == OSPlatform.OSX)

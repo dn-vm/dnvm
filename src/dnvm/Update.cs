@@ -70,8 +70,8 @@ public sealed partial class Update
         }
         catch (Exception e)
         {
-            Console.Error.WriteLine("Could not fetch the releases index: ");
-            Console.Error.WriteLine(e.Message);
+            _logger.Error("Could not fetch the releases index: ");
+            _logger.Error(e.Message);
             return CouldntFetchIndex;
         }
 
@@ -134,7 +134,7 @@ public sealed partial class Update
     {
         if (!Utilities.IsSingleFile)
         {
-            Console.WriteLine("Cannot self-update: the current executable is not deployed as a single file.");
+            _logger.Error("Cannot self-update: the current executable is not deployed as a single file.");
             return Result.NotASingleFile;
         }
 

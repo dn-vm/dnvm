@@ -9,6 +9,14 @@ namespace Dnvm.Test;
 
 public class InstallTests
 {
+    private readonly Logger _logger;
+
+    public InstallTests(ITestOutputHelper output)
+    {
+        var wrapper = new OutputWrapper(output);
+        _logger = new Logger(wrapper, wrapper);
+    }
+
     [Fact]
     public async Task LtsInstall()
     {
@@ -23,8 +31,7 @@ public class InstallTests
             DnvmInstallPath = installDir.Path,
             UpdateUserEnvironment = false,
         };
-        var logger = new Logger();
-        var installCmd = new Install(dnvmHome.Path, logger, options);
+        var installCmd = new Install(dnvmHome.Path, _logger, options);
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
@@ -58,8 +65,7 @@ public class InstallTests
             DnvmInstallPath = installPath,
             UpdateUserEnvironment = false,
         };
-        var logger = new Logger();
-        var installCmd = new Install(dnvmHome.Path, logger, options);
+        var installCmd = new Install(dnvmHome.Path, _logger, options);
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
@@ -81,8 +87,7 @@ public class InstallTests
             DnvmInstallPath = installDir.Path,
             UpdateUserEnvironment = false,
         };
-        var logger = new Logger();
-        var installCmd = new Install(dnvmHome.Path, logger, options);
+        var installCmd = new Install(dnvmHome.Path, _logger, options);
         Assert.Equal(Result.Success, await installCmd.Run());
         Assert.Equal(dnvmHome.Path, Path.GetDirectoryName(installCmd.SdkInstallDir));
         Assert.True(File.Exists(Path.Combine(installCmd.SdkInstallDir, "dotnet")));

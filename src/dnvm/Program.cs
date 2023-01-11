@@ -13,7 +13,7 @@ public static class Program
     {
         Console.WriteLine("dnvm " + GitVersionInformation.SemVer + " " + GitVersionInformation.Sha);
         var options = CommandLineArguments.Parse(args);
-        var logger = new Logger();
+        var logger = new Logger(Console.Out, Console.Error);
         var dnvmHome = GetDnvmHome();
         return options.Command switch
         {
