@@ -70,7 +70,7 @@ public static class Utilities
         {
             try
             {
-                ZipFile.ExtractToDirectory(archivePath, dirPath);
+                ZipFile.ExtractToDirectory(archivePath, dirPath, overwriteFiles: true);
             }
             catch (Exception e)
             {
