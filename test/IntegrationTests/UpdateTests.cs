@@ -43,7 +43,6 @@ public class UpdateTests
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(DnvmExe);
         var logger = new Logger();
-        var update = new Update(logger, new Command.UpdateOptions() { FeedUrl = DefaultConfig.FeedUrl });
-        Assert.True(await update.ValidateBinary(dnvmTmpPath));
+        Assert.True(await Update.ValidateBinary(logger, dnvmTmpPath));
     }
 }

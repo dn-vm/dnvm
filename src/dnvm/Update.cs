@@ -1,8 +1,13 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Semver;
 using Serde.Json;
 using static Dnvm.Update.Result;
 
@@ -11,13 +16,17 @@ namespace Dnvm;
 public sealed partial class Update
 {
     private readonly Logger _logger;
-    private readonly Command.UpdateOptions _options;
+    private readonly CommandArguments.UpdateArguments _options;
     private readonly string _feedUrl;
+    private readonly string _dnvmHome;
+    private readonly string _manifestPath;
+    private readonly string _sdkInstallDir;
 
     public const string DefaultReleasesUrl = "https://commentout.com/dnvm/releases.json";
 
-    public Update(Logger logger, Command.UpdateOptions options)
+    public Update(string dnvmHome, Logger logger, CommandArguments.UpdateArguments options)
     {
+        _dnvmHome = dnvmHome;
         _logger = logger;
         _options = options;
         if (_options.Verbose)
@@ -30,11 +39,13 @@ public sealed partial class Update
             feed = feed[..^1];
         }
         _feedUrl = feed;
+        _manifestPath = Path.Combine(_dnvmHome, ManifestUtils.FileName);
+        _sdkInstallDir = Path.Combine(_dnvmHome, "dotnet");
     }
 
-    public static Task<Result> Run(Logger logger, Command.UpdateOptions options)
+    public static Task<Result> Run(string dnvmHome, Logger logger, CommandArguments.UpdateArguments options)
     {
-        return new Update(logger, options).Run();
+        return new Update(dnvmHome, logger, options).Run();
     }
 
     public enum Result
@@ -52,10 +63,10 @@ public sealed partial class Update
             return await UpdateSelf();
         }
 
-        DotnetReleasesIndex versionIndex;
+        DotnetReleasesIndex releaseIndex;
         try
         {
-            versionIndex = await VersionInfoClient.FetchLatestIndex(_feedUrl);
+            releaseIndex = await DotnetReleasesIndex.FetchLatestIndex(_feedUrl);
         }
         catch (Exception e)
         {
@@ -64,20 +75,59 @@ public sealed partial class Update
             return CouldntFetchIndex;
         }
 
-        var manifest = ManifestUtils.ReadOrCreateManifest(ManifestUtils.ManifestPath);
-        foreach (var tracked in manifest.TrackedChannels)
+        var manifest = ManifestUtils.ReadOrCreateManifest(_manifestPath);
+        _logger.Log("Looking for available updates");
+        var updateResults = FindPotentialUpdates(manifest, releaseIndex);
+        if (updateResults.Count > 0)
         {
-            var latestOpt = versionIndex.GetLatestReleaseForChannel(tracked.ChannelName);
-            if (latestOpt is {} latest)
+            _logger.Log("Found versions available for update");
+            _logger.Log("Channel\tInstalled\tAvailable");
+            _logger.Log("-------------------------------------------------");
+            foreach (var (c, newestInstalled, newestAvailable) in updateResults)
             {
-                _logger.Info($"Found version: {latest.LatestSdk}");
+                _logger.Log($"{c}\t{newestInstalled}\t{newestAvailable.LatestSdk}");
             }
-            else
+            _logger.Log("Install updates? [y/N]: ");
+            var response = _options.Yes ? "y" : Console.ReadLine();
+            if (response?.Trim().ToLowerInvariant() == "y")
             {
-                _logger.Warn($"No supported releases found for channel: {tracked.ChannelName}");
+                foreach (var (c, _, newestAvailable) in updateResults)
+                {
+                    _ = await Install.InstallSdk(
+                        _logger,
+                        c,
+                        newestAvailable.LatestSdk,
+                        Utilities.CurrentRID,
+                        _feedUrl,
+                        manifest,
+                        _manifestPath,
+                        _sdkInstallDir
+                        );
+                }
             }
         }
         return Success;
+    }
+
+    public static List<(Channel TrackedChannel, SemVersion NewestInstalled, DotnetReleasesIndex.Release NewestAvailable)> FindPotentialUpdates(
+        Manifest manifest,
+        DotnetReleasesIndex releaseIndex)
+    {
+        var list = new List<(Channel, SemVersion, DotnetReleasesIndex.Release)>();
+        foreach (var tracked in manifest.TrackedChannels)
+        {
+            var newestInstalled = tracked.InstalledSdkVersions
+                .Select(v => SemVersion.Parse(v, SemVersionStyles.Strict))
+                .Max(SemVersion.PrecedenceComparer)!;
+            var release = releaseIndex.GetLatestReleaseForChannel(tracked.ChannelName);
+            if (release is { LatestSdk: var sdkVersion} &&
+                SemVersion.TryParse(sdkVersion, SemVersionStyles.Strict, out var newestAvailable) &&
+                SemVersion.ComparePrecedence(newestInstalled, newestAvailable) < 0)
+            {
+                list.Add((tracked.ChannelName, newestInstalled!, release));
+            }
+        }
+        return list;
     }
 
     private async Task<Result> UpdateSelf()
@@ -106,7 +156,7 @@ public sealed partial class Update
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
         bool success =
-            await ValidateBinary(dnvmTmpPath) &&
+            await ValidateBinary(_logger, dnvmTmpPath) &&
             SwapWithRunningFile(dnvmTmpPath);
         return success ? Success : SelfUpdateFailed;
     }
@@ -144,14 +194,14 @@ public sealed partial class Update
         await action(tempDownloadPath);
     }
 
-    public async Task<bool> ValidateBinary(string fileName)
+    public static async Task<bool> ValidateBinary(Logger logger, string fileName)
     {
         // Replace with File.SetUnixFileMode when available
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             var chmod = Process.Start("chmod", $"+x \"{fileName}\"");
             await chmod.WaitForExitAsync();
-            _logger.Info("chmod return: " + chmod.ExitCode);
+            logger.Info("chmod return: " + chmod.ExitCode);
         }
 
         // Run exe and make sure it's OK
@@ -170,14 +220,14 @@ public sealed partial class Update
             const string usageString = "usage: ";
             if (ps.ExitCode != 0)
             {
-                _logger.Error("Could not run downloaded dnvm:");
-                _logger.Error(error);
+                logger.Error("Could not run downloaded dnvm:");
+                logger.Error(error);
                 return false;
             }
             else if (!output.Contains(usageString))
             {
-                _logger.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
-                _logger.Log(output);
+                logger.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
+                logger.Log(output);
                 return false;
             }
             return true;

@@ -5,10 +5,10 @@ using Internal.CommandLine;
 
 namespace Dnvm;
 
-public abstract record Command
+public abstract record CommandArguments
 {
-    private Command() {}
-    public sealed record InstallOptions : Command
+    private CommandArguments() {}
+    public sealed record InstallArguments : CommandArguments
     {
         public required Channel Channel { get; init; }
         /// <summary>
@@ -32,19 +32,23 @@ public abstract record Command
         public bool UpdateUserEnvironment { get; init; } = true;
     }
 
-    public sealed record UpdateOptions : Command
+    public sealed record UpdateArguments : CommandArguments
     {
         public string? FeedUrl { get; init; }
         public bool Verbose { get; init; } = false;
         public bool Self { get; init; } = false;
+        /// <summary>
+        /// Implicitly answers 'yes' to every question.
+        /// </summary>
+        public bool Yes { get; init; } = false;
     }
 }
 
-sealed record class CommandLineOptions(Command Command)
+sealed record class CommandLineArguments(CommandArguments Command)
 {
-    public static CommandLineOptions Parse(string[] args)
+    public static CommandLineArguments Parse(string[] args)
     {
-        Command? command = default;
+        CommandArguments? command = default;
 
         var argSyntax = ArgumentSyntax.Parse(args, syntax =>
         {
@@ -76,7 +80,7 @@ sealed record class CommandLineOptions(Command Command)
                         + sep + string.Join(sep, Enum.GetNames<Channel>()));
                 },
                 $"Download from the channel specified. Defaults to '{channel.ToString().ToLowerInvariant()}'.");
-                command = new Command.InstallOptions
+                command = new CommandArguments.InstallArguments
                 {
                     Channel = channel,
                     Verbose = verbose,
@@ -97,7 +101,7 @@ sealed record class CommandLineOptions(Command Command)
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from. Default is {feedUrl}");
 
-                command = new Command.UpdateOptions
+                command = new CommandArguments.UpdateArguments
                 {
                     Self = self,
                     Verbose = verbose,
@@ -106,6 +110,6 @@ sealed record class CommandLineOptions(Command Command)
             }
         });
 
-        return new CommandLineOptions(command!);
+        return new CommandLineArguments(command!);
     }
 }

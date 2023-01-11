@@ -30,22 +30,63 @@ public sealed partial record Manifest
 {
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => 2;
-    public required ImmutableArray<string> InstalledVersions { get; init; }
+    public required ImmutableArray<string> InstalledSdkVersions { get; init; }
     public required ImmutableArray<TrackedChannel> TrackedChannels { get; init; }
+
+    public override string ToString()
+    {
+        return $"Manifest {{ Version = {Version}, "
+            + $"InstalledSdkVersion = [{InstalledSdkVersions.SeqToString()}, "
+            + $"TrackedChannels = [{TrackedChannels.SeqToString()}] }}";
+    }
+
+    public bool Equals(Manifest? other)
+    {
+        return other is not null && this.InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions) &&
+            this.TrackedChannels.SequenceEqual(other.TrackedChannels);
+    }
+
+    public override int GetHashCode()
+    {
+        int code = 0;
+        foreach (var item in InstalledSdkVersions)
+        {
+            code = HashCode.Combine(code, item);
+        }
+        foreach (var item in TrackedChannels)
+        {
+            code = HashCode.Combine(code, item);
+        }
+        return code;
+    }
 }
 
 [GenerateSerde]
 public partial record struct TrackedChannel
 {
     public Channel ChannelName { get; init; }
-    public ImmutableArray<string> InstalledVersions { get; init; }
+    public ImmutableArray<string> InstalledSdkVersions { get; init; }
+
+    public bool Equals(TrackedChannel other)
+    {
+        return this.ChannelName == other.ChannelName &&
+            this.InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions);
+    }
+
+    public override int GetHashCode()
+    {
+        int code = 0;
+        foreach (var item in InstalledSdkVersions)
+        {
+            code = HashCode.Combine(code, item);
+        }
+        return code;
+    }
 }
 
 public static partial class ManifestUtils
 {
     public const string FileName = "dnvmManifest.json";
-
-    public static string ManifestPath => Path.Combine(Program.DnvmHome, FileName);
 
     /// <summary>
     /// Either reads a manifest in the current format, or reads a
@@ -99,7 +140,7 @@ public static partial class ManifestUtils
         else
         {
             return new Manifest() {
-                InstalledVersions = ImmutableArray<string>.Empty,
+                InstalledSdkVersions = ImmutableArray<string>.Empty,
                 TrackedChannels = ImmutableArray<TrackedChannel>.Empty
             };
         }

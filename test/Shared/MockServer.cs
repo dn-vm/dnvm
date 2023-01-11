@@ -1,8 +1,12 @@
 
+using System.Collections.Immutable;
+using System.ComponentModel.DataAnnotations;
 using System.Net;
+using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Unicode;
+using Serde.Json;
 using static Dnvm.Utilities;
 
 namespace Dnvm.Test;
@@ -14,21 +18,18 @@ public sealed class MockServer : IDisposable
     public int Port { get; }
 
     public string PrefixString => $"http://localhost:{Port}/";
-    private const string VersionString = "42.42.42";
 
-    public string ReleasesIndexJson { get; set; } = """
-{
-    "releases-index": [
-        {
-            "channel-version": "42.42",
-            "latest-release": "42.42.42",
-            "latest-sdk": "42.42.42",
-            "release-type" : "lts",
-            "support-phase": "active"
-        }
-    ]
-}
-""";
+    public DotnetReleasesIndex ReleasesIndexJson { get; set; } = new DotnetReleasesIndex
+    {
+        Releases = ImmutableArray.Create(new[] { new DotnetReleasesIndex.Release {
+            LatestRelease = "42.42.42",
+            LatestSdk = "42.42.142",
+            MajorMinorVersion = "42.42",
+            ReleaseType = "lts",
+            SupportPhase = "active"
+        }})
+    };
+    private DotnetReleasesIndex.Release Release => ReleasesIndexJson.Releases.Single();
 
     public MockServer()
     {
@@ -69,7 +70,7 @@ public sealed class MockServer : IDisposable
     {
         ["/release-metadata/releases-index.json"] = GetReleasesIndexJson,
         ["/sdk/lts/latest.version"] = GetLatestVersionUrl,
-        [$"/sdk/{VersionString}/dotnet-sdk-{VersionString}-{CurrentRID}.{ZipSuffix}"] = GetSdk,
+        [$"/sdk/{Release.LatestSdk}/dotnet-sdk-{Release.LatestSdk}-{CurrentRID}.{ZipSuffix}"] = GetSdk,
         ["/releases.json"] = GetReleasesJson,
         [$"/dnvm/dnvm.{ZipSuffix}"] = GetDnvm,
     };
@@ -84,7 +85,7 @@ public sealed class MockServer : IDisposable
         }
         else
         {
-            buffer = Encoding.UTF8.GetBytes(ReleasesIndexJson);
+            buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ReleasesIndexJson));
             response.StatusCode = (int)HttpStatusCode.OK;
         }
         // Get a response stream and write the response to it.
@@ -95,9 +96,9 @@ public sealed class MockServer : IDisposable
         output.Close();
     }
 
-    private static void GetLatestVersionUrl(HttpListenerResponse response)
+    private void GetLatestVersionUrl(HttpListenerResponse response)
     {
-        byte[] buffer = System.Text.Encoding.UTF8.GetBytes(VersionString);
+        byte[] buffer = System.Text.Encoding.UTF8.GetBytes(Release.LatestSdk);
         // Get a response stream and write the response to it.
         response.ContentLength64 = buffer.Length;
         var output = response.OutputStream;
@@ -128,7 +129,7 @@ public sealed class MockServer : IDisposable
         byte[] buffer = System.Text.Encoding.UTF8.GetBytes($$"""
 {
     "latestVersion":{
-        "version":"{{VersionString}}",
+        "version":"24.24.24",
         "artifacts":{
             "linux-x64":"{{PrefixString}}dnvm/dnvm.tar.gz",
             "osx-x64":"{{PrefixString}}dnvm/dnvm.tar.gz",

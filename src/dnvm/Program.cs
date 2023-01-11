@@ -8,17 +8,17 @@ namespace Dnvm;
 public static class Program
 {
     public static readonly HttpClient HttpClient = new();
-    public static readonly string DnvmHome = GetDnvmHome();
 
     static async Task<int> Main(string[] args)
     {
         Console.WriteLine("dnvm " + GitVersionInformation.SemVer + " " + GitVersionInformation.Sha);
-        var options = CommandLineOptions.Parse(args);
+        var options = CommandLineArguments.Parse(args);
         var logger = new Logger();
+        var dnvmHome = GetDnvmHome();
         return options.Command switch
         {
-            Command.InstallOptions o => (int)await Install.Run(logger, o),
-            Command.UpdateOptions o => (int)await Update.Run(logger, o),
+            CommandArguments.InstallArguments o => (int)await Install.Run(dnvmHome, logger, o),
+            CommandArguments.UpdateArguments o => (int)await Update.Run(dnvmHome, logger, o),
             _ => throw new InvalidOperationException("Should be unreachable")
         };
     }

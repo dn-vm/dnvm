@@ -5,10 +5,10 @@ namespace Dnvm;
 
 public enum LogLevel
 {
-    Info = 1,
-    Normal,
+    Error = 1,
     Warn,
-    Error
+    Normal,
+    Info,
 }
 
 public sealed class Logger
