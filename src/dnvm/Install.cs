@@ -1,17 +1,11 @@
 
 using System;
 using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.IO.Compression;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 using Serde.Json;
 using static System.Environment;
@@ -28,7 +22,8 @@ public sealed class Install
     public readonly string ManifestPath;
 
     private readonly Logger _logger;
-    private readonly Command.InstallOptions _options;
+    private readonly CommandArguments.InstallArguments _options;
+    private readonly string _feedUrl;
 
     public enum Result
     {
@@ -44,7 +39,7 @@ public sealed class Install
         CouldntFetchIndex
     }
 
-    public Install(Logger logger, Command.InstallOptions options)
+    public Install(string dnvmHome, Logger logger, CommandArguments.InstallArguments options)
     {
         _logger = logger;
         _options = options;
@@ -53,11 +48,22 @@ public sealed class Install
             _logger.LogLevel = LogLevel.Info;
         }
         InstallDir = options.DnvmInstallPath ?? DefaultConfig.InstallDir;
-        SdkInstallDir = options.SdkInstallPath ?? Path.Combine(InstallDir, "dotnet");
-        ManifestPath = Path.Combine(InstallDir, ManifestUtils.FileName);
+        SdkInstallDir = options.SdkInstallPath ?? Path.Combine(dnvmHome, "dotnet");
+        ManifestPath = Path.Combine(dnvmHome, ManifestUtils.FileName);
+        var feed = _options.FeedUrl ?? DefaultConfig.FeedUrl;
+        if (feed[^1] == '/')
+        {
+            feed = feed[..^1];
+        }
+        _feedUrl = feed;
     }
 
-    public async Task<Result> Handle()
+    public static Task<Result> Run(string dnvmHome, Logger logger, CommandArguments.InstallArguments options)
+    {
+        return new Install(dnvmHome, logger, options).Run();
+    }
+
+    public async Task<Result> Run()
     {
         _logger.Info("Install Directory: " + InstallDir);
         _logger.Info("SDK install directory: " + SdkInstallDir);
@@ -86,66 +92,95 @@ public sealed class Install
         }
         catch (InvalidDataException)
         {
-            Console.Error.WriteLine("Manifest file corrupted");
+            _logger.Error("Manifest file corrupted");
             return Result.ManifestFileCorrupted;
         }
         catch (Exception e)
         {
-            Console.Error.WriteLine("Error reading manifest file: " + e.Message);
+            _logger.Error("Error reading manifest file: " + e.Message);
             return Result.ManifestIOError;
         }
 
         if (manifest.TrackedChannels.Any(c => c.ChannelName == _options.Channel))
         {
-            Console.WriteLine($"Channel '{_options.Channel}' is already being tracked." +
+            _logger.Log($"Channel '{_options.Channel}' is already being tracked." +
                 " Did you mean to run 'dnvm update'?");
             return Result.ChannelAlreadyTracked;
         }
 
-        var feed = _options.FeedUrl;
-        if (feed[^1] == '/')
-        {
-            feed = feed[..^1];
-        }
+        manifest = manifest with {
+            TrackedChannels = manifest.TrackedChannels.Add(new TrackedChannel {
+                ChannelName = _options.Channel,
+                InstalledSdkVersions = ImmutableArray<string>.Empty
+            })
+        };
 
         DotnetReleasesIndex versionIndex;
         try
         {
-            versionIndex = await VersionInfoClient.FetchLatestIndex(feed);
+            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(_feedUrl);
         }
         catch (Exception e)
         {
-            Console.Error.WriteLine("Could not fetch the releases index: ");
-            Console.Error.WriteLine(e.Message);
+            _logger.Error("Could not fetch the releases index: ");
+            _logger.Error(e.Message);
             return Result.CouldntFetchIndex;
         }
 
         RID rid = Utilities.CurrentRID;
 
-        string? latestVersion = VersionInfoClient.GetLatestReleaseForChannel(versionIndex, _options.Channel)?.LatestSdk;
+        string? latestVersion = versionIndex.GetLatestReleaseForChannel(_options.Channel)?.LatestSdk;
         if (latestVersion is null)
         {
-            Console.Error.WriteLine("Could not fetch the latest package version");
+            _logger.Error("Could not fetch the latest package version");
             return Result.CouldntFetchLatestVersion;
         }
         _logger.Log("Found latest version: " + latestVersion);
 
-        if (!_options.Force && manifest.InstalledVersions.Contains(latestVersion))
+        if (!_options.Force && manifest.InstalledSdkVersions.Contains(latestVersion))
         {
             _logger.Log($"Version {latestVersion} is already installed." +
                 " Skipping installation. To install anyway, pass --force.");
             return 0;
         }
 
+        var installResult = await InstallSdk(
+            _logger,
+            _options.Channel,
+            latestVersion,
+            rid,
+            _feedUrl,
+            manifest,
+            ManifestPath,
+            SdkInstallDir);
+
+        if (installResult != Result.Success)
+        {
+            return installResult;
+        }
+
+        return 0;
+    }
+
+    public static async Task<Result> InstallSdk(
+        Logger logger,
+        Channel channel,
+        string latestVersion,
+        RID rid,
+        string feedUrl,
+        Manifest manifest,
+        string manifestPath,
+        string sdkInstallDir)
+    {
         string archiveName = ConstructArchiveName(latestVersion, rid, Utilities.ZipSuffix);
         string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
-        _logger.Info("Archive path: " + archivePath);
+        logger.Info("Archive path: " + archivePath);
 
-        var link = ConstructDownloadLink(feed, latestVersion, archiveName);
-        _logger.Info("Download link: " + link);
+        var link = ConstructDownloadLink(feedUrl, latestVersion, archiveName);
+        logger.Info("Download link: " + link);
 
         var result = JsonSerializer.Serialize(manifest);
-        _logger.Info("Existing manifest: " + result);
+        logger.Info("Existing manifest: " + result);
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
         using (var archiveHttpStream = await Program.HttpClient.GetStreamAsync(link))
@@ -153,36 +188,30 @@ public sealed class Install
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
         }
-        _logger.Log($"Installing to {SdkInstallDir}");
-        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, SdkInstallDir);
+        logger.Log($"Installing to {sdkInstallDir}");
+        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, sdkInstallDir);
         File.Delete(archivePath);
         if (extractResult != null)
         {
-            _logger.Error("Extract failed: " + extractResult);
+            logger.Error("Extract failed: " + extractResult);
             return Result.ExtractFailed;
         }
 
-        if (_options.UpdateUserEnvironment)
-        {
-            await AddToPath();
-        }
-
-        _logger.Info($"Adding installed version '{latestVersion}' to manifest.");
-        manifest = manifest with { InstalledVersions = manifest.InstalledVersions.Add(latestVersion) };
-        var tracked = new TrackedChannel {
-            ChannelName = _options.Channel,
-            InstalledVersions = ImmutableArray.Create(latestVersion)
+        logger.Info($"Adding installed version '{latestVersion}' to manifest.");
+        manifest = manifest with { InstalledSdkVersions = manifest.InstalledSdkVersions.Add(latestVersion) };
+        var oldTracked = manifest.TrackedChannels.First(t => t.ChannelName == channel);
+        var newTracked = oldTracked with {
+            InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestVersion)
         };
-        _logger.Info($"Adding channel {tracked} to manifest.");
-        manifest = manifest with { TrackedChannels = manifest.TrackedChannels.Add(tracked) };
+        manifest = manifest with { TrackedChannels = manifest.TrackedChannels.Replace(oldTracked, newTracked) };
 
-        _logger.Info("Writing manifest");
+        logger.Info("Writing manifest");
         var tmpFile = Path.GetTempFileName();
         File.WriteAllText(tmpFile, JsonSerializer.Serialize(manifest));
-        File.Move(tmpFile, ManifestPath, overwrite: true);
+        File.Move(tmpFile, manifestPath, overwrite: true);
 
-        _logger.Log("Successfully installed");
-        return 0;
+        logger.Log("Successfully installed");
+        return Result.Success;
     }
 
 
@@ -223,7 +252,7 @@ public sealed class Install
     {
         if (!Utilities.IsSingleFile)
         {
-            Console.WriteLine("Cannot self-install into target location: the current executable is not deployed as a single file.");
+            _logger.Log("Cannot self-install into target location: the current executable is not deployed as a single file.");
             return 1;
         }
 
@@ -245,14 +274,17 @@ public sealed class Install
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
+                _logger.Log($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
                 return 1;
             }
 
         }
 
         // Set up path
-        await AddToPath();
+        if (_options.UpdateUserEnvironment)
+        {
+            await AddToPath();
+        }
 
         return 0;
     }
@@ -261,7 +293,7 @@ public sealed class Install
     {
         if (Utilities.CurrentRID.OS == OSPlatform.Windows)
         {
-            Console.WriteLine("Adding install directory to user path: " + InstallDir);
+            _logger.Log("Adding install directory to user path: " + InstallDir);
             WindowsAddToPath(InstallDir);
         }
         else if (Utilities.CurrentRID.OS == OSPlatform.OSX)

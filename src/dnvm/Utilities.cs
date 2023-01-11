@@ -1,10 +1,13 @@
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using StaticCs;
 
@@ -13,6 +16,11 @@ namespace Dnvm;
 public static class Utilities
 {
     public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? "zip" : "tar.gz";
+
+    public static string SeqToString<T>(this IEnumerable<T> e)
+    {
+        return "[ " + string.Join(", ", e.ToString()) + " ]";
+    }
 
     public static readonly RID CurrentRID = new RID(
         GetCurrentOSPlatform(),
@@ -62,7 +70,7 @@ public static class Utilities
         {
             try
             {
-                ZipFile.ExtractToDirectory(archivePath, dirPath);
+                ZipFile.ExtractToDirectory(archivePath, dirPath, overwriteFiles: true);
             }
             catch (Exception e)
             {

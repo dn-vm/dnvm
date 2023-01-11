@@ -1,51 +1,147 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
-using System.Reflection;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Serde;
+using Semver;
 using Serde.Json;
+using static Dnvm.Update.Result;
 
 namespace Dnvm;
 
 public sealed partial class Update
 {
     private readonly Logger _logger;
-    private readonly Command.UpdateOptions _options;
+    private readonly CommandArguments.UpdateArguments _options;
+    private readonly string _feedUrl;
+    private readonly string _dnvmHome;
+    private readonly string _manifestPath;
+    private readonly string _sdkInstallDir;
 
     public const string DefaultReleasesUrl = "https://commentout.com/dnvm/releases.json";
 
-    public Update(Logger logger, Command.UpdateOptions options)
+    public Update(string dnvmHome, Logger logger, CommandArguments.UpdateArguments options)
     {
+        _dnvmHome = dnvmHome;
         _logger = logger;
         _options = options;
         if (_options.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
+        var feed = _options.FeedUrl ?? DefaultConfig.FeedUrl;
+        if (feed[^1] == '/')
+        {
+            feed = feed[..^1];
+        }
+        _feedUrl = feed;
+        _manifestPath = Path.Combine(_dnvmHome, ManifestUtils.FileName);
+        _sdkInstallDir = Path.Combine(_dnvmHome, "dotnet");
     }
 
-    public async Task<int> Handle()
+    public static Task<Result> Run(string dnvmHome, Logger logger, CommandArguments.UpdateArguments options)
     {
-        if (!_options.Self)
+        return new Update(dnvmHome, logger, options).Run();
+    }
+
+    public enum Result
+    {
+        Success,
+        CouldntFetchIndex,
+        NotASingleFile,
+        SelfUpdateFailed
+    }
+
+    public async Task<Result> Run()
+    {
+        if (_options.Self)
         {
-            _logger.Error("update is currently only supported with --self");
-            return 1;
+            return await UpdateSelf();
         }
 
+        DotnetReleasesIndex releaseIndex;
+        try
+        {
+            releaseIndex = await DotnetReleasesIndex.FetchLatestIndex(_feedUrl);
+        }
+        catch (Exception e)
+        {
+            _logger.Error("Could not fetch the releases index: ");
+            _logger.Error(e.Message);
+            return CouldntFetchIndex;
+        }
+
+        var manifest = ManifestUtils.ReadOrCreateManifest(_manifestPath);
+        _logger.Log("Looking for available updates");
+        var updateResults = FindPotentialUpdates(manifest, releaseIndex);
+        if (updateResults.Count > 0)
+        {
+            _logger.Log("Found versions available for update");
+            _logger.Log("Channel\tInstalled\tAvailable");
+            _logger.Log("-------------------------------------------------");
+            foreach (var (c, newestInstalled, newestAvailable) in updateResults)
+            {
+                _logger.Log($"{c}\t{newestInstalled}\t{newestAvailable.LatestSdk}");
+            }
+            _logger.Log("Install updates? [y/N]: ");
+            var response = _options.Yes ? "y" : Console.ReadLine();
+            if (response?.Trim().ToLowerInvariant() == "y")
+            {
+                foreach (var (c, _, newestAvailable) in updateResults)
+                {
+                    _ = await Install.InstallSdk(
+                        _logger,
+                        c,
+                        newestAvailable.LatestSdk,
+                        Utilities.CurrentRID,
+                        _feedUrl,
+                        manifest,
+                        _manifestPath,
+                        _sdkInstallDir
+                        );
+                }
+            }
+        }
+        return Success;
+    }
+
+    public static List<(Channel TrackedChannel, SemVersion NewestInstalled, DotnetReleasesIndex.Release NewestAvailable)> FindPotentialUpdates(
+        Manifest manifest,
+        DotnetReleasesIndex releaseIndex)
+    {
+        var list = new List<(Channel, SemVersion, DotnetReleasesIndex.Release)>();
+        foreach (var tracked in manifest.TrackedChannels)
+        {
+            var newestInstalled = tracked.InstalledSdkVersions
+                .Select(v => SemVersion.Parse(v, SemVersionStyles.Strict))
+                .Max(SemVersion.PrecedenceComparer)!;
+            var release = releaseIndex.GetLatestReleaseForChannel(tracked.ChannelName);
+            if (release is { LatestSdk: var sdkVersion} &&
+                SemVersion.TryParse(sdkVersion, SemVersionStyles.Strict, out var newestAvailable) &&
+                SemVersion.ComparePrecedence(newestInstalled, newestAvailable) < 0)
+            {
+                list.Add((tracked.ChannelName, newestInstalled!, release));
+            }
+        }
+        return list;
+    }
+
+    private async Task<Result> UpdateSelf()
+    {
         if (!Utilities.IsSingleFile)
         {
-            Console.WriteLine("Cannot self-update: the current executable is not deployed as a single file.");
-            return 1;
+            _logger.Error("Cannot self-update: the current executable is not deployed as a single file.");
+            return Result.NotASingleFile;
         }
 
         string artifactDownloadLink = await GetReleaseLink();
 
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Func<string, Task> handleDownload = async tempDownloadPath =>
+        async Task HandleDownload(string tempDownloadPath)
         {
             _logger.Info("Extraction directory: " + tempArchiveDir);
             string? retMsg = await Utilities.ExtractArchiveToDir(tempDownloadPath, tempArchiveDir);
@@ -53,16 +149,16 @@ public sealed partial class Update
             {
                 _logger.Error("Extraction failed: " + retMsg);
             }
-        };
+        }
 
-        await DownloadBinaryToTempAndDelete(artifactDownloadLink, handleDownload);
+        await DownloadBinaryToTempAndDelete(artifactDownloadLink, HandleDownload);
         _logger.Info($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
         bool success =
-            await ValidateBinary(dnvmTmpPath) &&
+            await ValidateBinary(_logger, dnvmTmpPath) &&
             SwapWithRunningFile(dnvmTmpPath);
-        return success ? 0 : 1;
+        return success ? Success : SelfUpdateFailed;
     }
 
     public async Task<string> GetReleaseLink()
@@ -98,14 +194,14 @@ public sealed partial class Update
         await action(tempDownloadPath);
     }
 
-    public async Task<bool> ValidateBinary(string fileName)
+    public static async Task<bool> ValidateBinary(Logger logger, string fileName)
     {
         // Replace with File.SetUnixFileMode when available
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             var chmod = Process.Start("chmod", $"+x \"{fileName}\"");
             await chmod.WaitForExitAsync();
-            _logger.Info("chmod return: " + chmod.ExitCode);
+            logger.Info("chmod return: " + chmod.ExitCode);
         }
 
         // Run exe and make sure it's OK
@@ -124,14 +220,14 @@ public sealed partial class Update
             const string usageString = "usage: ";
             if (ps.ExitCode != 0)
             {
-                _logger.Error("Could not run downloaded dnvm:");
-                _logger.Error(error);
+                logger.Error("Could not run downloaded dnvm:");
+                logger.Error(error);
                 return false;
             }
             else if (!output.Contains(usageString))
             {
-                _logger.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
-                _logger.Log(output);
+                logger.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
+                logger.Log(output);
                 return false;
             }
             return true;

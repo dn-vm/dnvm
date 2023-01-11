@@ -19,7 +19,7 @@ internal sealed partial record ManifestV1
     public Manifest Convert()
     {
         return new Manifest {
-            InstalledVersions = Workloads.Select(w => w.Version).ToImmutableArray(),
+            InstalledSdkVersions = Workloads.Select(w => w.Version).ToImmutableArray(),
             TrackedChannels = ImmutableArray<TrackedChannel>.Empty
         };
     }

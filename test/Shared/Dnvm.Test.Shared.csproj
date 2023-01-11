@@ -4,6 +4,10 @@
     <ProjectReference Include="..\..\src\dnvm\dnvm.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="xunit.abstractions" Version="2.0.3" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -1,11 +1,20 @@
 using System.Diagnostics;
 using System.Reflection;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Dnvm.Test;
 
-public class UpdateTests
+public sealed class UpdateTests
 {
+    private readonly Logger _logger;
+
+    public UpdateTests(ITestOutputHelper output)
+    {
+        var wrapper = new OutputWrapper(output);
+        _logger = new Logger(wrapper, wrapper);
+    }
+
     private static readonly string DnvmExe = Path.Combine(
         Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
         "dnvm_aot/dnvm" + (Environment.OSVersion.Platform == PlatformID.Win32NT ? ".exe" : ""));
@@ -42,8 +51,6 @@ public class UpdateTests
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(DnvmExe);
-        var logger = new Logger();
-        var update = new Update(logger, new Command.UpdateOptions() { FeedUrl = DefaultConfig.FeedUrl });
-        Assert.True(await update.ValidateBinary(dnvmTmpPath));
+        Assert.True(await Update.ValidateBinary(_logger, dnvmTmpPath));
     }
 }
