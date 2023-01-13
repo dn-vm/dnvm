@@ -64,7 +64,8 @@ public sealed class SelfInstallTests
         Assert.True(File.Exists(envPath));
         // source the sh script and confirm that dnvm and dotnet are on the path
         var src = $"""
-source "{envPath}"
+set -e
+. "{envPath}"
 echo "dnvm: `which dnvm`"
 echo "PATH: $PATH"
 echo "DOTNET_ROOT: $DOTNET_ROOT"
@@ -80,6 +81,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         await proc.StandardInput.WriteAsync(src);
         proc.StandardInput.Close();
         await proc.WaitForExitAsync();
+        Assert.Equal(0, proc.ExitCode);
 
         Assert.Equal(_globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dnvm: ")));
         Assert.Contains($":{_globalOptions.SdkInstallDir}:", $":{await ReadLine("PATH: ")}");
