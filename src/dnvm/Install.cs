@@ -180,8 +180,14 @@ public sealed class Install
         logger.Info("Existing manifest: " + result);
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
-        using (var archiveHttpStream = await Program.HttpClient.GetStreamAsync(link))
+        using (var archiveResponse = await Program.HttpClient.GetAsync(link))
+        using (var archiveHttpStream = await archiveResponse.Content.ReadAsStreamAsync())
         {
+            if (!archiveResponse.IsSuccessStatusCode)
+            {
+                logger.Error("Failed archive response");
+                logger.Error(await archiveResponse.Content.ReadAsStringAsync());
+            }
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
         }
