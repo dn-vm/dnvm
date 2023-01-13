@@ -84,7 +84,9 @@ class Program {
                 Process.Start(new ProcessStartInfo {
                     FileName = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe",
                     Arguments = "-out:dnvm.exe hello.cs",
-                    WorkingDirectory = tmpDir.Path
+                    WorkingDirectory = tmpDir.Path,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
                 })!.WaitForExit();
                 File.Delete(helloCs);
                 ZipFile.CreateFromDirectory(tmpDir.Path, archivePath);
