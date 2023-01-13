@@ -293,7 +293,7 @@ public sealed class Install
             _logger.Log("Adding install directory to user path: " + InstallDir);
             WindowsAddToPath(InstallDir);
             _logger.Log("Adding SDK directory to user path: " + SdkInstallDir);
-            WindowsAddToPath(SdkInstallDir)
+            WindowsAddToPath(SdkInstallDir);
         }
         else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
         {
