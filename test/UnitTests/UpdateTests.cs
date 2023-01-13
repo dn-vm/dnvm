@@ -10,16 +10,23 @@ namespace Dnvm.Test;
 public sealed class UpdateTests : IDisposable
 {
     private readonly MockServer _mockServer = new MockServer();
+    private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
     private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
+    private readonly Dictionary<string, string> _envVars = new();
+    private readonly GlobalOptions _globalOptions;
     private readonly Logger _logger;
-    private readonly string _manifestPath;
     private readonly CommandArguments.UpdateArguments _updateArguments;
 
     public UpdateTests(ITestOutputHelper output)
     {
         var wrapper = new OutputWrapper(output);
         _logger = new Logger(wrapper, wrapper);
-        _manifestPath = Path.Combine(_dnvmHome.Path, ManifestUtils.FileName);
+        _globalOptions = new GlobalOptions() {
+            DnvmHome = _dnvmHome.Path,
+            UserHome = _userHome.Path,
+            GetUserEnvVar = s => _envVars[s],
+            SetUserEnvVar = (name, val) => _envVars[name] = val,
+        };
         _updateArguments = new() {
             FeedUrl = _mockServer.PrefixString,
             Verbose = true,
@@ -30,13 +37,14 @@ public sealed class UpdateTests : IDisposable
     public void Dispose()
     {
         _mockServer.Dispose();
+        _userHome.Dispose();
         _dnvmHome.Dispose();
     }
 
     [Fact]
     public async Task CheckUrl()
     {
-        var update = new Update(_dnvmHome.Path, _logger, new CommandArguments.UpdateArguments {
+        var update = new Update(_globalOptions, _logger, new CommandArguments.UpdateArguments {
             FeedUrl = $"http://localhost:{_mockServer.Port}/releases.json"
         });
         var link = await update.GetReleaseLink();
@@ -79,7 +87,7 @@ public sealed class UpdateTests : IDisposable
                 }
             })
         };
-        var result = await Install.Run(_dnvmHome.Path, _logger, new() {
+        var result = await Install.Run(_globalOptions, _logger, new() {
             Channel = channel,
             FeedUrl = _mockServer.PrefixString
         });
@@ -96,7 +104,7 @@ public sealed class UpdateTests : IDisposable
                 }
             })
         };
-        var updateResult = await Update.Run(_dnvmHome.Path, _logger, _updateArguments);
+        var updateResult = await Update.Run(_globalOptions, _logger, _updateArguments);
         var sdkVersions = ImmutableArray.Create(new[] { "41.0.100", "41.0.101" });
         Assert.Equal(Update.Result.Success, updateResult);
         var expectedManifest = new Manifest {
@@ -106,7 +114,7 @@ public sealed class UpdateTests : IDisposable
                 InstalledSdkVersions = sdkVersions
             }})
         };
-        var actualManifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_manifestPath));
+        var actualManifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_globalOptions.ManifestPath));
         Assert.Equal(expectedManifest, actualManifest);
     }
 }

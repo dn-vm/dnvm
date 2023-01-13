@@ -1,6 +1,5 @@
 #!/bin/sh
-# Prepend dotnet dir to the path, unless it's already there
-# steal rustup trick of matching with ':' on both sides
+# Prepend dnvm and SDK dirs to the path, unless already there
 case ":${PATH}:" in
     *:"{install_loc}":*)
         ;;
@@ -8,4 +7,11 @@ case ":${PATH}:" in
         export PATH="{install_loc}:$PATH"
         ;;
 esac
-export DOTNET_ROOT="{install_loc}"
+case ":${PATH}:" in
+    *:"{sdk_install_loc}":*)
+        ;;
+    *)
+        export PATH="{sdk_install_loc}:$PATH"
+        ;;
+esac
+export DOTNET_ROOT="{sdk_install_loc}"

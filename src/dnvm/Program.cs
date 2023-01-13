@@ -14,7 +14,7 @@ public static class Program
         Console.WriteLine("dnvm " + GitVersionInformation.SemVer + " " + GitVersionInformation.Sha);
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(Console.Out, Console.Error);
-        var dnvmHome = GetDnvmHome();
+        var dnvmHome = GetGlobalConfig();
         return options.Command switch
         {
             CommandArguments.InstallArguments o => (int)await Install.Run(dnvmHome, logger, o),
@@ -28,13 +28,17 @@ public static class Program
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="DefaultConfig.DnvmHome" /> as the default.
     /// </summar>
-    private static string GetDnvmHome()
+    private static GlobalOptions GetGlobalConfig()
     {
+        var config = GlobalOptions.Default;
+
         var home = Environment.GetEnvironmentVariable("DNVM_HOME");
         if (!string.IsNullOrWhiteSpace(home))
         {
-            return home;
+            return config with {
+                DnvmHome = home
+            };
         }
-        return DefaultConfig.DnvmHome;
+        return config;
     }
 }
