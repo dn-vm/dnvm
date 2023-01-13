@@ -16,12 +16,12 @@ public sealed class UpdateTests
     }
 
     [Fact]
-    public void SelfUpdate()
+    public async Task SelfUpdate()
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
-        using var mockServer = new MockServer();
+        await using var mockServer = new MockServer();
         var proc = Process.Start(new ProcessStartInfo() {
             FileName = dnvmTmpPath,
             Arguments = $"update --self -v --feed-url {mockServer.PrefixString}releases.json",

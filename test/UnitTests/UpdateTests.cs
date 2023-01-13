@@ -7,7 +7,7 @@ using Xunit.Abstractions;
 
 namespace Dnvm.Test;
 
-public sealed class UpdateTests : IDisposable
+public sealed class UpdateTests : IAsyncLifetime
 {
     private readonly MockServer _mockServer = new MockServer();
     private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
@@ -34,9 +34,11 @@ public sealed class UpdateTests : IDisposable
         };
     }
 
-    public void Dispose()
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        _mockServer.Dispose();
+        await _mockServer.DisposeAsync();
         _userHome.Dispose();
         _dnvmHome.Dispose();
     }

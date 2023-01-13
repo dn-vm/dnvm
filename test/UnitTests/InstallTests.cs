@@ -37,7 +37,7 @@ public sealed class InstallTests : IDisposable
     {
         using var installDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();
-        using var server = new MockServer();
+        await using var server = new MockServer();
         const Channel channel = Channel.Lts;
         var options = new CommandArguments.InstallArguments()
         {
@@ -69,7 +69,7 @@ public sealed class InstallTests : IDisposable
     [Fact]
     public async Task SdkInstallDirMissing()
     {
-        using var server = new MockServer();
+        await using var server = new MockServer();
         var args = new CommandArguments.InstallArguments()
         {
             Channel = Channel.Lts,

@@ -11,7 +11,7 @@ using static Dnvm.Utilities;
 
 namespace Dnvm.Test;
 
-public sealed class MockServer : IDisposable
+public sealed class MockServer : IAsyncDisposable
 {
     private readonly HttpListener _listener;
     private Task _task;
@@ -146,8 +146,12 @@ public sealed class MockServer : IDisposable
         output.Close();
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _listener.Stop();
+        if (!_task.IsCanceled)
+        {
+            await _task;
+        }
     }
 }
