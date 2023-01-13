@@ -14,35 +14,39 @@ public sealed class Assets
     /// </summary>
     public const string ArchiveToken = "2c192c853403aa1725f8f99bbe72fe691226fa28";
 
-    public static FileStream GetOrMakeFakeSdkArchive()
-    {
-        var archiveName = $"{FakeSdkNameAndVersion}.{Utilities.ZipSuffix}";
-        var archivePath = Path.Combine(ArtifactsTestDir.FullName, archiveName);
-        try
-        {
-            return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        }
-        catch { }
+    private static byte[]? s_sdkArchive = null;
+    private static readonly object s_sdkArchiveLock = new();
 
-        try
+    public static Stream GetOrMakeFakeSdkArchive()
+    {
+        if (s_sdkArchive is null)
         {
-            var srcDir = Path.Combine(AssetsDir, FakeSdkNameAndVersion);
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            lock (s_sdkArchiveLock)
             {
-                Process.Start(new ProcessStartInfo
+                var archiveName = $"{FakeSdkNameAndVersion}.{Utilities.ZipSuffix}";
+                var archivePath = Path.Combine(ArtifactsTestDir.FullName, archiveName);
+                try
                 {
-                    FileName = "tar",
-                    Arguments = $"-cvzf {archivePath} .",
-                    WorkingDirectory = srcDir
-                })!.WaitForExit();
-            }
-            else
-            {
-                ZipFile.CreateFromDirectory(srcDir, archivePath);
+                    var srcDir = Path.Combine(AssetsDir, FakeSdkNameAndVersion);
+                    if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "tar",
+                            Arguments = $"-cvzf {archivePath} .",
+                            WorkingDirectory = srcDir
+                        })!.WaitForExit();
+                    }
+                    else
+                    {
+                        ZipFile.CreateFromDirectory(srcDir, archivePath);
+                    }
+                }
+                catch { }
+                s_sdkArchive = File.ReadAllBytes(archivePath);
             }
         }
-        catch { }
-        return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return new MemoryStream(s_sdkArchive);
     }
 
     public static FileStream MakeFakeDnvmArchive()
