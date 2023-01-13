@@ -294,6 +294,8 @@ public sealed class Install
             WindowsAddToPath(InstallDir);
             _logger.Log("Adding SDK directory to user path: " + SdkInstallDir);
             WindowsAddToPath(SdkInstallDir);
+            _logger.Log("Setting DOTNET_ROOT: " + SdkInstallDir);
+            SetEnvironmentVariable("DOTNET_ROOT", SdkInstallDir, EnvironmentVariableTarget.User);
         }
         else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
         {
