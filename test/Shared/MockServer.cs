@@ -146,12 +146,9 @@ public sealed class MockServer : IAsyncDisposable
         output.Close();
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         _listener.Stop();
-        if (!_task.IsCanceled)
-        {
-            await _task;
-        }
+        return ValueTask.CompletedTask;
     }
 }
