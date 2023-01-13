@@ -1,5 +1,6 @@
 
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Runtime.ConstrainedExecution;
@@ -11,7 +12,7 @@ using static Dnvm.Utilities;
 
 namespace Dnvm.Test;
 
-public sealed class MockServer : IDisposable
+public sealed class MockServer : IAsyncDisposable
 {
     private readonly HttpListener _listener;
     private Task _task;
@@ -56,7 +57,22 @@ public sealed class MockServer : IDisposable
         var ctx = await _listener.GetContextAsync();
         if (UrlToHandler.TryGetValue(ctx.Request.Url!.LocalPath.ToLowerInvariant(), out var action))
         {
-            action(ctx.Response);
+            try
+            {
+                action(ctx.Response);
+            }
+            catch (Exception e)
+            {
+                var buffer = Encoding.UTF8.GetBytes(e.Message);
+                var response = ctx.Response;
+                response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                // Get a response stream and write the response to it.
+                response.ContentLength64 = buffer.Length;
+                var output = response.OutputStream;
+                output.Write(buffer, 0, buffer.Length);
+                // You must close the output stream.
+                output.Close();
+            }
         }
         else
         {
@@ -146,8 +162,9 @@ public sealed class MockServer : IDisposable
         output.Close();
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        await Task.WhenAny(_task, Task.Delay(10));
         _listener.Stop();
     }
 }

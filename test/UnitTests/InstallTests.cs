@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Runtime.CompilerServices;
 using Serde.Json;
 using Xunit;
 using Xunit.Abstractions;
@@ -7,14 +6,30 @@ using static Dnvm.Install;
 
 namespace Dnvm.Test;
 
-public class InstallTests
+public sealed class InstallTests : IDisposable
 {
     private readonly Logger _logger;
+    private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
+    private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
+    private readonly Dictionary<string, string> _envVars = new();
+    private readonly GlobalOptions _globalOptions;
 
     public InstallTests(ITestOutputHelper output)
     {
         var wrapper = new OutputWrapper(output);
         _logger = new Logger(wrapper, wrapper);
+        _globalOptions = new GlobalOptions {
+            DnvmHome = _dnvmHome.Path,
+            UserHome = _userHome.Path,
+            GetUserEnvVar = s => _envVars[s],
+            SetUserEnvVar = (name, val) => _envVars[name] = val,
+        };
+    }
+
+    public void Dispose()
+    {
+        _userHome.Dispose();
+        _dnvmHome.Dispose();
     }
 
     [Fact]
@@ -22,7 +37,7 @@ public class InstallTests
     {
         using var installDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();
-        using var server = new MockServer();
+        await using var server = new MockServer();
         const Channel channel = Channel.Lts;
         var options = new CommandArguments.InstallArguments()
         {
@@ -31,15 +46,15 @@ public class InstallTests
             DnvmInstallPath = installDir.Path,
             UpdateUserEnvironment = false,
         };
-        var installCmd = new Install(dnvmHome.Path, _logger, options);
+        var installCmd = new Install(_globalOptions, _logger, options);
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
-        var dotnetFile = Path.Combine(installCmd.SdkInstallDir, "dotnet");
+        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet");
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
 
-        var manifest = File.ReadAllText(Path.Combine(dnvmHome.Path, ManifestUtils.FileName));
+        var manifest = File.ReadAllText(_globalOptions.ManifestPath);
         var installedVersions = ImmutableArray.Create(server.ReleasesIndexJson.Releases[0].LatestSdk);
         Assert.Equal(new Manifest
         {
@@ -52,46 +67,20 @@ public class InstallTests
     }
 
     [Fact]
-    public async Task InstallDirMissing()
+    public async Task SdkInstallDirMissing()
     {
-        using var dnvmHome = TestUtils.CreateTempDirectory();
-        using var installDir = TestUtils.CreateTempDirectory();
-        using var server = new MockServer();
-        var installPath = Path.Combine(installDir.Path, "subdir");
-        var options = new CommandArguments.InstallArguments()
+        await using var server = new MockServer();
+        var args = new CommandArguments.InstallArguments()
         {
             Channel = Channel.Lts,
             FeedUrl = server.PrefixString,
-            DnvmInstallPath = installPath,
             UpdateUserEnvironment = false,
         };
-        var installCmd = new Install(dnvmHome.Path, _logger, options);
-        var task = installCmd.Run();
-        Result retVal = await task;
-        Assert.Equal(Result.Success, retVal);
-        var dotnetFile = Path.Combine(installCmd.SdkInstallDir, "dotnet");
+        Assert.False(Directory.Exists(_globalOptions.SdkInstallDir));
+        Assert.True(Directory.Exists(_globalOptions.DnvmHome));
+        Assert.Equal(Result.Success, await Install.Run(_globalOptions, _logger, args));
+        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet");
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
-    }
-
-    [Fact]
-    public async Task DnvmHomeAndInstallCanBeDifferent()
-    {
-        using var dnvmHome = TestUtils.CreateTempDirectory();
-        using var installDir = TestUtils.CreateTempDirectory();
-        using var server = new MockServer();
-        var options = new CommandArguments.InstallArguments()
-        {
-            Channel = Channel.Lts,
-            FeedUrl = server.PrefixString,
-            DnvmInstallPath = installDir.Path,
-            UpdateUserEnvironment = false,
-        };
-        var installCmd = new Install(dnvmHome.Path, _logger, options);
-        Assert.Equal(Result.Success, await installCmd.Run());
-        Assert.Equal(dnvmHome.Path, Path.GetDirectoryName(installCmd.SdkInstallDir));
-        Assert.True(File.Exists(Path.Combine(installCmd.SdkInstallDir, "dotnet")));
-        Assert.True(File.Exists(Path.Combine(dnvmHome.Path, ManifestUtils.FileName)));
-        Assert.False(File.Exists(Path.Combine(installDir.Path, ManifestUtils.FileName)));
     }
 }

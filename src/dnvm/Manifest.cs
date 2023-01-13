@@ -86,8 +86,6 @@ public partial record struct TrackedChannel
 
 public static partial class ManifestUtils
 {
-    public const string FileName = "dnvmManifest.json";
-
     /// <summary>
     /// Either reads a manifest in the current format, or reads a
     /// manifest in the old format and converts it to the new format.

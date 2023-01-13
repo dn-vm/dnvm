@@ -16,36 +16,35 @@ namespace Dnvm;
 public sealed partial class Update
 {
     private readonly Logger _logger;
-    private readonly CommandArguments.UpdateArguments _options;
+    private readonly CommandArguments.UpdateArguments _args;
     private readonly string _feedUrl;
-    private readonly string _dnvmHome;
+    private readonly GlobalOptions _globalOptions;
     private readonly string _manifestPath;
     private readonly string _sdkInstallDir;
 
     public const string DefaultReleasesUrl = "https://commentout.com/dnvm/releases.json";
 
-    public Update(string dnvmHome, Logger logger, CommandArguments.UpdateArguments options)
+    public Update(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
     {
-        _dnvmHome = dnvmHome;
+        _globalOptions = options;
         _logger = logger;
-        _options = options;
-        if (_options.Verbose)
+        _args = args;
+        if (_args.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        var feed = _options.FeedUrl ?? DefaultConfig.FeedUrl;
-        if (feed[^1] == '/')
+        _feedUrl = _args.FeedUrl ?? GlobalOptions.DotnetFeedUrl;
+        if (_feedUrl[^1] == '/')
         {
-            feed = feed[..^1];
+            _feedUrl = _feedUrl[..^1];
         }
-        _feedUrl = feed;
-        _manifestPath = Path.Combine(_dnvmHome, ManifestUtils.FileName);
-        _sdkInstallDir = Path.Combine(_dnvmHome, "dotnet");
+        _manifestPath = options.ManifestPath;
+        _sdkInstallDir = options.SdkInstallDir;
     }
 
-    public static Task<Result> Run(string dnvmHome, Logger logger, CommandArguments.UpdateArguments options)
+    public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
     {
-        return new Update(dnvmHome, logger, options).Run();
+        return new Update(options, logger, args).Run();
     }
 
     public enum Result
@@ -58,7 +57,7 @@ public sealed partial class Update
 
     public async Task<Result> Run()
     {
-        if (_options.Self)
+        if (_args.Self)
         {
             return await UpdateSelf();
         }
@@ -88,7 +87,7 @@ public sealed partial class Update
                 _logger.Log($"{c}\t{newestInstalled}\t{newestAvailable.LatestSdk}");
             }
             _logger.Log("Install updates? [y/N]: ");
-            var response = _options.Yes ? "y" : Console.ReadLine();
+            var response = _args.Yes ? "y" : Console.ReadLine();
             if (response?.Trim().ToLowerInvariant() == "y")
             {
                 foreach (var (c, _, newestAvailable) in updateResults)
@@ -163,7 +162,7 @@ public sealed partial class Update
 
     public async Task<string> GetReleaseLink()
     {
-        var releasesUrl = _options.FeedUrl ?? DefaultReleasesUrl;
+        var releasesUrl = _args.FeedUrl ?? DefaultReleasesUrl;
         string releasesJson = await Program.HttpClient.GetStringAsync(releasesUrl);
         _logger.Info("Releases JSON: " + releasesJson);
         var releases = JsonSerializer.Deserialize<Releases>(releasesJson);

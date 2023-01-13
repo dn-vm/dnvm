@@ -15,17 +15,13 @@ public sealed class UpdateTests
         _logger = new Logger(wrapper, wrapper);
     }
 
-    private static readonly string DnvmExe = Path.Combine(
-        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
-        "dnvm_aot/dnvm" + (Environment.OSVersion.Platform == PlatformID.Win32NT ? ".exe" : ""));
-
     [Fact]
-    public void SelfUpdate()
+    public async Task SelfUpdate()
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
-        var dnvmTmpPath = tmpDir.CopyFile(DnvmExe);
+        var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
-        using var mockServer = new MockServer();
+        await using var mockServer = new MockServer();
         var proc = Process.Start(new ProcessStartInfo() {
             FileName = dnvmTmpPath,
             Arguments = $"update --self -v --feed-url {mockServer.PrefixString}releases.json",
@@ -50,7 +46,7 @@ public sealed class UpdateTests
     public async Task ValidateBinary()
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
-        var dnvmTmpPath = tmpDir.CopyFile(DnvmExe);
+        var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
         Assert.True(await Update.ValidateBinary(_logger, dnvmTmpPath));
     }
 }

@@ -14,12 +14,11 @@ namespace Dnvm;
 
 public sealed class Install
 {
+    private readonly GlobalOptions _globalConfig;
     // Place to install dnvm
     public readonly string InstallDir;
-    // Place to install SDKs
-    public readonly string SdkInstallDir;
-    // Place to install or read manifest file.
-    public readonly string ManifestPath;
+    private string SdkInstallDir => _globalConfig.SdkInstallDir;
+    private string ManifestPath => _globalConfig.ManifestPath;
 
     private readonly Logger _logger;
     private readonly CommandArguments.InstallArguments _options;
@@ -39,28 +38,26 @@ public sealed class Install
         CouldntFetchIndex
     }
 
-    public Install(string dnvmHome, Logger logger, CommandArguments.InstallArguments options)
+    public Install(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
     {
+        _globalConfig = options;
         _logger = logger;
-        _options = options;
+        _options = args;
         if (_options.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        InstallDir = options.DnvmInstallPath ?? DefaultConfig.InstallDir;
-        SdkInstallDir = options.SdkInstallPath ?? Path.Combine(dnvmHome, "dotnet");
-        ManifestPath = Path.Combine(dnvmHome, ManifestUtils.FileName);
-        var feed = _options.FeedUrl ?? DefaultConfig.FeedUrl;
-        if (feed[^1] == '/')
+        InstallDir = args.DnvmInstallPath ?? options.DnvmInstallPath;
+        _feedUrl = _options.FeedUrl ?? GlobalOptions.DotnetFeedUrl;
+        if (_feedUrl[^1] == '/')
         {
-            feed = feed[..^1];
+            _feedUrl = _feedUrl[..^1];
         }
-        _feedUrl = feed;
     }
 
-    public static Task<Result> Run(string dnvmHome, Logger logger, CommandArguments.InstallArguments options)
+    public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
     {
-        return new Install(dnvmHome, logger, options).Run();
+        return new Install(options, logger, args).Run();
     }
 
     public async Task<Result> Run()
@@ -183,8 +180,14 @@ public sealed class Install
         logger.Info("Existing manifest: " + result);
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
-        using (var archiveHttpStream = await Program.HttpClient.GetStreamAsync(link))
+        using (var archiveResponse = await Program.HttpClient.GetAsync(link))
+        using (var archiveHttpStream = await archiveResponse.Content.ReadAsStreamAsync())
         {
+            if (!archiveResponse.IsSuccessStatusCode)
+            {
+                logger.Error("Failed archive response");
+                logger.Error(await archiveResponse.Content.ReadAsStringAsync());
+            }
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
         }
@@ -215,14 +218,14 @@ public sealed class Install
     }
 
 
-    private async Task<int> LinuxAddToPath(string pathToAdd)
+    private async Task<int> LinuxAddToPath()
     {
-        return await UnixAddToPathInShellFiles(pathToAdd);
+        return await UnixAddToPathInShellFiles();
     }
 
-    private async Task<int> MacAddToPath(string pathToAdd)
+    private async Task<int> MacAddToPath()
     {
-        return await UnixAddToPathInShellFiles(pathToAdd);
+        return await UnixAddToPathInShellFiles();
     }
 
     static string ConstructArchiveName(
@@ -295,10 +298,14 @@ public sealed class Install
         {
             _logger.Log("Adding install directory to user path: " + InstallDir);
             WindowsAddToPath(InstallDir);
+            _logger.Log("Adding SDK directory to user path: " + SdkInstallDir);
+            WindowsAddToPath(SdkInstallDir);
+            _logger.Log("Setting DOTNET_ROOT: " + SdkInstallDir);
+            SetEnvironmentVariable("DOTNET_ROOT", SdkInstallDir, EnvironmentVariableTarget.User);
         }
         else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
         {
-            int result = await MacAddToPath(InstallDir);
+            int result = await MacAddToPath();
             if (result != 0)
             {
                 _logger.Error("Failed to add to path");
@@ -306,7 +313,7 @@ public sealed class Install
         }
         else
         {
-            int result = await LinuxAddToPath(InstallDir);
+            int result = await LinuxAddToPath();
             if (result != 0)
             {
                 _logger.Error("Failed to add to path");
@@ -315,25 +322,24 @@ public sealed class Install
         return 0;
     }
 
-    private static int WindowsAddToPath(string pathToAdd)
+    private void WindowsAddToPath(string pathToAdd)
     {
-        var currentPathVar = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
-        if (!(":" + currentPathVar + ":").Contains(pathToAdd))
+        var currentPathVar = _globalConfig.GetUserEnvVar("PATH");
+        if (!(";" + currentPathVar + ";").Contains(pathToAdd))
         {
-            Environment.SetEnvironmentVariable("PATH", pathToAdd + ":" + currentPathVar, EnvironmentVariableTarget.User);
+            _globalConfig.SetUserEnvVar("PATH", pathToAdd + ";" + currentPathVar);
         }
-        return 0;
     }
 
-    private async Task<int> UnixAddToPathInShellFiles(string pathToAdd)
+    private async Task<int> UnixAddToPathInShellFiles()
     {
         _logger.Info("Setting environment variables in shell files");
-        string resolvedEnvPath = Path.Combine(pathToAdd, "env");
+        string resolvedEnvPath = Path.Combine(_globalConfig.DnvmHome, "env");
         // Using the full path to the install directory is usually fine, but on Unix systems
         // people often copy their dotfiles from one machine to another and fully resolved paths present a problem
         // there. Instead, we'll try to replace instances of the user's home directory with the $HOME
         // variable, which should be the most common case of machine-dependence.
-        var portableEnvPath = resolvedEnvPath.Replace(Environment.GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify), "$HOME");
+        var portableEnvPath = resolvedEnvPath.Replace(_globalConfig.UserHome, "$HOME");
         string userShSuffix = $"""
 
 if [ -f "{portableEnvPath}" ]; then
@@ -357,7 +363,10 @@ fi
             using (envFile)
             using (var writer = new StreamWriter(envFile))
             {
-                await writer.WriteAsync(GetEnvShContent().Replace("{install_loc}", pathToAdd));
+                var newContent = GetEnvShContent()
+                    .Replace("{install_loc}", _globalConfig.DnvmHome)
+                    .Replace("{sdk_install_loc}", _globalConfig.SdkInstallDir);
+                await writer.WriteAsync(newContent);
                 await envFile.FlushAsync();
             }
 
@@ -365,7 +374,7 @@ fi
             _logger.Log("Scanning for shell files to update");
             foreach (var shellFileName in ProfileShellFiles)
             {
-                var shellPath = Path.Combine(Environment.GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify), shellFileName);
+                var shellPath = Path.Combine(_globalConfig.UserHome, shellFileName);
                 _logger.Info("Checking for file: " + shellPath);
                 if (File.Exists(shellPath))
                 {
@@ -377,7 +386,7 @@ fi
                 }
                 try
                 {
-                    if (!(await FileContainsLine(shellPath, $". \"{portableEnvPath}\"")))
+                    if (!await FileContainsLine(shellPath, $". \"{portableEnvPath}\""))
                     {
                         _logger.Log("Adding env import to: " + shellPath);
                         await File.AppendAllTextAsync(shellPath, userShSuffix);
