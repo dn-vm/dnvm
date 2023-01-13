@@ -292,6 +292,8 @@ public sealed class Install
         {
             _logger.Log("Adding install directory to user path: " + InstallDir);
             WindowsAddToPath(InstallDir);
+            _logger.Log("Adding SDK directory to user path: " + SdkInstallDir);
+            WindowsAddToPath(SdkInstallDir)
         }
         else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
         {
@@ -312,14 +314,13 @@ public sealed class Install
         return 0;
     }
 
-    private int WindowsAddToPath(string pathToAdd)
+    private void WindowsAddToPath(string pathToAdd)
     {
         var currentPathVar = _globalConfig.GetUserEnvVar("PATH");
         if (!(";" + currentPathVar + ";").Contains(pathToAdd))
         {
             _globalConfig.SetUserEnvVar("PATH", pathToAdd + ";" + currentPathVar);
         }
-        return 0;
     }
 
     private async Task<int> UnixAddToPathInShellFiles()
