@@ -89,7 +89,8 @@ public sealed class UpdateTests : IDisposable
         };
         var result = await Install.Run(_globalOptions, _logger, new() {
             Channel = channel,
-            FeedUrl = _mockServer.PrefixString
+            FeedUrl = _mockServer.PrefixString,
+            Verbose = true
         });
         Assert.Equal(Install.Result.Success, result);
         // Update with a newer version
