@@ -93,4 +93,38 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             return s![expectedPrefix.Length..];
         }
     }
+
+    [ConditionalFact(typeof(WindowsOnly))]
+    public async Task FirstRunSetsUserPath()
+    {
+        const string PATH = "PATH";
+        const string DOTNET_ROOT = "DOTNET_ROOT";
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = DnvmExe,
+            Arguments = "install --self -v",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        psi.Environment["DNVM_HOME"] = _globalOptions.DnvmHome;
+
+        var savedPath = Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User);
+        var savedDotnetRoot = Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User);
+        try
+        {
+            var proc = Process.Start(psi);
+            await proc!.WaitForExitAsync();
+
+            var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
+            Assert.Contains($";{_globalOptions.DnvmInstallPath};", pathMatch);
+            Assert.Contains($";{_globalOptions.SdkInstallDir};", pathMatch);
+            Assert.Equal(_globalOptions.SdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(PATH, savedPath, EnvironmentVariableTarget.User);
+            Environment.SetEnvironmentVariable(DOTNET_ROOT, savedDotnetRoot, EnvironmentVariableTarget.User);
+        }
+    }
 }
