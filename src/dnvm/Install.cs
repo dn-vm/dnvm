@@ -315,9 +315,9 @@ public sealed class Install
     private int WindowsAddToPath(string pathToAdd)
     {
         var currentPathVar = _globalConfig.GetUserEnvVar("PATH");
-        if (!(":" + currentPathVar + ":").Contains(pathToAdd))
+        if (!(";" + currentPathVar + ";").Contains(pathToAdd))
         {
-            _globalConfig.SetUserEnvVar("PATH", pathToAdd + ":" + currentPathVar);
+            _globalConfig.SetUserEnvVar("PATH", pathToAdd + ";" + currentPathVar);
         }
         return 0;
     }
