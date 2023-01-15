@@ -25,25 +25,6 @@ public sealed class SelfInstallTests
             SetUserEnvVar = (name, val) => _envVars[name] = val,
         };
     }
-    //[Fact]
-    //public async Task DnvmHomeAndInstallCanBeDifferent()
-    //{
-    //    using var installDir = TestUtils.CreateTempDirectory();
-    //    using var server = new MockServer();
-    //    var options = new CommandArguments.InstallArguments()
-    //    {
-    //        Channel = Channel.Lts,
-    //        FeedUrl = server.PrefixString,
-    //        DnvmInstallPath = installDir.Path,
-    //        UpdateUserEnvironment = false,
-    //    };
-    //    var installCmd = new Install(_globalOptions, _logger, options);
-    //    Assert.Equal(Result.Success, await installCmd.Run());
-    //    Assert.Equal(_globalOptions, Path.GetDirectoryName(installCmd.SdkInstallDir));
-    //    Assert.True(File.Exists(Path.Combine(installCmd.SdkInstallDir, "dotnet")));
-    //    Assert.True(File.Exists(Path.Combine(_globalOptions, ManifestUtils.FileName)));
-    //    Assert.False(File.Exists(Path.Combine(installDir.Path, ManifestUtils.FileName)));
-    //}
 
     [ConditionalFact(typeof(UnixOnly))]
     public async Task FirstRunWritesEnv()
@@ -51,7 +32,7 @@ public sealed class SelfInstallTests
         var psi = new ProcessStartInfo
         {
             FileName = DnvmExe,
-            Arguments = "install --self -v",
+            Arguments = "install --self -y -v",
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
@@ -105,7 +86,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         var psi = new ProcessStartInfo
         {
             FileName = DnvmExe,
-            Arguments = "install --self -v",
+            Arguments = "install --self -y -v",
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };

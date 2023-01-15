@@ -18,6 +18,10 @@ public abstract record CommandArguments
         public bool Verbose { get; init; } = false;
         public bool Force { get; init; } = false;
         public bool Self { get; init; } = false;
+        /// <summary>
+        /// Answer yes to every question or use the defaults.
+        /// </summary>
+        public bool Yes { get; init; } = false;
         public bool Prereqs { get; init; } = false;
         /// <summary>
         /// Directory to place the dnvm exe.
@@ -59,11 +63,13 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 bool verbose = default;
                 bool force = default;
                 bool self = default;
+                bool yes = false;
                 bool prereqs = default;
                 string? feedUrl = default;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
                 syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
+                syntax.DefineOption("y", ref yes, "Answer yes to every question (or accept default).");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from.");
                 syntax.DefineParameter("channel", ref channel, c =>
@@ -84,6 +90,7 @@ sealed record class CommandLineArguments(CommandArguments Command)
                     Verbose = verbose,
                     Force = force,
                     Self = self,
+                    Yes = yes,
                     Prereqs = prereqs,
                     FeedUrl = feedUrl,
                 };
