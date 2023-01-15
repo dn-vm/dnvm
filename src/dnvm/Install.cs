@@ -1,5 +1,6 @@
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.IO.MemoryMappedFiles;
@@ -14,14 +15,14 @@ namespace Dnvm;
 
 public sealed class Install
 {
-    private readonly GlobalOptions _globalConfig;
+    private readonly GlobalOptions _globalOptions;
     // Place to install dnvm
-    public readonly string InstallDir;
-    private string SdkInstallDir => _globalConfig.SdkInstallDir;
-    private string ManifestPath => _globalConfig.ManifestPath;
+    private string _installDir;
+    private string SdkInstallDir => _globalOptions.SdkInstallDir;
+    private string ManifestPath => _globalOptions.ManifestPath;
 
     private readonly Logger _logger;
-    private readonly CommandArguments.InstallArguments _options;
+    private readonly CommandArguments.InstallArguments _installArgs;
     private readonly string _feedUrl;
 
     public enum Result
@@ -40,15 +41,15 @@ public sealed class Install
 
     public Install(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
     {
-        _globalConfig = options;
+        _globalOptions = options;
         _logger = logger;
-        _options = args;
-        if (_options.Verbose)
+        _installArgs = args;
+        if (_installArgs.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        InstallDir = args.DnvmInstallPath ?? options.DnvmInstallPath;
-        _feedUrl = _options.FeedUrl ?? GlobalOptions.DotnetFeedUrl;
+        _installDir = args.DnvmInstallPath ?? options.DnvmInstallPath;
+        _feedUrl = _installArgs.FeedUrl ?? GlobalOptions.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
             _feedUrl = _feedUrl[..^1];
@@ -62,11 +63,11 @@ public sealed class Install
 
     public async Task<Result> Run()
     {
-        _logger.Info("Install Directory: " + InstallDir);
+        _logger.Info("Install Directory: " + _installDir);
         _logger.Info("SDK install directory: " + SdkInstallDir);
         try
         {
-            Directory.CreateDirectory(InstallDir);
+            Directory.CreateDirectory(_installDir);
             Directory.CreateDirectory(SdkInstallDir);
         }
         catch (UnauthorizedAccessException)
@@ -75,7 +76,7 @@ public sealed class Install
             return Result.InstallLocationNotWritable;
         }
 
-        if (_options.Self)
+        if (_installArgs.Self)
         {
             return await RunSelfInstall() == 0
                 ? Result.Success
@@ -98,16 +99,16 @@ public sealed class Install
             return Result.ManifestIOError;
         }
 
-        if (manifest.TrackedChannels.Any(c => c.ChannelName == _options.Channel))
+        if (manifest.TrackedChannels.Any(c => c.ChannelName == _installArgs.Channel))
         {
-            _logger.Log($"Channel '{_options.Channel}' is already being tracked." +
+            _logger.Log($"Channel '{_installArgs.Channel}' is already being tracked." +
                 " Did you mean to run 'dnvm update'?");
             return Result.ChannelAlreadyTracked;
         }
 
         manifest = manifest with {
             TrackedChannels = manifest.TrackedChannels.Add(new TrackedChannel {
-                ChannelName = _options.Channel,
+                ChannelName = _installArgs.Channel,
                 InstalledSdkVersions = ImmutableArray<string>.Empty
             })
         };
@@ -126,7 +127,7 @@ public sealed class Install
 
         RID rid = Utilities.CurrentRID;
 
-        string? latestVersion = versionIndex.GetLatestReleaseForChannel(_options.Channel)?.LatestSdk;
+        string? latestVersion = versionIndex.GetLatestReleaseForChannel(_installArgs.Channel)?.LatestSdk;
         if (latestVersion is null)
         {
             _logger.Error("Could not fetch the latest package version");
@@ -134,7 +135,7 @@ public sealed class Install
         }
         _logger.Log("Found latest version: " + latestVersion);
 
-        if (!_options.Force && manifest.InstalledSdkVersions.Contains(latestVersion))
+        if (!_installArgs.Force && manifest.InstalledSdkVersions.Contains(latestVersion))
         {
             _logger.Log($"Version {latestVersion} is already installed." +
                 " Skipping installation. To install anyway, pass --force.");
@@ -143,7 +144,7 @@ public sealed class Install
 
         var installResult = await InstallSdk(
             _logger,
-            _options.Channel,
+            _installArgs.Channel,
             latestVersion,
             rid,
             _feedUrl,
@@ -217,17 +218,6 @@ public sealed class Install
         return Result.Success;
     }
 
-
-    private async Task<int> LinuxAddToPath()
-    {
-        return await UnixAddToPathInShellFiles();
-    }
-
-    private async Task<int> MacAddToPath()
-    {
-        return await UnixAddToPathInShellFiles();
-    }
-
     static string ConstructArchiveName(
         string? specificVersion,
         RID rid,
@@ -259,11 +249,23 @@ public sealed class Install
             return 1;
         }
 
+        _logger.Log("Installing dnvm");
+
         var procPath = Utilities.ProcessPath;
         _logger.Info("Location of running exe" + procPath);
 
-        var targetPath = Path.Combine(InstallDir, Utilities.ExeName);
-        if (!_options.Force && File.Exists(targetPath))
+        if (!_installArgs.Yes)
+        {
+            _logger.Log($"Install location [default: {GlobalOptions.Default.DnvmInstallPath}]: ");
+            var customInstallPath = Console.ReadLine()?.Trim();
+            if (!string.IsNullOrEmpty(customInstallPath))
+            {
+                _installDir = customInstallPath;
+            }
+        }
+
+        var targetPath = Path.Combine(_installDir, Utilities.ExeName);
+        if (!_installArgs.Force && File.Exists(targetPath))
         {
             _logger.Log("dnvm is already installed at: " + targetPath);
             _logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
@@ -273,7 +275,7 @@ public sealed class Install
             try
             {
                 _logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
-                File.Copy(procPath, targetPath, overwrite: _options.Force);
+                File.Copy(procPath, targetPath, overwrite: _installArgs.Force);
             }
             catch (Exception e)
             {
@@ -283,8 +285,18 @@ public sealed class Install
 
         }
 
+        var updateUserEnv = _installArgs.UpdateUserEnvironment;
+        if (!_installArgs.Yes && MissingFromEnv())
+        {
+            Console.Write("One or more paths are missing from the user environment. Attempt to update the user environment? [y/n] ");
+            if (Console.ReadLine()?.Trim().ToLowerInvariant() == "y")
+            {
+                updateUserEnv = true;
+            }
+        }
+
         // Set up path
-        if (_options.UpdateUserEnvironment)
+        if (updateUserEnv)
         {
             await AddToPath();
         }
@@ -292,28 +304,52 @@ public sealed class Install
         return 0;
     }
 
+    private bool MissingFromEnv()
+    {
+        if (GetEnvVar("DOTNET_ROOT") != SdkInstallDir ||
+            !PathContains(_globalOptions.DnvmHome) ||
+            !PathContains(_installDir))
+        {
+            return true;
+        }
+        return false;
+
+        bool PathContains(string path)
+        {
+            var pathVar = GetEnvVar("PATH");
+            var sep = OSVersion.Platform == PlatformID.Win32NT ? ';' : ':';
+            var matchVar = $"{sep}{pathVar}{sep}";
+            return matchVar.Contains($"{sep}{path}{sep}");
+        }
+
+        string? GetEnvVar(string varName)
+        {
+            if (OSVersion.Platform == PlatformID.Win32NT)
+            {
+                return _globalOptions.GetUserEnvVar(varName);
+            }
+            else
+            {
+                return GetEnvironmentVariable(varName);
+            }
+        }
+    }
+
     private async Task<int> AddToPath()
     {
         if (Utilities.CurrentRID.OS == OSPlatform.Windows)
         {
-            _logger.Log("Adding install directory to user path: " + InstallDir);
-            WindowsAddToPath(InstallDir);
+            _logger.Log("Adding install directory to user path: " + _installDir);
+            WindowsAddToPath(_installDir);
             _logger.Log("Adding SDK directory to user path: " + SdkInstallDir);
             WindowsAddToPath(SdkInstallDir);
             _logger.Log("Setting DOTNET_ROOT: " + SdkInstallDir);
             SetEnvironmentVariable("DOTNET_ROOT", SdkInstallDir, EnvironmentVariableTarget.User);
         }
-        else if (Utilities.CurrentRID.OS == OSPlatform.OSX)
-        {
-            int result = await MacAddToPath();
-            if (result != 0)
-            {
-                _logger.Error("Failed to add to path");
-            }
-        }
+        // Assume everything else is unix
         else
         {
-            int result = await LinuxAddToPath();
+            int result = await UnixAddToPathInShellFiles();
             if (result != 0)
             {
                 _logger.Error("Failed to add to path");
@@ -324,22 +360,22 @@ public sealed class Install
 
     private void WindowsAddToPath(string pathToAdd)
     {
-        var currentPathVar = _globalConfig.GetUserEnvVar("PATH");
+        var currentPathVar = _globalOptions.GetUserEnvVar("PATH");
         if (!(";" + currentPathVar + ";").Contains(pathToAdd))
         {
-            _globalConfig.SetUserEnvVar("PATH", pathToAdd + ";" + currentPathVar);
+            _globalOptions.SetUserEnvVar("PATH", pathToAdd + ";" + currentPathVar);
         }
     }
 
     private async Task<int> UnixAddToPathInShellFiles()
     {
         _logger.Info("Setting environment variables in shell files");
-        string resolvedEnvPath = Path.Combine(_globalConfig.DnvmHome, "env");
+        string resolvedEnvPath = Path.Combine(_globalOptions.DnvmHome, "env");
         // Using the full path to the install directory is usually fine, but on Unix systems
         // people often copy their dotfiles from one machine to another and fully resolved paths present a problem
         // there. Instead, we'll try to replace instances of the user's home directory with the $HOME
         // variable, which should be the most common case of machine-dependence.
-        var portableEnvPath = resolvedEnvPath.Replace(_globalConfig.UserHome, "$HOME");
+        var portableEnvPath = resolvedEnvPath.Replace(_globalOptions.UserHome, "$HOME");
         string userShSuffix = $"""
 
 if [ -f "{portableEnvPath}" ]; then
@@ -364,26 +400,32 @@ fi
             using (var writer = new StreamWriter(envFile))
             {
                 var newContent = GetEnvShContent()
-                    .Replace("{install_loc}", _globalConfig.DnvmHome)
-                    .Replace("{sdk_install_loc}", _globalConfig.SdkInstallDir);
+                    .Replace("{install_loc}", _globalOptions.DnvmHome)
+                    .Replace("{sdk_install_loc}", _globalOptions.SdkInstallDir);
                 await writer.WriteAsync(newContent);
                 await envFile.FlushAsync();
             }
 
             // Scan shell files for shell suffix and add it if it doesn't exist
             _logger.Log("Scanning for shell files to update");
+            var filesToUpdate = new List<string>();
             foreach (var shellFileName in ProfileShellFiles)
             {
-                var shellPath = Path.Combine(_globalConfig.UserHome, shellFileName);
+                var shellPath = Path.Combine(_globalOptions.UserHome, shellFileName);
                 _logger.Info("Checking for file: " + shellPath);
                 if (File.Exists(shellPath))
                 {
                     _logger.Log("Found " + shellPath);
+                    filesToUpdate.Add(shellPath);
                 }
                 else
                 {
                     continue;
                 }
+            }
+
+            foreach (var shellPath in filesToUpdate)
+            {
                 try
                 {
                     if (!await FileContainsLine(shellPath, $". \"{portableEnvPath}\""))
