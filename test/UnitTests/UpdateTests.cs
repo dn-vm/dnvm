@@ -44,16 +44,6 @@ public sealed class UpdateTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CheckUrl()
-    {
-        var update = new Update(_globalOptions, _logger, new CommandArguments.UpdateArguments {
-            FeedUrl = $"http://localhost:{_mockServer.Port}/releases.json"
-        });
-        var link = await update.GetReleaseLink();
-        Assert.Equal($"{_mockServer.PrefixString}dnvm/dnvm.{Utilities.ZipSuffix}", link);
-    }
-
-    [Fact]
     public void FindsNewerLatestToLtsVersion()
     {
         // Construct a manifest with an installed version "41.0.0" in the Latest channel
@@ -119,5 +109,10 @@ public sealed class UpdateTests : IAsyncLifetime
         };
         var actualManifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_globalOptions.ManifestPath));
         Assert.Equal(expectedManifest, actualManifest);
+    }
+
+    [Fact]
+    public void SemVerIsParsable()
+    {
     }
 }

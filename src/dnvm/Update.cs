@@ -135,7 +135,12 @@ public sealed partial class Update
             return Result.NotASingleFile;
         }
 
-        string artifactDownloadLink = await GetReleaseLink();
+        if (await CheckForSelfUpdates() is not (true, DnvmReleases releases))
+        {
+            return Result.Success;
+        }
+
+        string artifactDownloadLink = GetReleaseLink(releases);
 
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         async Task HandleDownload(string tempDownloadPath)
@@ -158,12 +163,54 @@ public sealed partial class Update
         return success ? Success : SelfUpdateFailed;
     }
 
-    public async Task<string> GetReleaseLink()
+    private async Task<(bool UpdateAvailable, DnvmReleases? Releases)> CheckForSelfUpdates()
     {
+        _logger.Log("Checking for updates to dnvm");
+
         var releasesUrl = _args.FeedUrl ?? DefaultReleasesUrl;
-        string releasesJson = await Program.HttpClient.GetStringAsync(releasesUrl);
-        _logger.Info("Releases JSON: " + releasesJson);
-        var releases = JsonSerializer.Deserialize<Releases>(releasesJson);
+        _logger.Info("Using dnvm releases URL: " + releasesUrl);
+
+        string releasesJson;
+        try
+        {
+            releasesJson = await Program.HttpClient.GetStringAsync(releasesUrl);
+        }
+        catch (Exception e)
+        {
+            _logger.Error("Could not fetch releases from URL: " + releasesUrl);
+            _logger.Error(e.Message);
+            return (false, null);
+        }
+
+        DnvmReleases releases;
+        try
+        {
+            _logger.Info("Releases JSON: " + releasesJson);
+            releases = JsonSerializer.Deserialize<DnvmReleases>(releasesJson);
+        }
+        catch (Exception e)
+        {
+            _logger.Error("Could not deserialize Releases JSON: " + e.Message);
+            return (false, null);
+        }
+
+        var current = Program.SemVer;
+        var newest = SemVersion.Parse(releases.LatestVersion.Version, SemVersionStyles.Strict);
+
+        if (current.ComparePrecedenceTo(newest) < 0)
+        {
+            _logger.Log("Found newer version: " + newest);
+            return (true, releases);
+        }
+        else
+        {
+            _logger.Log("No newer version found. Dnvm is up-to-date.");
+            return (false, releases);
+        }
+    }
+
+    private string GetReleaseLink(DnvmReleases releases)
+    {
         // Dnvm doesn't currently publish ARM64 binaries for any platform
         var rid = (Utilities.CurrentRID with {
             Arch = Architecture.X64

@@ -2,16 +2,19 @@
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Semver;
 
 namespace Dnvm;
 
 public static class Program
 {
-    public static readonly HttpClient HttpClient = new();
+    public static SemVersion SemVer = SemVersion.Parse(GitVersionInformation.SemVer, SemVersionStyles.Strict);
+
+    internal static readonly HttpClient HttpClient = new();
 
     static async Task<int> Main(string[] args)
     {
-        Console.WriteLine("dnvm " + GitVersionInformation.SemVer + " " + GitVersionInformation.Sha);
+        Console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.Sha);
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(Console.Out, Console.Error);
         var dnvmHome = GetGlobalConfig();
