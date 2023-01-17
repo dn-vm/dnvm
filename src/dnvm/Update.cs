@@ -18,11 +18,10 @@ public sealed partial class Update
     private readonly Logger _logger;
     private readonly CommandArguments.UpdateArguments _args;
     private readonly string _feedUrl;
-    private readonly GlobalOptions _globalOptions;
     private readonly string _manifestPath;
     private readonly string _sdkInstallDir;
 
-    public const string DefaultReleasesUrl = "https://commentout.com/dnvm/releases.json";
+    public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
 
     public Update(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
     {
