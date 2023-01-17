@@ -15,6 +15,7 @@ jobs:
       - name: Trigger Workflow
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.REPO_DISPATCH_TOKEN }}
           script: |
             github.rest.repos.createDispatchEvent({
               owner: "dn-vm",
