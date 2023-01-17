@@ -25,7 +25,6 @@ public sealed partial class Update
 
     public Update(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
     {
-        _globalOptions = options;
         _logger = logger;
         _args = args;
         if (_args.Verbose)
