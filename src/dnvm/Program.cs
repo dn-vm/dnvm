@@ -15,6 +15,7 @@ public static class Program
     static async Task<int> Main(string[] args)
     {
         Console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.Sha);
+        Console.WriteLine();
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(Console.Out, Console.Error);
         var dnvmHome = GetGlobalConfig();
