@@ -32,6 +32,7 @@ public sealed class MockServer : IAsyncDisposable
     };
     private DotnetReleasesIndex.Release Release => ReleasesIndexJson.Releases.Single();
 
+    public DnvmReleases DnvmReleases { get; set; }
     public MockServer()
     {
         // Generate a temporary port for testing
@@ -44,12 +45,24 @@ public sealed class MockServer : IAsyncDisposable
                 _listener.Prefixes.Add(PrefixString);
                 _listener.Start();
                 _task = Task.Run(WaitForConnection);
-                return;
+                break;
             }
             catch
             {
             }
         }
+        DnvmReleases = new()
+        {
+            LatestVersion = new()
+            {
+                Version = "24.24.24",
+                Artifacts = new() {
+                    ["linux-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                    ["osx-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                    ["win-x64"] = $"{PrefixString}dnvm/dnvm.zip"
+                }
+            }
+        };
     }
 
     private async Task WaitForConnection()
@@ -142,18 +155,7 @@ public sealed class MockServer : IAsyncDisposable
 
     private void GetReleasesJson(HttpListenerResponse response)
     {
-        byte[] buffer = System.Text.Encoding.UTF8.GetBytes($$"""
-{
-    "latestVersion":{
-        "version":"24.24.24",
-        "artifacts":{
-            "linux-x64":"{{PrefixString}}dnvm/dnvm.tar.gz",
-            "osx-x64":"{{PrefixString}}dnvm/dnvm.tar.gz",
-            "win-x64":"{{PrefixString}}dnvm/dnvm.zip"
-        }
-    }
-}
-""");
+        byte[] buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(DnvmReleases));
         // Get a response stream and write the response to it.
         response.ContentLength64 = buffer.Length;
         var output = response.OutputStream;
