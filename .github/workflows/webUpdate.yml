@@ -4,6 +4,9 @@ name: Web Update
 on:
   release:
     types: [published]
+  # Testing
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   trigger-pages-workflow:
