@@ -1,0 +1,19 @@
+
+name: Web Update
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  trigger-pages-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Workflow
+        uses: actions/github-script@v6
+        with:
+          script: github.rest.actions.createDispatchEvent({
+            owner: "dn-vm",
+            repo: "dn-vm.github.io",
+            event_type: "new_release"
+          })
