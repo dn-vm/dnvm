@@ -50,7 +50,7 @@ public sealed class InstallTests : IDisposable
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
-        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet");
+        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
 
