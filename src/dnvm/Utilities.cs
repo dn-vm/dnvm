@@ -29,7 +29,7 @@ public readonly record struct DirectoryResource(
 
 public static class Utilities
 {
-    public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? "zip" : "tar.gz";
+    public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? ".zip" : ".tar.gz";
 
     public static string SeqToString<T>(this IEnumerable<T> e)
     {

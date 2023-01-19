@@ -100,9 +100,9 @@ public sealed class MockServer : IAsyncDisposable
     {
         ["/release-metadata/releases-index.json"] = GetReleasesIndexJson,
         ["/sdk/lts/latest.version"] = GetLatestVersionUrl,
-        [$"/sdk/{Release.LatestSdk}/dotnet-sdk-{Release.LatestSdk}-{CurrentRID}.{ZipSuffix}"] = GetSdk,
+        [$"/sdk/{Release.LatestSdk}/dotnet-sdk-{Release.LatestSdk}-{CurrentRID}{ZipSuffix}"] = GetSdk,
         ["/releases.json"] = GetReleasesJson,
-        [$"/dnvm/dnvm.{ZipSuffix}"] = GetDnvm,
+        [$"/dnvm/dnvm{ZipSuffix}"] = GetDnvm,
     };
 
     private void GetReleasesIndexJson(HttpListenerResponse response)

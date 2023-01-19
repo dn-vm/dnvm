@@ -252,8 +252,8 @@ public sealed class Install
         string suffix)
     {
         return specificVersion is null
-            ? $"dotnet-sdk-{rid}.{suffix}"
-            : $"dotnet-sdk-{specificVersion}-{rid}.{suffix}";
+            ? $"dotnet-sdk-{rid}{suffix}"
+            : $"dotnet-sdk-{specificVersion}-{rid}{suffix}";
     }
 
     static string ConstructDownloadLink(string feed, string latestVersion, string archiveName)
