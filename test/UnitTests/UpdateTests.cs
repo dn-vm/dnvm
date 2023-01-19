@@ -114,5 +114,6 @@ public sealed class UpdateTests : IAsyncLifetime
     [Fact]
     public void SemVerIsParsable()
     {
+        Assert.NotNull(Program.SemVer); // Should throw if version is not parsable.
     }
 }

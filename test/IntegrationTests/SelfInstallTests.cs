@@ -9,7 +9,8 @@ public sealed class SelfInstallTests
 {
     internal static readonly string DnvmExe = Path.Combine(
         Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
-        "dnvm_aot/dnvm" + (Environment.OSVersion.Platform == PlatformID.Win32NT ? ".exe" : ""));
+        "dnvm_aot",
+        "dnvm" + Utilities.ExeSuffix);
 
     private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
     private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
@@ -26,13 +27,34 @@ public sealed class SelfInstallTests
         };
     }
 
+    [Fact]
+    public async Task FirstRunInstallsDotnet()
+    {
+        await using var mockServer = new MockServer();
+        var procResult = await ProcUtil.RunWithOutput(DnvmExe,
+            $"install --self --feed-url {mockServer.PrefixString} -y -v",
+            new() {
+                ["HOME"] = _globalOptions.UserHome,
+                ["DNVM_HOME"] = _globalOptions.DnvmHome
+            }
+        );
+        Assert.Equal(0, procResult.ExitCode);
+
+        var dotnetPath = Path.Combine(_globalOptions.SdkInstallDir, $"dotnet{Utilities.ExeSuffix}");
+        Assert.True(File.Exists(dotnetPath));
+
+        var result = await ProcUtil.RunWithOutput(dotnetPath, "-h");
+        Assert.Contains(Assets.ArchiveToken, result.Out);
+    }
+
     [ConditionalFact(typeof(UnixOnly))]
     public async Task FirstRunWritesEnv()
     {
+        await using var mockServer = new MockServer();
         var psi = new ProcessStartInfo
         {
             FileName = DnvmExe,
-            Arguments = "install --self -y -v",
+            Arguments = $"install --self --feed-url {mockServer.PrefixString} -y -v",
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
@@ -40,6 +62,7 @@ public sealed class SelfInstallTests
         psi.Environment["DNVM_HOME"] = _globalOptions.DnvmHome;
         var proc = Process.Start(psi);
         await proc!.WaitForExitAsync();
+        Assert.Equal(0, proc.ExitCode);
 
         string envPath = Path.Combine(_globalOptions.DnvmHome, "env");
         Assert.True(File.Exists(envPath));
@@ -48,7 +71,7 @@ public sealed class SelfInstallTests
 set -e
 . "{envPath}"
 echo "dnvm: `which dnvm`"
-echo "PATH: $PATH"
+echo "dotnet: `which dotnet`"
 echo "DOTNET_ROOT: $DOTNET_ROOT"
 """;
         psi = new ProcessStartInfo
@@ -65,7 +88,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         Assert.Equal(0, proc.ExitCode);
 
         Assert.Equal(_globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dnvm: ")));
-        Assert.Contains($":{_globalOptions.SdkInstallDir}:", $":{await ReadLine("PATH: ")}");
+        Assert.Equal(_globalOptions.SdkInstallDir, Path.GetDirectoryName(await ReadLine("dotnet: ")));
         Assert.Equal(_globalOptions.SdkInstallDir, await ReadLine("DOTNET_ROOT: "));
 
         async Task<string> ReadLine(string expectedPrefix)
@@ -80,16 +103,18 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     [ConditionalFact(typeof(WindowsOnly))]
     public async Task FirstRunSetsUserPath()
     {
+        await using var mockServer = new MockServer();
         const string PATH = "PATH";
         const string DOTNET_ROOT = "DOTNET_ROOT";
 
         var psi = new ProcessStartInfo
         {
             FileName = DnvmExe,
-            Arguments = "install --self -y -v",
+            Arguments = $"install --self --feed-url {mockServer.PrefixString} -y -v",
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+        psi.Environment["HOME"] = _globalOptions.UserHome;
         psi.Environment["DNVM_HOME"] = _globalOptions.DnvmHome;
 
         var savedPath = Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User);

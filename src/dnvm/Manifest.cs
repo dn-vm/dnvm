@@ -1,14 +1,17 @@
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection.PortableExecutable;
 using Serde;
 using Serde.Json;
+using StaticCs;
 
 namespace Dnvm;
 
+[Closed]
 public enum Channel
 {
     /// <summary>
@@ -16,13 +19,28 @@ public enum Channel
     /// </summary>
     Latest,
     /// <summary>
-    /// Newest LTS-supported release.
+    /// Newest Long Term Support release.
     /// </summary>
     Lts,
     /// <summary>
+    /// Newest Short Term Support release.
+    /// </summary>
+    Sts,
+
+    /// </summary>
+    /// <summary>
     /// Newest "preview" release, not including nightly builds.
     /// </summary>
-    Preview,
+    //Preview,
+}
+
+public static class Channels
+{
+    public static string GetDesc(this Channel c) => c switch {
+        Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
+        Channel.Lts => "The latest version in Long-Term support",
+        Channel.Sts => "The latest version in Short-Term support"
+    };
 }
 
 [GenerateSerde]

@@ -1,2 +1,3 @@
+#!/bin/bash
 # Arbitrary token to look for in file
-# 2c192c853403aa1725f8f99bbe72fe691226fa28
+echo "2c192c853403aa1725f8f99bbe72fe691226fa28"

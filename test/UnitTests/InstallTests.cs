@@ -50,7 +50,7 @@ public sealed class InstallTests : IDisposable
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
-        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet");
+        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
 
@@ -75,11 +75,12 @@ public sealed class InstallTests : IDisposable
             Channel = Channel.Lts,
             FeedUrl = server.PrefixString,
             UpdateUserEnvironment = false,
+            Verbose = true,
         };
         Assert.False(Directory.Exists(_globalOptions.SdkInstallDir));
         Assert.True(Directory.Exists(_globalOptions.DnvmHome));
         Assert.Equal(Result.Success, await Install.Run(_globalOptions, _logger, args));
-        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet");
+        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
     }

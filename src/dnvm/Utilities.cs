@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.IO.Enumeration;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -13,9 +14,22 @@ using StaticCs;
 
 namespace Dnvm;
 
+/// <summary>
+/// Deletes the given directory on disposal.
+/// </summary>
+public readonly record struct DirectoryResource(
+    string Path,
+    bool Recursive = true) : IDisposable
+{
+    public void Dispose()
+    {
+        Directory.Delete(Path, recursive: Recursive);
+    }
+}
+
 public static class Utilities
 {
-    public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? "zip" : "tar.gz";
+    public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? ".zip" : ".tar.gz";
 
     public static string SeqToString<T>(this IEnumerable<T> e)
     {
@@ -43,28 +57,19 @@ public static class Utilities
     public static string ProcessPath = Environment.ProcessPath
         ?? throw new InvalidOperationException("Cannot find exe name");
 
-    public static string ExeName = "dnvm" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+    public static string ExeSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
         ? ".exe"
-        : "");
+        : "";
+
+    public static string ExeName = "dnvm" + ExeSuffix;
 
     public static async Task<string?> ExtractArchiveToDir(string archivePath, string dirPath)
     {
         Directory.CreateDirectory(dirPath);
         if (Utilities.CurrentRID.OS != OSPlatform.Windows)
         {
-            var psi = new ProcessStartInfo()
-            {
-                FileName = "tar",
-                ArgumentList = { "-xzf", $"{archivePath}", "-C", $"{dirPath}" },
-            };
-
-            var p = Process.Start(psi);
-            if (p is not null)
-            {
-                await p.WaitForExitAsync();
-                return p.ExitCode == 0 ? null : p.StandardError.ReadToEnd();
-            }
-            return "Could not start process";
+            var procResult = await ProcUtil.RunWithOutput("tar", $"-xzf \"{archivePath}\" -C \"{dirPath}\"");
+            return procResult.ExitCode == 0 ? null : procResult.Error;
         }
         else
         {

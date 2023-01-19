@@ -19,6 +19,7 @@ public sealed class MockServer : IAsyncDisposable
     public int Port { get; }
 
     public string PrefixString => $"http://localhost:{Port}/";
+    public string DnvmReleasesUrl => PrefixString + "releases.json";
 
     public DotnetReleasesIndex ReleasesIndexJson { get; set; } = new DotnetReleasesIndex
     {
@@ -99,9 +100,9 @@ public sealed class MockServer : IAsyncDisposable
     {
         ["/release-metadata/releases-index.json"] = GetReleasesIndexJson,
         ["/sdk/lts/latest.version"] = GetLatestVersionUrl,
-        [$"/sdk/{Release.LatestSdk}/dotnet-sdk-{Release.LatestSdk}-{CurrentRID}.{ZipSuffix}"] = GetSdk,
+        [$"/sdk/{Release.LatestSdk}/dotnet-sdk-{Release.LatestSdk}-{CurrentRID}{ZipSuffix}"] = GetSdk,
         ["/releases.json"] = GetReleasesJson,
-        [$"/dnvm/dnvm.{ZipSuffix}"] = GetDnvm,
+        [$"/dnvm/dnvm{ZipSuffix}"] = GetDnvm,
     };
 
     private void GetReleasesIndexJson(HttpListenerResponse response)

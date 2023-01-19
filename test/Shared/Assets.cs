@@ -19,64 +19,45 @@ public sealed class Assets
 
     public static Stream GetOrMakeFakeSdkArchive()
     {
+        static byte[] MakeFakeSdkArchive()
+        {
+            using var tempDir = TestUtils.CreateTempDirectory();
+            var exePath = MakeFakeExe(Path.Combine(tempDir.Path, "dotnet"), ArchiveToken);
+            var archivePath = MakeZipOrTarball(tempDir.Path, Path.Combine(ArtifactsTestDir.FullName, "dotnet"));
+            var archive = File.ReadAllBytes(archivePath);
+            File.Delete(archivePath);
+            return archive;
+        }
+
         if (s_sdkArchive is null)
         {
             lock (s_sdkArchiveLock)
             {
-                var archiveName = $"{FakeSdkNameAndVersion}.{Utilities.ZipSuffix}";
-                var archivePath = Path.Combine(ArtifactsTestDir.FullName, archiveName);
-                try
-                {
-                    var srcDir = Path.Combine(AssetsDir, FakeSdkNameAndVersion);
-                    if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-                    {
-                        Process.Start(new ProcessStartInfo
-                        {
-                            FileName = "tar",
-                            Arguments = $"-cvzf {archivePath} .",
-                            WorkingDirectory = srcDir
-                        })!.WaitForExit();
-                    }
-                    else
-                    {
-                        ZipFile.CreateFromDirectory(srcDir, archivePath);
-                    }
-                }
-                catch { }
-                s_sdkArchive = File.ReadAllBytes(archivePath);
+                s_sdkArchive ??= MakeFakeSdkArchive();
             }
         }
         return new MemoryStream(s_sdkArchive);
     }
 
-    public static FileStream MakeFakeDnvmArchive()
+    public static string MakeFakeExe(string destPathWithoutSuffix, string outputString)
     {
-        var archiveName = $"dnvm.{Utilities.ZipSuffix}";
-        var archivePath = Path.Combine(ArtifactsTmpDir.FullName, archiveName);
-        File.Delete(archivePath);
-
-        try
+        var destPath = destPathWithoutSuffix + Utilities.ExeSuffix;
+        switch (Environment.OSVersion.Platform)
         {
-            // rather than use an actual copy of dnvm, we'll use an executable bash/powershell script
-            const string outputString = "Hello from dnvm test. This output must contain the string << usage: >>";
-            using var tmpDir = TestUtils.CreateTempDirectory();
-            var dnvmScriptPath = Path.Combine(tmpDir.Path, "dnvm");
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            case PlatformID.Unix:
             {
-                File.WriteAllText(dnvmScriptPath, $$"""
+                // On Unix we can use a shell script, which looks exactly like an exe
+                File.WriteAllText(destPath, $$"""
 #!/bin/bash
 echo '{{outputString}}'
 """);
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "tar",
-                    Arguments = $"-cvzf {archivePath} dnvm",
-                    WorkingDirectory = tmpDir.Path
-                })!.WaitForExit();
+                break;
             }
-            else
+            case PlatformID.Win32NT:
             {
-                var helloCs = Path.Combine(tmpDir.Path, "hello.cs");
+                // On Windows we have to make a fake exe, since shell scripts can't have
+                // the '.exe' extension
+                var helloCs = Path.GetTempFileName();
                 File.WriteAllText(helloCs, $$"""
 using System;
 class Program {
@@ -85,18 +66,55 @@ class Program {
     }
 }
 """);
-                Process.Start(new ProcessStartInfo {
+                var proc = Process.Start(new ProcessStartInfo {
                     FileName = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe",
-                    Arguments = "-out:dnvm.exe hello.cs",
-                    WorkingDirectory = tmpDir.Path,
+                    Arguments = $"-out:\"{destPath}\" \"{helloCs}\"",
+                    WorkingDirectory = Path.GetDirectoryName(destPath),
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
-                })!.WaitForExit();
+                })!;
+                var output = proc.StandardOutput.ReadToEnd();
+                var error = proc.StandardError.ReadToEnd();
+                proc.WaitForExit();
                 File.Delete(helloCs);
-                ZipFile.CreateFromDirectory(tmpDir.Path, archivePath);
+                break;
             }
+            case var p:
+                throw new InvalidOperationException("Unsupported platform: " + p);
         }
-        catch { }
+        return destPath;
+    }
+
+    public static string MakeZipOrTarball(string srcDir, string destPathWithoutSuffix)
+    {
+        var destPath = destPathWithoutSuffix + Utilities.ZipSuffix;
+        File.Delete(destPath);
+        switch (Environment.OSVersion.Platform)
+        {
+            case PlatformID.Unix:
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "tar",
+                    Arguments = $"-cvzf {destPath} .",
+                    WorkingDirectory = srcDir
+                })!.WaitForExit();
+                break;
+            case PlatformID.Win32NT:
+                ZipFile.CreateFromDirectory(srcDir, destPath);
+                break;
+            case var p:
+                throw new InvalidOperationException("Unsupported platform: " + p);
+        }
+        return destPath;
+    }
+
+    public static FileStream MakeFakeDnvmArchive()
+    {
+        // rather than use an actual copy of dnvm, we'll use an executable bash/powershell script
+        const string outputString = "Hello from dnvm test. This output must contain the string << usage: >>";
+        using var tmpDir = TestUtils.CreateTempDirectory();
+        var dnvmPath = MakeFakeExe(Path.Combine(tmpDir.Path, "dnvm"), outputString);
+        var archivePath = MakeZipOrTarball(tmpDir.Path, Path.Combine(ArtifactsTmpDir.FullName, "dnvm"));
         return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
     }
 

@@ -36,6 +36,11 @@ public abstract record CommandArguments
 
     public sealed record UpdateArguments : CommandArguments
     {
+        /// <summary>
+        /// URL to the dnvm releases.json file listing the latest releases and their download
+        /// locations.
+        /// </summary>
+        public string? DnvmReleasesUrl { get; init; }
         public string? FeedUrl { get; init; }
         public bool Verbose { get; init; } = false;
         public bool Self { get; init; } = false;
@@ -102,15 +107,18 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 bool self = default;
                 bool verbose = default;
                 string? feedUrl = default;
+                string? dnvmReleasesUrl = null;
                 syntax.DefineOption("self", ref self, "Update dnvm itself in the current location");
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
+                syntax.DefineOption("dnvm-url", ref dnvmReleasesUrl, $"Set the URL for the dnvm releases endpoint.");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from. Default is {feedUrl}");
 
                 command = new CommandArguments.UpdateArguments
                 {
                     Self = self,
                     Verbose = verbose,
-                    FeedUrl = feedUrl
+                    FeedUrl = feedUrl,
+                    DnvmReleasesUrl = dnvmReleasesUrl,
                 };
             }
         });

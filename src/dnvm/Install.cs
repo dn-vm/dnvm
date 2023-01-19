@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Serde.Json;
 using static System.Environment;
+using static Dnvm.Utilities;
 
 namespace Dnvm;
 
@@ -83,32 +84,49 @@ public sealed class Install
                 : Result.SelfInstallFailed;
         }
 
+        return await InstallFromChannel(
+            _logger,
+            _installArgs.Channel,
+            _installArgs.Force,
+            _feedUrl,
+            ManifestPath,
+            SdkInstallDir);
+    }
+
+    private static async Task<Result> InstallFromChannel(
+        Logger logger,
+        Channel channel,
+        bool force,
+        string feedUrl,
+        string manifestPath,
+        string sdkInstallDir)
+    {
         Manifest manifest;
         try
         {
-            manifest = ManifestUtils.ReadOrCreateManifest(ManifestPath);
+            manifest = ManifestUtils.ReadOrCreateManifest(manifestPath);
         }
         catch (InvalidDataException)
         {
-            _logger.Error("Manifest file corrupted");
+            logger.Error("Manifest file corrupted");
             return Result.ManifestFileCorrupted;
         }
         catch (Exception e)
         {
-            _logger.Error("Error reading manifest file: " + e.Message);
+            logger.Error("Error reading manifest file: " + e.Message);
             return Result.ManifestIOError;
         }
 
-        if (manifest.TrackedChannels.Any(c => c.ChannelName == _installArgs.Channel))
+        if (manifest.TrackedChannels.Any(c => c.ChannelName == channel))
         {
-            _logger.Log($"Channel '{_installArgs.Channel}' is already being tracked." +
+            logger.Log($"Channel '{channel}' is already being tracked." +
                 " Did you mean to run 'dnvm update'?");
             return Result.ChannelAlreadyTracked;
         }
 
         manifest = manifest with {
             TrackedChannels = manifest.TrackedChannels.Add(new TrackedChannel {
-                ChannelName = _installArgs.Channel,
+                ChannelName = channel,
                 InstalledSdkVersions = ImmutableArray<string>.Empty
             })
         };
@@ -116,48 +134,43 @@ public sealed class Install
         DotnetReleasesIndex versionIndex;
         try
         {
-            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(_feedUrl);
+            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(feedUrl);
         }
         catch (Exception e)
         {
-            _logger.Error("Could not fetch the releases index: ");
-            _logger.Error(e.Message);
+            logger.Error("Could not fetch the releases index: ");
+            logger.Error(e.Message);
             return Result.CouldntFetchIndex;
         }
 
         RID rid = Utilities.CurrentRID;
 
-        string? latestVersion = versionIndex.GetLatestReleaseForChannel(_installArgs.Channel)?.LatestSdk;
+        string? latestVersion = versionIndex.GetLatestReleaseForChannel(channel)?.LatestSdk;
         if (latestVersion is null)
         {
-            _logger.Error("Could not fetch the latest package version");
+            logger.Error("Could not fetch the latest package version");
             return Result.CouldntFetchLatestVersion;
         }
-        _logger.Log("Found latest version: " + latestVersion);
+        logger.Log("Found latest version: " + latestVersion);
 
-        if (!_installArgs.Force && manifest.InstalledSdkVersions.Contains(latestVersion))
+        if (!force && manifest.InstalledSdkVersions.Contains(latestVersion))
         {
-            _logger.Log($"Version {latestVersion} is already installed." +
+            logger.Log($"Version {latestVersion} is already installed." +
                 " Skipping installation. To install anyway, pass --force.");
-            return 0;
+            return Result.Success;
         }
 
         var installResult = await InstallSdk(
-            _logger,
-            _installArgs.Channel,
+            logger,
+            channel,
             latestVersion,
             rid,
-            _feedUrl,
+            feedUrl,
             manifest,
-            ManifestPath,
-            SdkInstallDir);
+            manifestPath,
+            sdkInstallDir);
 
-        if (installResult != Result.Success)
-        {
-            return installResult;
-        }
-
-        return 0;
+        return installResult;
     }
 
     public static async Task<Result> InstallSdk(
@@ -171,7 +184,8 @@ public sealed class Install
         string sdkInstallDir)
     {
         string archiveName = ConstructArchiveName(latestVersion, rid, Utilities.ZipSuffix);
-        string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
+        using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
+        string archivePath = Path.Combine(tempDir.Path, archiveName);
         logger.Info("Archive path: " + archivePath);
 
         var link = ConstructDownloadLink(feedUrl, latestVersion, archiveName);
@@ -179,6 +193,8 @@ public sealed class Install
 
         var result = JsonSerializer.Serialize(manifest);
         logger.Info("Existing manifest: " + result);
+
+        logger.Info("Downloading dotnet archive");
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
         using (var archiveResponse = await Program.HttpClient.GetAsync(link))
@@ -199,6 +215,18 @@ public sealed class Install
         {
             logger.Error("Extract failed: " + extractResult);
             return Result.ExtractFailed;
+        }
+
+        var dotnetExePath = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
+        if (Environment.OSVersion.Platform == PlatformID.Unix)
+        {
+            logger.Info("chmoding downloaded host");
+            var output = await ProcUtil.RunWithOutput("chmod", $"+x \"{dotnetExePath}\"");
+            if (output.ExitCode != 0)
+            {
+                logger.Error("chmod failed: " + output.Error);
+                return Result.ExtractFailed;
+            }
         }
 
         logger.Info($"Adding installed version '{latestVersion}' to manifest.");
@@ -224,8 +252,8 @@ public sealed class Install
         string suffix)
     {
         return specificVersion is null
-            ? $"dotnet-sdk-{rid}.{suffix}"
-            : $"dotnet-sdk-{specificVersion}-{rid}.{suffix}";
+            ? $"dotnet-sdk-{rid}{suffix}"
+            : $"dotnet-sdk-{specificVersion}-{rid}{suffix}";
     }
 
     static string ConstructDownloadLink(string feed, string latestVersion, string archiveName)
@@ -241,15 +269,15 @@ public sealed class Install
         return reader.ReadToEnd();
     }
 
-    private async Task<int> RunSelfInstall()
+    private async Task<Result> RunSelfInstall()
     {
         if (!Utilities.IsSingleFile)
         {
             _logger.Log("Cannot self-install into target location: the current executable is not deployed as a single file.");
-            return 1;
+            return Result.SelfInstallFailed;
         }
 
-        _logger.Log("Installing dnvm");
+        _logger.Log("Starting dnvm install");
 
         var procPath = Utilities.ProcessPath;
         _logger.Info("Location of running exe" + procPath);
@@ -269,30 +297,73 @@ public sealed class Install
         {
             _logger.Log("dnvm is already installed at: " + targetPath);
             _logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
+            return Result.SelfInstallFailed;
         }
-        else
-        {
-            try
-            {
-                _logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
-                File.Copy(procPath, targetPath, overwrite: _installArgs.Force);
-            }
-            catch (Exception e)
-            {
-                _logger.Log($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
-                return 1;
-            }
 
+        var channel = _installArgs.Channel;
+        if (!_installArgs.Yes)
+        {
+            Console.WriteLine("Which channel would you like to start tracking?");
+            Console.WriteLine("Available channels: ");
+            var channels = Enum.GetValues<Channel>();
+            for (int i = 0; i < channels.Length; i++)
+            {
+                var c = channels[i];
+                var name = Enum.GetName(c)!;
+                var desc = c.GetDesc();
+                Console.WriteLine($"\t{i + 1}) {name} - {desc}");
+                while (true)
+                {
+                    Console.WriteLine($"Please select a channel [default: {channel}]: ");
+                    var resultStr = Console.ReadLine()?.Trim();
+                    if (string.IsNullOrEmpty(resultStr))
+                    {
+                        break;
+                    }
+                    else if (int.TryParse(resultStr, out int resultInt) && resultInt > 0 && resultInt <= channels.Length)
+                    {
+                        channel = channels[resultInt];
+                        break;
+                    }
+                }
+            }
         }
 
         var updateUserEnv = _installArgs.UpdateUserEnvironment;
         if (!_installArgs.Yes && MissingFromEnv())
         {
-            Console.Write("One or more paths are missing from the user environment. Attempt to update the user environment? [y/n] ");
+            Console.Write("One or more paths are missing from the user environment. Attempt to update the user environment? [Y/n] ");
             if (Console.ReadLine()?.Trim().ToLowerInvariant() == "y")
             {
                 updateUserEnv = true;
             }
+        }
+
+        _logger.Log("Proceeding with installation.");
+
+        try
+        {
+            _logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
+            File.Copy(procPath, targetPath, overwrite: _installArgs.Force);
+            _logger.Log("Dnvm installed successfully.");
+        }
+        catch (Exception e)
+        {
+            _logger.Log($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
+            return Result.SelfInstallFailed;
+        }
+
+        var result = await InstallFromChannel(
+            _logger,
+            channel,
+            _installArgs.Force,
+            _feedUrl,
+            ManifestPath,
+            SdkInstallDir);
+
+        if (result is not Result.Success)
+        {
+            return result;
         }
 
         // Set up path
@@ -301,7 +372,7 @@ public sealed class Install
             await AddToPath();
         }
 
-        return 0;
+        return Result.Success;
     }
 
     private bool MissingFromEnv()
