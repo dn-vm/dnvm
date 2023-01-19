@@ -75,6 +75,7 @@ public sealed class InstallTests : IDisposable
             Channel = Channel.Lts,
             FeedUrl = server.PrefixString,
             UpdateUserEnvironment = false,
+            Verbose = true,
         };
         Assert.False(Directory.Exists(_globalOptions.SdkInstallDir));
         Assert.True(Directory.Exists(_globalOptions.DnvmHome));
