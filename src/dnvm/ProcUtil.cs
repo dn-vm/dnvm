@@ -29,10 +29,13 @@ public static class ProcUtil
             throw new IOException($"Could not start process: " + cmd);
         }
 
-        var @out = proc.StandardOutput.ReadToEnd();
-        var error = proc.StandardError.ReadToEnd();
+        var @out = proc.StandardOutput.ReadToEndAsync();
+        var error = proc.StandardError.ReadToEndAsync();
         await proc.WaitForExitAsync().ConfigureAwait(false);
-        return new ProcResult(proc.ExitCode, @out, error);
+        return new ProcResult(
+            proc.ExitCode,
+            await @out.ConfigureAwait(false),
+            await error.ConfigureAwait(false));
     }
 
     public readonly record struct ProcResult(int ExitCode, string Out, string Error);
