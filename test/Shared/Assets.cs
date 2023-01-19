@@ -66,13 +66,16 @@ class Program {
     }
 }
 """);
-                Process.Start(new ProcessStartInfo {
+                var proc = Process.Start(new ProcessStartInfo {
                     FileName = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe",
-                    Arguments = $"-out:{destPath} hello.cs",
+                    Arguments = $"-out:\"{destPath}\" \"{helloCs}\"",
                     WorkingDirectory = Path.GetDirectoryName(destPath),
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
-                })!.WaitForExit();
+                })!;
+                var output = proc.StandardOutput.ReadToEnd();
+                var error = proc.StandardError.ReadToEnd();
+                proc.WaitForExit();
                 File.Delete(helloCs);
                 break;
             }
