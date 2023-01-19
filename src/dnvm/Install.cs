@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Serde.Json;
 using static System.Environment;
+using static Dnvm.Utilities;
 
 namespace Dnvm;
 
@@ -183,7 +184,8 @@ public sealed class Install
         string sdkInstallDir)
     {
         string archiveName = ConstructArchiveName(latestVersion, rid, Utilities.ZipSuffix);
-        string archivePath = Path.Combine(Path.GetTempPath(), archiveName);
+        using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
+        string archivePath = Path.Combine(tempDir.Path, archiveName);
         logger.Info("Archive path: " + archivePath);
 
         var link = ConstructDownloadLink(feedUrl, latestVersion, archiveName);

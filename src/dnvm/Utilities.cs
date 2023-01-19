@@ -14,6 +14,19 @@ using StaticCs;
 
 namespace Dnvm;
 
+/// <summary>
+/// Deletes the given directory on disposal.
+/// </summary>
+public readonly record struct DirectoryResource(
+    string Path,
+    bool Recursive = true) : IDisposable
+{
+    public void Dispose()
+    {
+        Directory.Delete(Path, recursive: Recursive);
+    }
+}
+
 public static class Utilities
 {
     public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? "zip" : "tar.gz";
