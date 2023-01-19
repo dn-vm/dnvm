@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.IO.Enumeration;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -43,28 +44,25 @@ public static class Utilities
     public static string ProcessPath = Environment.ProcessPath
         ?? throw new InvalidOperationException("Cannot find exe name");
 
-    public static string ExeName = "dnvm" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+    public static string ExeSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
         ? ".exe"
-        : "");
+        : "";
+
+    public static string ExeName = "dnvm" + ExeSuffix;
 
     public static async Task<string?> ExtractArchiveToDir(string archivePath, string dirPath)
     {
         Directory.CreateDirectory(dirPath);
         if (Utilities.CurrentRID.OS != OSPlatform.Windows)
         {
-            var psi = new ProcessStartInfo()
-            {
+            var proc = Process.Start(new ProcessStartInfo() {
                 FileName = "tar",
-                ArgumentList = { "-xzf", $"{archivePath}", "-C", $"{dirPath}" },
-            };
-
-            var p = Process.Start(psi);
-            if (p is not null)
-            {
-                await p.WaitForExitAsync();
-                return p.ExitCode == 0 ? null : p.StandardError.ReadToEnd();
-            }
-            return "Could not start process";
+                Arguments = $"-xzf \"{archivePath}\" -C \"{dirPath}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+            await proc!.WaitForExitAsync();
+            return proc.ExitCode == 0 ? null : "";
         }
         else
         {

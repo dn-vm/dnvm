@@ -19,6 +19,7 @@ public sealed class MockServer : IAsyncDisposable
     public int Port { get; }
 
     public string PrefixString => $"http://localhost:{Port}/";
+    public string DnvmReleasesUrl => PrefixString + "releases.json";
 
     public DotnetReleasesIndex ReleasesIndexJson { get; set; } = new DotnetReleasesIndex
     {

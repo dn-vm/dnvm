@@ -31,6 +31,7 @@
     <Exec Command="$(RepoRoot)/publish.sh" Condition="'$(OS)' != 'Windows_NT'" />
     <Exec Command="powershell.exe $(RepoRoot)/publish.ps1" Condition="'$(OS)' == 'Windows_NT'" />
     <Copy SourceFiles="$(DnvmPath)" DestinationFolder="$(OutDir)/dnvm_aot" />
+    <Exec Command="codesign -s - $(OutDir)/dnvm_aot/dnvm$(ExeSuffix)" Condition="$([MSBuild]::IsOsPlatform('OSX'))" />
   </Target>
 
 </Project>

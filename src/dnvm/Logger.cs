@@ -31,6 +31,7 @@ public sealed class Logger
         if (LogLevel >= LogLevel.Error)
         {
             _error.WriteLine("Error: " + msg);
+            _error.Flush();
         }
     }
 
@@ -39,6 +40,7 @@ public sealed class Logger
         if (LogLevel >= LogLevel.Info)
         {
             _output.WriteLine("Log: " + msg);
+            _output.Flush();
         }
     }
 
@@ -47,6 +49,7 @@ public sealed class Logger
         if (LogLevel >= LogLevel.Warn)
         {
             _output.WriteLine("Warning: " + msg);
+            _output.Flush();
         }
     }
 
@@ -55,6 +58,7 @@ public sealed class Logger
         if (LogLevel >= LogLevel.Normal)
         {
             _output.WriteLine(msg);
+            _output.Flush();
         }
     }
 }
