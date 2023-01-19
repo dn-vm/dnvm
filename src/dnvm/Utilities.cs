@@ -55,14 +55,8 @@ public static class Utilities
         Directory.CreateDirectory(dirPath);
         if (Utilities.CurrentRID.OS != OSPlatform.Windows)
         {
-            var proc = Process.Start(new ProcessStartInfo() {
-                FileName = "tar",
-                Arguments = $"-xzf \"{archivePath}\" -C \"{dirPath}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            });
-            await proc!.WaitForExitAsync();
-            return proc.ExitCode == 0 ? null : "";
+            var procResult = await ProcUtil.RunWithOutput("tar", $"-xzf \"{archivePath}\" -C \"{dirPath}\"");
+            return procResult.ExitCode == 0 ? null : procResult.Error;
         }
         else
         {
