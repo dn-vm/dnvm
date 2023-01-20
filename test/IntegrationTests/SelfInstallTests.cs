@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Xunit;
 
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 namespace Dnvm.Test;
 
 public sealed class SelfInstallTests
