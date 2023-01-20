@@ -7,6 +7,7 @@ using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using Serde.Json;
 using static System.Environment;
@@ -194,7 +195,7 @@ public sealed class Install
         var result = JsonSerializer.Serialize(manifest);
         logger.Info("Existing manifest: " + result);
 
-        logger.Info("Downloading dotnet archive");
+        logger.Log("Downloading dotnet SDK...");
 
         using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
         using (var archiveResponse = await Program.HttpClient.GetAsync(link))
@@ -284,7 +285,7 @@ public sealed class Install
 
         if (!_installArgs.Yes)
         {
-            Console.WriteLine($"Please select install location [default: {GlobalOptions.Default.DnvmInstallPath}]: ");
+            Console.Write($"Please select install location [default: {GlobalOptions.Default.DnvmInstallPath}]: ");
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
@@ -316,7 +317,7 @@ public sealed class Install
             Console.WriteLine();
             while (true)
             {
-                Console.WriteLine($"Please select a channel [default: {channel}]: ");
+                Console.Write($"Please select a channel [default: {channel}]: ");
                 var resultStr = Console.ReadLine()?.Trim();
                 if (string.IsNullOrEmpty(resultStr))
                 {
@@ -409,14 +410,29 @@ public sealed class Install
 
     private async Task<int> AddToPath()
     {
-        if (Utilities.CurrentRID.OS == OSPlatform.Windows)
+        if (OperatingSystem.IsWindows())
         {
+            if (FindDotnetInSystemPath())
+            {
+                // dotnet.exe is in one of the system path variables. Produce a warning
+                // that the dnvm dotnet.exe will not appear on the path as long as the
+                // system variable is present.
+                _logger.Log("");
+                _logger.Warn("Found 'dotnet.exe' inside the System PATH environment variable. " +
+                    "System PATH is always preferred over user path on Windows, so the dnvm-installed " +
+                    "dotnet.exe will not be accessible until it is removed. " +
+                    "It is strongly recommended to remove dotnet from your System PATH now.");
+                _logger.Log("");
+            }
             _logger.Log("Adding install directory to user path: " + _installDir);
             WindowsAddToPath(_installDir);
             _logger.Log("Adding SDK directory to user path: " + SdkInstallDir);
             WindowsAddToPath(SdkInstallDir);
             _logger.Log("Setting DOTNET_ROOT: " + SdkInstallDir);
             SetEnvironmentVariable("DOTNET_ROOT", SdkInstallDir, EnvironmentVariableTarget.User);
+
+            _logger.Log("");
+            _logger.Log("Finished setting environment variables. Please close and re-open your terminal.");
         }
         // Assume everything else is unix
         else
@@ -430,6 +446,26 @@ public sealed class Install
         return 0;
     }
 
+    [SupportedOSPlatform("windows")]
+    private bool FindDotnetInSystemPath()
+    {
+        var pathVar = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine);
+        if (pathVar is null)
+        {
+            return false;
+        }
+        var paths = pathVar.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var p in paths)
+        {
+            if (File.Exists(Path.Combine(p, "dotnet.exe")))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    [SupportedOSPlatform("windows")]
     private void WindowsAddToPath(string pathToAdd)
     {
         var currentPathVar = _globalOptions.GetUserEnvVar("PATH");
