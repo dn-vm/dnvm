@@ -284,7 +284,7 @@ public sealed class Install
 
         if (!_installArgs.Yes)
         {
-            _logger.Log($"Install location [default: {GlobalOptions.Default.DnvmInstallPath}]: ");
+            Console.WriteLine($"Please select install location [default: {GlobalOptions.Default.DnvmInstallPath}]: ");
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
@@ -312,19 +312,20 @@ public sealed class Install
                 var name = Enum.GetName(c)!;
                 var desc = c.GetDesc();
                 Console.WriteLine($"\t{i + 1}) {name} - {desc}");
-                while (true)
+            }
+            Console.WriteLine();
+            while (true)
+            {
+                Console.WriteLine($"Please select a channel [default: {channel}]: ");
+                var resultStr = Console.ReadLine()?.Trim();
+                if (string.IsNullOrEmpty(resultStr))
                 {
-                    Console.WriteLine($"Please select a channel [default: {channel}]: ");
-                    var resultStr = Console.ReadLine()?.Trim();
-                    if (string.IsNullOrEmpty(resultStr))
-                    {
-                        break;
-                    }
-                    else if (int.TryParse(resultStr, out int resultInt) && resultInt > 0 && resultInt <= channels.Length)
-                    {
-                        channel = channels[resultInt];
-                        break;
-                    }
+                    break;
+                }
+                else if (int.TryParse(resultStr, out int resultInt) && resultInt > 0 && resultInt <= channels.Length)
+                {
+                    channel = channels[resultInt];
+                    break;
                 }
             }
         }
