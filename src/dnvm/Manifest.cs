@@ -31,7 +31,7 @@ public enum Channel
     /// <summary>
     /// Newest "preview" release, not including nightly builds.
     /// </summary>
-    //Preview,
+    Preview,
 }
 
 public static class Channels
@@ -39,7 +39,8 @@ public static class Channels
     public static string GetDesc(this Channel c) => c switch {
         Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
         Channel.Lts => "The latest version in Long-Term support",
-        Channel.Sts => "The latest version in Short-Term support"
+        Channel.Sts => "The latest version in Short-Term support",
+        Channel.Preview => "The latest preview version",
     };
 }
 
