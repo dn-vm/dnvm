@@ -6,7 +6,7 @@ public readonly record struct TempDirectory(string Path) : IDisposable
 {
     public static TempDirectory CreateSubDirectory(string basePath)
     {
-        string dir = IOPath.Combine(basePath, Guid.NewGuid().ToString());
+        string dir = IOPath.Combine(basePath, IOPath.GetRandomFileName());
         Directory.CreateDirectory(dir);
         return new TempDirectory(dir);
     }

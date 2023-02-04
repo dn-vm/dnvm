@@ -139,7 +139,7 @@ public sealed class MockServer : IAsyncDisposable
 
     private static void GetSdk(HttpListenerResponse response)
     {
-        using var f = Assets.GetOrMakeFakeSdkArchive();
+        var f = Assets.SdkArchive;
         var streamLength = f.Length;
         response.ContentLength64 = streamLength;
         f.CopyTo(response.OutputStream);

@@ -14,30 +14,19 @@ public sealed class Assets
     /// </summary>
     public const string ArchiveToken = "2c192c853403aa1725f8f99bbe72fe691226fa28";
 
-    private static byte[]? s_sdkArchive = null;
-    private static readonly object s_sdkArchiveLock = new();
-
-    public static Stream GetOrMakeFakeSdkArchive()
+    private static Lazy<byte[]> s_sdkArchive = new Lazy<byte[]>(() =>
     {
-        static byte[] MakeFakeSdkArchive()
-        {
-            using var tempDir = TestUtils.CreateTempDirectory();
-            var exePath = MakeFakeExe(Path.Combine(tempDir.Path, "dotnet"), ArchiveToken);
-            var archivePath = MakeZipOrTarball(tempDir.Path, Path.Combine(ArtifactsTestDir.FullName, "dotnet"));
-            var archive = File.ReadAllBytes(archivePath);
-            File.Delete(archivePath);
-            return archive;
-        }
+        using var tempDir = TestUtils.CreateTempDirectory();
+        var exePath = MakeFakeExe(Path.Combine(tempDir.Path, "dotnet"), ArchiveToken);
+        using var zipDir = TestUtils.CreateTempDirectory();
+        var archivePath = MakeZipOrTarball(tempDir.Path, Path.Combine(zipDir.Path, "dotnet"));
+        var archive = File.ReadAllBytes(archivePath);
+        File.Delete(archivePath);
+        return archive;
 
-        if (s_sdkArchive is null)
-        {
-            lock (s_sdkArchiveLock)
-            {
-                s_sdkArchive ??= MakeFakeSdkArchive();
-            }
-        }
-        return new MemoryStream(s_sdkArchive);
-    }
+    },isThreadSafe: true);
+
+    public static Stream SdkArchive => new MemoryStream(s_sdkArchive.Value);
 
     public static string MakeFakeExe(string destPathWithoutSuffix, string outputString)
     {
@@ -117,6 +106,4 @@ class Program {
         var archivePath = MakeZipOrTarball(tmpDir.Path, Path.Combine(ArtifactsTmpDir.FullName, "dnvm"));
         return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
     }
-
-    private const string FakeSdkNameAndVersion = "fakesdk-42.42.42";
 }
