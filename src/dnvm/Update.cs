@@ -73,32 +73,58 @@ public sealed partial class Update
         }
 
         var manifest = ManifestUtils.ReadOrCreateManifest(_manifestPath);
-        _logger.Log("Looking for available updates");
-        var updateResults = FindPotentialUpdates(manifest, releaseIndex);
+        return await UpdateSdks(
+            _logger,
+            releaseIndex,
+            manifest,
+            _args.Yes,
+            _feedUrl,
+            _feedUrl ?? GlobalOptions.DotnetFeedUrl,
+            _manifestPath,
+            _sdkInstallDir);
+    }
+
+    public static async Task<Result> UpdateSdks(
+        Logger logger,
+        DotnetReleasesIndex releasesIndex,
+        Manifest manifest,
+        bool yes,
+        string feedUrl,
+        string releasesUrl,
+        string manifestPath,
+        string sdkInstallDir)
+    {
+        logger.Log("Looking for available updates");
+        // Check for dnvm updates
+        if (await CheckForSelfUpdates(logger, releasesUrl) is (true, _))
+        {
+            logger.Log("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
+        }
+        var updateResults = FindPotentialUpdates(manifest, releasesIndex);
         if (updateResults.Count > 0)
         {
-            _logger.Log("Found versions available for update");
-            _logger.Log("Channel\tInstalled\tAvailable");
-            _logger.Log("-------------------------------------------------");
+            logger.Log("Found versions available for update");
+            logger.Log("Channel\tInstalled\tAvailable");
+            logger.Log("-------------------------------------------------");
             foreach (var (c, newestInstalled, newestAvailable) in updateResults)
             {
-                _logger.Log($"{c}\t{newestInstalled}\t{newestAvailable.LatestSdk}");
+                logger.Log($"{c}\t{newestInstalled}\t{newestAvailable.LatestSdk}");
             }
-            _logger.Log("Install updates? [y/N]: ");
-            var response = _args.Yes ? "y" : Console.ReadLine();
+            logger.Log("Install updates? [y/N]: ");
+            var response = yes ? "y" : Console.ReadLine();
             if (response?.Trim().ToLowerInvariant() == "y")
             {
                 foreach (var (c, _, newestAvailable) in updateResults)
                 {
                     _ = await Install.InstallSdk(
-                        _logger,
+                        logger,
                         c,
                         newestAvailable.LatestSdk,
                         Utilities.CurrentRID,
-                        _feedUrl,
+                        feedUrl,
                         manifest,
-                        _manifestPath,
-                        _sdkInstallDir
+                        manifestPath,
+                        sdkInstallDir
                         );
                 }
             }
@@ -135,7 +161,7 @@ public sealed partial class Update
             return Result.NotASingleFile;
         }
 
-        if (await CheckForSelfUpdates() is not (true, DnvmReleases releases))
+        if (await CheckForSelfUpdates(_logger, _args.FeedUrl ?? DefaultReleasesUrl) is not (true, DnvmReleases releases))
         {
             return Result.Success;
         }
@@ -163,34 +189,34 @@ public sealed partial class Update
         return success ? Success : SelfUpdateFailed;
     }
 
-    private async Task<(bool UpdateAvailable, DnvmReleases? Releases)> CheckForSelfUpdates()
+    private static async Task<(bool UpdateAvailable, DnvmReleases? Releases)> CheckForSelfUpdates(
+        Logger logger,
+        string releasesUrl)
     {
-        _logger.Log("Checking for updates to dnvm");
-
-        var releasesUrl = _args.FeedUrl ?? DefaultReleasesUrl;
-        _logger.Info("Using dnvm releases URL: " + releasesUrl);
+        logger.Log("Checking for updates to dnvm");
+        logger.Info((string)("Using dnvm releases URL: " + releasesUrl));
 
         string releasesJson;
         try
         {
-            releasesJson = await Program.HttpClient.GetStringAsync(releasesUrl);
+            releasesJson = await Program.HttpClient.GetStringAsync((string)releasesUrl);
         }
         catch (Exception e)
         {
-            _logger.Error("Could not fetch releases from URL: " + releasesUrl);
-            _logger.Error(e.Message);
+            logger.Error((string)("Could not fetch releases from URL: " + releasesUrl));
+            logger.Error(e.Message);
             return (false, null);
         }
 
         DnvmReleases releases;
         try
         {
-            _logger.Info("Releases JSON: " + releasesJson);
+            logger.Info("Releases JSON: " + releasesJson);
             releases = JsonSerializer.Deserialize<DnvmReleases>(releasesJson);
         }
         catch (Exception e)
         {
-            _logger.Error("Could not deserialize Releases JSON: " + e.Message);
+            logger.Error("Could not deserialize Releases JSON: " + e.Message);
             return (false, null);
         }
 
@@ -199,12 +225,12 @@ public sealed partial class Update
 
         if (current.ComparePrecedenceTo(newest) < 0)
         {
-            _logger.Log("Found newer version: " + newest);
+            logger.Log("Found newer version: " + newest);
             return (true, releases);
         }
         else
         {
-            _logger.Log("No newer version found. Dnvm is up-to-date.");
+            logger.Log("No newer version found. Dnvm is up-to-date.");
             return (false, releases);
         }
     }
