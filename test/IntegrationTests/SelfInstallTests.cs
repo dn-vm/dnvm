@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Xunit;
+using Xunit.Abstractions;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 namespace Dnvm.Test;
@@ -17,9 +18,11 @@ public sealed class SelfInstallTests
     private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
     private readonly Dictionary<string, string> _envVars = new();
     private readonly GlobalOptions _globalOptions;
+    private readonly ITestOutputHelper _testOutput;
 
-    public SelfInstallTests()
+    public SelfInstallTests(ITestOutputHelper testOutput)
     {
+        _testOutput = testOutput;
         _globalOptions = new() {
             DnvmHome = _dnvmHome.Path,
             UserHome = _userHome.Path,
@@ -39,6 +42,8 @@ public sealed class SelfInstallTests
                 ["DNVM_HOME"] = _globalOptions.DnvmHome
             }
         );
+        _testOutput.WriteLine(procResult.Out);
+        _testOutput.WriteLine(procResult.Error);
         Assert.Equal(0, procResult.ExitCode);
 
         var dotnetPath = Path.Combine(_globalOptions.SdkInstallDir, $"dotnet{Utilities.ExeSuffix}");
