@@ -29,6 +29,7 @@ public sealed class UpdateTests : IAsyncLifetime
         };
         _updateArguments = new() {
             FeedUrl = _mockServer.PrefixString,
+            DnvmReleasesUrl = _mockServer.DnvmReleasesUrl,
             Verbose = true,
             Yes = true,
         };
@@ -41,6 +42,31 @@ public sealed class UpdateTests : IAsyncLifetime
         await _mockServer.DisposeAsync();
         _userHome.Dispose();
         _dnvmHome.Dispose();
+    }
+
+    [Fact]
+    public async Task UpdateChecksForSelfUpdate()
+    {
+        var manifest = new Manifest {
+            InstalledSdkVersions = ImmutableArray.Create("42.42.142"),
+            TrackedChannels = ImmutableArray.Create(new TrackedChannel {
+                ChannelName = Channel.Latest,
+                InstalledSdkVersions = ImmutableArray.Create("42.42.142")
+            })
+        };
+        var releasesIndex = _mockServer.ReleasesIndexJson;
+        var writer = new StringWriter();
+        var logger = new Logger(writer, writer);
+        _ = await Update.UpdateSdks(
+            logger,
+            releasesIndex,
+            manifest,
+            yes: false,
+            _updateArguments.FeedUrl!,
+            _updateArguments.DnvmReleasesUrl!,
+            _globalOptions.ManifestPath,
+            _globalOptions.SdkInstallDir);
+        Assert.Contains("dnvm is out of date", writer.ToString());
     }
 
     [Fact]
