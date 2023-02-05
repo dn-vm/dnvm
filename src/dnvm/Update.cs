@@ -18,6 +18,7 @@ public sealed partial class Update
     private readonly Logger _logger;
     private readonly CommandArguments.UpdateArguments _args;
     private readonly string _feedUrl;
+    private readonly string _releasesUrl;
     private readonly string _manifestPath;
     private readonly string _sdkInstallDir;
 
@@ -36,6 +37,7 @@ public sealed partial class Update
         {
             _feedUrl = _feedUrl[..^1];
         }
+        _releasesUrl = _args.DnvmReleasesUrl ?? DefaultReleasesUrl;
         _manifestPath = options.ManifestPath;
         _sdkInstallDir = options.SdkInstallDir;
     }
@@ -79,7 +81,7 @@ public sealed partial class Update
             manifest,
             _args.Yes,
             _feedUrl,
-            _feedUrl ?? GlobalOptions.DotnetFeedUrl,
+            _releasesUrl,
             _manifestPath,
             _sdkInstallDir);
     }
@@ -161,7 +163,7 @@ public sealed partial class Update
             return Result.NotASingleFile;
         }
 
-        if (await CheckForSelfUpdates(_logger, _args.FeedUrl ?? DefaultReleasesUrl) is not (true, DnvmReleases releases))
+        if (await CheckForSelfUpdates(_logger, _releasesUrl) is not (true, DnvmReleases releases))
         {
             return Result.Success;
         }
