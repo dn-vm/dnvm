@@ -30,7 +30,7 @@ public sealed class UpdateTests
         };
         var proc = Process.Start(new ProcessStartInfo() {
             FileName = dnvmTmpPath,
-            Arguments = $"update --self -v --feed-url {mockServer.PrefixString}releases.json",
+            Arguments = $"update --self -v --dnvm-url {mockServer.PrefixString}releases.json",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         });
