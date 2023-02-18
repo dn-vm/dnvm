@@ -7,11 +7,4 @@ case ":${PATH}:" in
         export PATH="{install_loc}:$PATH"
         ;;
 esac
-case ":${PATH}:" in
-    *:"{sdk_install_loc}":*)
-        ;;
-    *)
-        export PATH="{sdk_install_loc}:$PATH"
-        ;;
-esac
 export DOTNET_ROOT="{sdk_install_loc}"

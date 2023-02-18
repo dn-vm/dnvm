@@ -19,7 +19,7 @@ public sealed class Install
 {
     private readonly GlobalOptions _globalOptions;
     // Place to install dnvm
-    private string _installDir;
+    private string _dnvmHome;
     private string SdkInstallDir => _globalOptions.SdkInstallDir;
     private string ManifestPath => _globalOptions.ManifestPath;
 
@@ -50,7 +50,7 @@ public sealed class Install
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _installDir = args.DnvmInstallPath ?? options.DnvmInstallPath;
+        _dnvmHome = args.DnvmInstallPath ?? options.DnvmInstallPath;
         _feedUrl = _installArgs.FeedUrl ?? GlobalOptions.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
@@ -65,11 +65,11 @@ public sealed class Install
 
     public async Task<Result> Run()
     {
-        _logger.Info("Install Directory: " + _installDir);
+        _logger.Info("Install Directory: " + _dnvmHome);
         _logger.Info("SDK install directory: " + SdkInstallDir);
         try
         {
-            Directory.CreateDirectory(_installDir);
+            Directory.CreateDirectory(_dnvmHome);
             Directory.CreateDirectory(SdkInstallDir);
         }
         catch (UnauthorizedAccessException)
@@ -289,11 +289,11 @@ public sealed class Install
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
-                _installDir = customInstallPath;
+                _dnvmHome = customInstallPath;
             }
         }
 
-        var targetPath = Path.Combine(_installDir, Utilities.ExeName);
+        var targetPath = Path.Combine(_dnvmHome, Utilities.DnvmExeName);
         if (!_installArgs.Force && File.Exists(targetPath))
         {
             _logger.Log("dnvm is already installed at: " + targetPath);
@@ -368,6 +368,8 @@ public sealed class Install
             return result;
         }
 
+        RetargetSymlink(_dnvmHome, SdkInstallDir);
+
         // Set up path
         if (updateUserEnv)
         {
@@ -377,11 +379,27 @@ public sealed class Install
         return Result.Success;
     }
 
+    /// <summary>
+    /// Creates a symlink from the dotnet exe in the dnvm home directory to the dotnet exe in the
+    /// sdk install directory.
+    /// </summary>
+    private static void RetargetSymlink(string dnvmHome, string sdkInstallDir)
+    {
+        var symlinkPath = Path.Combine(dnvmHome, DotnetExeName);
+        // Delete if it already exists
+        try
+        {
+            File.Delete(symlinkPath);
+        }
+        catch { }
+        File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetExeName));
+    }
+
     private bool MissingFromEnv()
     {
         if (GetEnvVar("DOTNET_ROOT") != SdkInstallDir ||
             !PathContains(_globalOptions.DnvmHome) ||
-            !PathContains(_installDir))
+            !PathContains(_dnvmHome))
         {
             return true;
         }
@@ -424,10 +442,8 @@ public sealed class Install
                     "It is strongly recommended to remove dotnet from your System PATH now.");
                 _logger.Log("");
             }
-            _logger.Log("Adding install directory to user path: " + _installDir);
-            WindowsAddToPath(_installDir);
-            _logger.Log("Adding SDK directory to user path: " + SdkInstallDir);
-            WindowsAddToPath(SdkInstallDir);
+            _logger.Log("Adding install directory to user path: " + _dnvmHome);
+            WindowsAddToPath(_dnvmHome);
             _logger.Log("Setting DOTNET_ROOT: " + SdkInstallDir);
             SetEnvironmentVariable("DOTNET_ROOT", SdkInstallDir, EnvironmentVariableTarget.User);
 
