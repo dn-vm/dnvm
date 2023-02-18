@@ -94,7 +94,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         Assert.Equal(0, proc.ExitCode);
 
         Assert.Equal(_globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dnvm: ")));
-        Assert.Equal(_globalOptions.SdkInstallDir, Path.GetDirectoryName(await ReadLine("dotnet: ")));
+        Assert.Equal(_globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dotnet: ")));
         Assert.Equal(_globalOptions.SdkInstallDir, await ReadLine("DOTNET_ROOT: "));
 
         async Task<string> ReadLine(string expectedPrefix)

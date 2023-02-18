@@ -184,7 +184,7 @@ public sealed partial class Update
         await DownloadBinaryToTempAndDelete(artifactDownloadLink, HandleDownload);
         _logger.Info($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
-        string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.ExeName);
+        string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.DnvmExeName);
         bool success =
             await ValidateBinary(_logger, dnvmTmpPath) &&
             SwapWithRunningFile(dnvmTmpPath);

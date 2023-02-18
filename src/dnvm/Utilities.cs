@@ -61,7 +61,8 @@ public static class Utilities
         ? ".exe"
         : "";
 
-    public static string ExeName = "dnvm" + ExeSuffix;
+    public static string DnvmExeName = "dnvm" + ExeSuffix;
+    public static string DotnetExeName = "dotnet" + ExeSuffix;
 
     public static async Task<string?> ExtractArchiveToDir(string archivePath, string dirPath)
     {
