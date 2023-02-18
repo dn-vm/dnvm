@@ -132,7 +132,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
 
             var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
             Assert.Contains($";{_globalOptions.DnvmInstallPath};", pathMatch);
-            Assert.Contains($";{_globalOptions.SdkInstallDir};", pathMatch);
+            Assert.DoesNotContain($";{_globalOptions.SdkInstallDir};", pathMatch);
             Assert.Equal(_globalOptions.SdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User));
         }
         finally
