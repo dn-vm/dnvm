@@ -38,5 +38,26 @@ public static class ProcUtil
             await error.ConfigureAwait(false));
     }
 
+    public static async Task<ProcResult> RunShell(string scriptContent)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "/bin/bash",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true
+        };
+        var proc = Process.Start(psi)!;
+        await proc.StandardInput.WriteAsync(scriptContent);
+        proc.StandardInput.Close();
+        var @out = proc.StandardOutput.ReadToEndAsync();
+        var error = proc.StandardError.ReadToEndAsync();
+        await proc.WaitForExitAsync().ConfigureAwait(false);
+        return new ProcResult(
+            proc.ExitCode,
+            await @out.ConfigureAwait(false),
+            await error.ConfigureAwait(false));
+    }
+
     public readonly record struct ProcResult(int ExitCode, string Out, string Error);
 }

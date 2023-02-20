@@ -17,7 +17,8 @@ public sealed class Assets
     private static Lazy<byte[]> s_sdkArchive = new Lazy<byte[]>(() =>
     {
         using var tempDir = TestUtils.CreateTempDirectory();
-        var exePath = MakeFakeExe(Path.Combine(tempDir.Path, "dotnet"), ArchiveToken);
+        var exePath = Path.Combine(tempDir.Path, Utilities.DotnetExeName);
+        MakeFakeExe(exePath, ArchiveToken);
         using var zipDir = TestUtils.CreateTempDirectory();
         var archivePath = MakeZipOrTarball(tempDir.Path, Path.Combine(zipDir.Path, "dotnet"));
         var archive = File.ReadAllBytes(archivePath);
@@ -28,9 +29,8 @@ public sealed class Assets
 
     public static Stream SdkArchive => new MemoryStream(s_sdkArchive.Value);
 
-    public static string MakeFakeExe(string destPathWithoutSuffix, string outputString)
+    public static void MakeFakeExe(string destPath, string outputString)
     {
-        var destPath = destPathWithoutSuffix + Utilities.ExeSuffix;
         switch (Environment.OSVersion.Platform)
         {
             case PlatformID.Unix:
@@ -71,7 +71,6 @@ class Program {
             case var p:
                 throw new InvalidOperationException("Unsupported platform: " + p);
         }
-        return destPath;
     }
 
     public static string MakeZipOrTarball(string srcDir, string destPathWithoutSuffix)
@@ -102,7 +101,8 @@ class Program {
         // rather than use an actual copy of dnvm, we'll use an executable bash/powershell script
         const string outputString = "Hello from dnvm test. This output must contain the string << usage: >>";
         using var tmpDir = TestUtils.CreateTempDirectory();
-        var dnvmPath = MakeFakeExe(Path.Combine(tmpDir.Path, "dnvm"), outputString);
+        var dnvmPath = Path.Combine(tmpDir.Path, Utilities.DnvmExeName);
+        MakeFakeExe(dnvmPath, outputString);
         var archivePath = MakeZipOrTarball(tmpDir.Path, Path.Combine(ArtifactsTmpDir.FullName, "dnvm"));
         return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
     }

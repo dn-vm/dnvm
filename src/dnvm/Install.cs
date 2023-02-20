@@ -6,7 +6,6 @@ using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using Serde.Json;
@@ -278,6 +277,12 @@ public sealed class Install
             return Result.SelfInstallFailed;
         }
 
+        if (_installArgs.Update)
+        {
+            _logger.Log("Running self-update install");
+            return await SelfUpdate(_dnvmHome);
+        }
+
         _logger.Log("Starting dnvm install");
 
         var procPath = Utilities.ProcessPath;
@@ -395,34 +400,105 @@ public sealed class Install
         File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetExeName));
     }
 
+    /// <summary>
+    /// Install the running binary to the specified location.
+    /// </summary>
+    internal async Task<Result> SelfUpdate(string dnvmHome)
+    {
+        var logger = _logger;
+        if (!ReplaceBinary(dnvmHome, logger))
+        {
+            return Result.SelfInstallFailed;
+        }
+        logger.Info($"Retargeting symlink in {dnvmHome} to {SdkInstallDir}");
+        RetargetSymlink(dnvmHome, SdkInstallDir);
+        if (!OperatingSystem.IsWindows())
+        {
+            await WriteEnvFile(dnvmHome, SdkInstallDir, logger);
+        }
+        else
+        {
+            // Remove default SDK install path from PATH if present
+            RemoveFromPath(SdkInstallDir);
+        }
+
+        return Result.Success;
+
+        static bool ReplaceBinary(string dnvmHome, Logger logger)
+        {
+            var destPath = Path.Combine(dnvmHome, DnvmExeName);
+            var srcPath = Utilities.ProcessPath;
+            try
+            {
+                string backupPath = destPath + ".bak";
+                logger.Info($"Swapping {destPath} with downloaded file at {srcPath}");
+                File.Move(destPath, backupPath, overwrite: true);
+                File.Move(srcPath, destPath, overwrite: false);
+                logger.Log("Process successfully upgraded");
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    // Can't delete the open file on Windows
+                    File.Delete(backupPath);
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                logger.Error("Couldn't replace existing binary: " + e.Message);
+                return false;
+            }
+        }
+    }
+
+    private void RemoveFromPath(string pathVar)
+    {
+        var paths = GetEnvVar("PATH")?.Split(Path.PathSeparator);
+        if (paths is not null)
+        {
+            var newPath = string.Join(Path.PathSeparator, paths.Where(p => p != pathVar));
+            SetEnvVar("PATH", newPath);
+        }
+    }
+
     private bool MissingFromEnv()
     {
         if (GetEnvVar("DOTNET_ROOT") != SdkInstallDir ||
-            !PathContains(_globalOptions.DnvmHome) ||
             !PathContains(_dnvmHome))
         {
             return true;
         }
         return false;
+    }
 
-        bool PathContains(string path)
+    private bool PathContains(string path)
+    {
+        var pathVar = GetEnvVar("PATH");
+        var sep = Path.PathSeparator;
+        var matchVar = $"{sep}{pathVar}{sep}";
+        return matchVar.Contains($"{sep}{path}{sep}");
+    }
+
+    private string? GetEnvVar(string varName)
+    {
+        if (OperatingSystem.IsWindows())
         {
-            var pathVar = GetEnvVar("PATH");
-            var sep = OSVersion.Platform == PlatformID.Win32NT ? ';' : ':';
-            var matchVar = $"{sep}{pathVar}{sep}";
-            return matchVar.Contains($"{sep}{path}{sep}");
+            return _globalOptions.GetUserEnvVar(varName);
         }
-
-        string? GetEnvVar(string varName)
+        else
         {
-            if (OSVersion.Platform == PlatformID.Win32NT)
-            {
-                return _globalOptions.GetUserEnvVar(varName);
-            }
-            else
-            {
-                return GetEnvironmentVariable(varName);
-            }
+            return GetEnvironmentVariable(varName);
+        }
+    }
+
+    private void SetEnvVar(string varName, string value)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            _globalOptions.SetUserEnvVar(varName, value);
+        }
+        else
+        {
+            SetEnvironmentVariable(varName, value);
         }
     }
 
@@ -453,11 +529,8 @@ public sealed class Install
         // Assume everything else is unix
         else
         {
-            int result = await UnixAddToPathInShellFiles();
-            if (result != 0)
-            {
-                _logger.Error("Failed to add to path");
-            }
+            await WriteEnvFile(_dnvmHome, SdkInstallDir, _logger);
+            await AddToShellFiles(_dnvmHome, _globalOptions.UserHome);
         }
         return 0;
     }
@@ -491,81 +564,67 @@ public sealed class Install
         }
     }
 
-    private async Task<int> UnixAddToPathInShellFiles()
+    private static async Task WriteEnvFile(string dnvmHome, string sdkInstallDir, Logger logger)
+    {
+        var envFilePath = Path.Combine(dnvmHome, "env");
+        var newContent = GetEnvShContent()
+            .Replace("{install_loc}", dnvmHome)
+            .Replace("{sdk_install_loc}", sdkInstallDir);
+
+        logger.Info("Writing env sh file");
+        await File.WriteAllTextAsync(envFilePath, newContent);
+    }
+
+    private async Task AddToShellFiles(string dnvmHome, string userHome)
     {
         _logger.Info("Setting environment variables in shell files");
-        string resolvedEnvPath = Path.Combine(_globalOptions.DnvmHome, "env");
+
+        string resolvedEnvPath = Path.Combine(dnvmHome, "env");
         // Using the full path to the install directory is usually fine, but on Unix systems
         // people often copy their dotfiles from one machine to another and fully resolved paths present a problem
         // there. Instead, we'll try to replace instances of the user's home directory with the $HOME
         // variable, which should be the most common case of machine-dependence.
-        var portableEnvPath = resolvedEnvPath.Replace(_globalOptions.UserHome, "$HOME");
+        var portableEnvPath = resolvedEnvPath.Replace(userHome, "$HOME");
         string userShSuffix = $"""
 
 if [ -f "{portableEnvPath}" ]; then
     . "{portableEnvPath}"
 fi
 """;
-        FileStream? envFile;
-        try
+        // Scan shell files for shell suffix and add it if it doesn't exist
+        _logger.Log("Scanning for shell files to update");
+        var filesToUpdate = new List<string>();
+        foreach (var shellFileName in ProfileShellFiles)
         {
-            envFile = File.Open(resolvedEnvPath, FileMode.CreateNew);
-        }
-        catch
-        {
-            _logger.Info("env file already exists, skipping installation");
-            envFile = null;
-        }
-
-        if (envFile is not null)
-        {
-            _logger.Info("Writing env sh file");
-            using (envFile)
-            using (var writer = new StreamWriter(envFile))
+            var shellPath = Path.Combine(_globalOptions.UserHome, shellFileName);
+            _logger.Info("Checking for file: " + shellPath);
+            if (File.Exists(shellPath))
             {
-                var newContent = GetEnvShContent()
-                    .Replace("{install_loc}", _globalOptions.DnvmHome)
-                    .Replace("{sdk_install_loc}", _globalOptions.SdkInstallDir);
-                await writer.WriteAsync(newContent);
-                await envFile.FlushAsync();
+                _logger.Log("Found " + shellPath);
+                filesToUpdate.Add(shellPath);
             }
-
-            // Scan shell files for shell suffix and add it if it doesn't exist
-            _logger.Log("Scanning for shell files to update");
-            var filesToUpdate = new List<string>();
-            foreach (var shellFileName in ProfileShellFiles)
+            else
             {
-                var shellPath = Path.Combine(_globalOptions.UserHome, shellFileName);
-                _logger.Info("Checking for file: " + shellPath);
-                if (File.Exists(shellPath))
-                {
-                    _logger.Log("Found " + shellPath);
-                    filesToUpdate.Add(shellPath);
-                }
-                else
-                {
-                    continue;
-                }
-            }
-
-            foreach (var shellPath in filesToUpdate)
-            {
-                try
-                {
-                    if (!await FileContainsLine(shellPath, $". \"{portableEnvPath}\""))
-                    {
-                        _logger.Log("Adding env import to: " + shellPath);
-                        await File.AppendAllTextAsync(shellPath, userShSuffix);
-                    }
-                }
-                catch (Exception e)
-                {
-                    // Ignore if the file can't be accessed
-                    _logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
-                }
+                continue;
             }
         }
-        return 0;
+
+        foreach (var shellPath in filesToUpdate)
+        {
+            try
+            {
+                if (!await FileContainsLine(shellPath, $". \"{portableEnvPath}\""))
+                {
+                    _logger.Log("Adding env import to: " + shellPath);
+                    await File.AppendAllTextAsync(shellPath, userShSuffix);
+                }
+            }
+            catch (Exception e)
+            {
+                // Ignore if the file can't be accessed
+                _logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
+            }
+        }
     }
 
     private static ImmutableArray<string> ProfileShellFiles => ImmutableArray.Create<string>(

@@ -185,10 +185,13 @@ public sealed partial class Update
         _logger.Info($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.DnvmExeName);
-        bool success =
-            await ValidateBinary(_logger, dnvmTmpPath) &&
-            SwapWithRunningFile(dnvmTmpPath);
-        return success ? Success : SelfUpdateFailed;
+        bool success = await ValidateBinary(_logger, dnvmTmpPath);
+        if (!success)
+        {
+            return SelfUpdateFailed;
+        }
+        RunSelfInstall(dnvmTmpPath);
+        return Success;
     }
 
     private static async Task<(bool UpdateAvailable, DnvmReleases? Releases)> CheckForSelfUpdates(
@@ -196,7 +199,7 @@ public sealed partial class Update
         string releasesUrl)
     {
         logger.Log("Checking for updates to dnvm");
-        logger.Info((string)("Using dnvm releases URL: " + releasesUrl));
+        logger.Info("Using dnvm releases URL: " + releasesUrl);
 
         string releasesJson;
         try
@@ -307,26 +310,13 @@ public sealed partial class Update
         return false;
     }
 
-    public bool SwapWithRunningFile(string newFileName)
+    public void RunSelfInstall(string newFileName)
     {
-        try
+        var psi = new ProcessStartInfo
         {
-            string backupPath = Utilities.ProcessPath + ".bak";
-            _logger.Info($"Swapping {Utilities.ProcessPath} with downloaded version at {newFileName}");
-            File.Move(Utilities.ProcessPath, backupPath, overwrite: true);
-            File.Move(newFileName, Utilities.ProcessPath, overwrite: false);
-            _logger.Log("Process successfully upgraded");
-            if (Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                // Can't delete the open file on Windows
-                File.Delete(backupPath);
-            }
-            return true;
-        }
-        catch (Exception e)
-        {
-            _logger.Error("Couldn't replace existing binary: " + e.Message);
-            return false;
-        }
+            FileName = newFileName,
+            ArgumentList = { "install", "--self", "--update" }
+        };
+        _ = Process.Start(psi);
     }
 }
