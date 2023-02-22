@@ -202,10 +202,8 @@ public sealed class Install
         using (var archiveHttpStream = await archiveResponse.Content.ReadAsStreamAsync())
         {
             if (!archiveResponse.IsSuccessStatusCode)
-            {
                 logger.Error("Failed archive response");
                 logger.Error(await archiveResponse.Content.ReadAsStringAsync());
-            }
             await archiveHttpStream.CopyToAsync(tempArchiveFile);
             await tempArchiveFile.FlushAsync();
         }
