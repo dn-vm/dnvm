@@ -35,7 +35,7 @@ public partial record DotnetReleasesIndex
                 case Channel.Latest when supportPhase is "active":
                 case Channel.Lts when releaseType is "lts":
                 case Channel.Sts when releaseType is "sts":
-                //case Channel.Preview when supportPhase is "active" or "preview":
+                case Channel.Preview when supportPhase is "preview":
                     if (latestRelease is not { } latest ||
                         SemVersion.ComparePrecedence(releaseVersion, latest.Version) > 0)
                     {

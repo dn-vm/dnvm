@@ -28,7 +28,12 @@ public abstract record CommandArguments
         /// or environment variables.
         /// </summary>
         public bool UpdateUserEnvironment { get; init; } = true;
-
+        /// <summary>
+        /// When specified, install dnvm into a separate directory with the given name, translated
+        /// to lower-case. Preview release are installed into a directory named 'preview' by
+        /// default.
+        /// </summary>
+        public string? SdkDir { get; init; } = null;
         /// <summary>
         /// Only valid for self-install. Indicates that this is an update to
         /// an existing dnvm installation.
@@ -73,6 +78,7 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 bool yes = false;
                 bool prereqs = default;
                 string? feedUrl = default;
+                string? sdkDir = null;
                 bool selfUpdate = false;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
@@ -80,6 +86,7 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 syntax.DefineOption("y", ref yes, "Answer yes to every question (or accept default).");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from.");
+                syntax.DefineOption("s|sdkDir", ref sdkDir, "Install the SDK into a separate directory with the given name.");
                 syntax.DefineOption("update", ref selfUpdate, "[internal] Update the dnvm installation in the current location. Only intended to be called from dnvm.");
                 syntax.DefineParameter("channel", ref channel, c =>
                     {
@@ -108,6 +115,7 @@ sealed record class CommandLineArguments(CommandArguments Command)
                     Yes = yes,
                     Prereqs = prereqs,
                     FeedUrl = feedUrl,
+                    SdkDir = sdkDir,
                     Update = selfUpdate,
                 };
             }
