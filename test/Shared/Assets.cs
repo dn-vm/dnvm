@@ -84,7 +84,9 @@ class Program {
                 {
                     FileName = "tar",
                     Arguments = $"-cvzf {destPath} .",
-                    WorkingDirectory = srcDir
+                    WorkingDirectory = srcDir,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
                 })!.WaitForExit();
                 break;
             case PlatformID.Win32NT:

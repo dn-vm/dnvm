@@ -47,9 +47,12 @@ public static class Channels
 [GenerateSerde]
 public sealed partial record Manifest
 {
+    // Serde doesn't serialize consts, so we have a separate property below for serialization.
+    public const int VersionField = 3;
+
     [SerdeMemberOptions(SkipDeserialize = true)]
-    public int Version => 2;
-    public required ImmutableArray<string> InstalledSdkVersions { get; init; }
+    public int Version => VersionField;
+    public required ImmutableArray<InstalledSdk> InstalledSdkVersions { get; init; }
     public required ImmutableArray<TrackedChannel> TrackedChannels { get; init; }
 
     public override string ToString()
@@ -83,18 +86,22 @@ public sealed partial record Manifest
 [GenerateSerde]
 public partial record struct TrackedChannel
 {
-    public Channel ChannelName { get; init; }
+    public required Channel ChannelName { get; init; }
+    public required SdkDirName SdkDirName { get; init; }
     public ImmutableArray<string> InstalledSdkVersions { get; init; }
 
     public bool Equals(TrackedChannel other)
     {
         return this.ChannelName == other.ChannelName &&
+            this.SdkDirName == other.SdkDirName &&
             this.InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions);
     }
 
     public override int GetHashCode()
     {
         int code = 0;
+        code = HashCode.Combine(code, ChannelName);
+        code = HashCode.Combine(code, SdkDirName);
         foreach (var item in InstalledSdkVersions)
         {
             code = HashCode.Combine(code, item);
@@ -102,6 +109,20 @@ public partial record struct TrackedChannel
         return code;
     }
 }
+
+[GenerateSerde]
+public readonly partial record struct InstalledSdk
+{
+    public string Version { get; init; }
+    public required SdkDirName SdkDirName { get; init; }
+}
+
+[GenerateSerde]
+/// <summary>
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
+/// </summary>
+public readonly partial record struct SdkDirName(string Name);
 
 public static partial class ManifestUtils
 {
@@ -116,8 +137,10 @@ public static partial class ManifestUtils
             var version = JsonSerializer.Deserialize<ManifestVersionOnly>(manifestSrc).Version;
             return version switch
             {
-                null => JsonSerializer.Deserialize<ManifestV1>(manifestSrc).Convert(),// The first version didn't have a version field
-                2 => JsonSerializer.Deserialize<Manifest>(manifestSrc),
+                // The first version didn't have a version field
+                null => JsonSerializer.Deserialize<ManifestV1>(manifestSrc).Convert().Convert(),
+                ManifestV2.VersionField => JsonSerializer.Deserialize<ManifestV2>(manifestSrc).Convert(),
+                Manifest.VersionField => JsonSerializer.Deserialize<Manifest>(manifestSrc),
                 _ => null,
             };
         }
@@ -157,7 +180,7 @@ public static partial class ManifestUtils
         else
         {
             return new Manifest() {
-                InstalledSdkVersions = ImmutableArray<string>.Empty,
+                InstalledSdkVersions = ImmutableArray<InstalledSdk>.Empty,
                 TrackedChannels = ImmutableArray<TrackedChannel>.Empty
             };
         }

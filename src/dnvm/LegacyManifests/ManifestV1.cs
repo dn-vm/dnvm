@@ -16,11 +16,11 @@ internal sealed partial record ManifestV1
         public string Version { get; init; }
     }
 
-    public Manifest Convert()
+    public ManifestV2 Convert()
     {
-        return new Manifest {
+        return new ManifestV2 {
             InstalledSdkVersions = Workloads.Select(w => w.Version).ToImmutableArray(),
-            TrackedChannels = ImmutableArray<TrackedChannel>.Empty
+            TrackedChannels = ImmutableArray<TrackedChannelV2>.Empty
         };
     }
 }

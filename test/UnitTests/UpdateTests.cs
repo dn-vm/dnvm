@@ -1,5 +1,6 @@
 
 using System.Collections.Immutable;
+using System.Runtime.InteropServices.Marshalling;
 using Semver;
 using Serde.Json;
 using Xunit;
@@ -47,10 +48,12 @@ public sealed class UpdateTests : IAsyncLifetime
     [Fact]
     public async Task UpdateChecksForSelfUpdate()
     {
+        var sdkDir = GlobalOptions.DefaultSdkDirName;
         var manifest = new Manifest {
-            InstalledSdkVersions = ImmutableArray.Create("42.42.142"),
+            InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = "42.42.142", SdkDirName = sdkDir }),
             TrackedChannels = ImmutableArray.Create(new TrackedChannel {
                 ChannelName = Channel.Latest,
+                SdkDirName = sdkDir,
                 InstalledSdkVersions = ImmutableArray.Create("42.42.142")
             })
         };
@@ -58,14 +61,14 @@ public sealed class UpdateTests : IAsyncLifetime
         var writer = new StringWriter();
         var logger = new Logger(writer, writer);
         _ = await Update.UpdateSdks(
+            _dnvmHome.Path,
             logger,
             releasesIndex,
             manifest,
             yes: false,
             _updateArguments.FeedUrl!,
             _updateArguments.DnvmReleasesUrl!,
-            _globalOptions.ManifestPath,
-            _globalOptions.SdkInstallDir);
+            _globalOptions.ManifestPath);
         Assert.Contains("dnvm is out of date", writer.ToString());
     }
 
@@ -74,11 +77,13 @@ public sealed class UpdateTests : IAsyncLifetime
     {
         // Construct a manifest with an installed version "41.0.0" in the Latest channel
         // and confirm that 42.42 is processed as newer
+        var installedVersion = "41.0.0";
         var manifest = new Manifest {
-            InstalledSdkVersions = ImmutableArray.Create("41.0.0"),
+            InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = installedVersion, SdkDirName = GlobalOptions.DefaultSdkDirName }),
             TrackedChannels = ImmutableArray.Create(new TrackedChannel {
                 ChannelName = Channel.Latest,
-                InstalledSdkVersions = ImmutableArray.Create("41.0.0")
+                SdkDirName = GlobalOptions.DefaultSdkDirName,
+                InstalledSdkVersions = ImmutableArray.Create(installedVersion)
             })
         };
         var releasesIndex = _mockServer.ReleasesIndexJson;
@@ -127,9 +132,10 @@ public sealed class UpdateTests : IAsyncLifetime
         var sdkVersions = ImmutableArray.Create(new[] { "41.0.100", "41.0.101" });
         Assert.Equal(Update.Result.Success, updateResult);
         var expectedManifest = new Manifest {
-            InstalledSdkVersions = sdkVersions,
+            InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk { Version = v, SdkDirName = GlobalOptions.DefaultSdkDirName }).ToImmutableArray(),
             TrackedChannels = ImmutableArray.Create(new[] { new TrackedChannel() {
                 ChannelName = channel,
+                SdkDirName = GlobalOptions.DefaultSdkDirName,
                 InstalledSdkVersions = sdkVersions
             }})
         };

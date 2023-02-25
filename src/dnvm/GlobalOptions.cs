@@ -27,7 +27,7 @@ public readonly record struct GlobalOptions
     /// <summary>
     /// The location of the SDK install directory, relative to <see cref="DnvmHome" />
     /// </summary>
-    public const string SdkFolderName = "dn";
+    public static readonly SdkDirName DefaultSdkDirName = new("dn");
 
     public static readonly GlobalOptions Default = new() {
         UserHome = GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
@@ -45,6 +45,5 @@ public readonly record struct GlobalOptions
     public required Func<string, string?> GetUserEnvVar { get; init; }
     public required Action<string, string> SetUserEnvVar { get; init; }
 
-    public string SdkInstallDir => Path.Combine(DnvmHome, SdkFolderName);
     public string ManifestPath => Path.Combine(DnvmHome, ManifestFileName);
 }

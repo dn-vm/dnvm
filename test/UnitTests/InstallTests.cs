@@ -35,33 +35,33 @@ public sealed class InstallTests : IDisposable
     [Fact]
     public async Task LtsInstall()
     {
-        using var installDir = TestUtils.CreateTempDirectory();
-        using var dnvmHome = TestUtils.CreateTempDirectory();
         await using var server = new MockServer();
         const Channel channel = Channel.Lts;
         var options = new CommandArguments.InstallArguments()
         {
             Channel = channel,
             FeedUrl = server.PrefixString,
-            DnvmInstallPath = installDir.Path,
             UpdateUserEnvironment = false,
         };
         var installCmd = new Install(_globalOptions, _logger, options);
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
-        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet" + Utilities.ExeSuffix);
+        var sdkInstallDir = Path.Combine(_dnvmHome.Path, GlobalOptions.DefaultSdkDirName.Name);
+        var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
 
         var manifest = File.ReadAllText(_globalOptions.ManifestPath);
-        var installedVersions = ImmutableArray.Create(server.ReleasesIndexJson.Releases[0].LatestSdk);
+        var installedVersion = server.ReleasesIndexJson.Releases[0].LatestSdk;
+        var installedVersions = ImmutableArray.Create(new InstalledSdk { Version = installedVersion, SdkDirName = GlobalOptions.DefaultSdkDirName });
         Assert.Equal(new Manifest
         {
             InstalledSdkVersions = installedVersions,
             TrackedChannels = ImmutableArray.Create(new[] { new TrackedChannel {
                 ChannelName = channel,
-                InstalledSdkVersions = installedVersions
+                SdkDirName = GlobalOptions.DefaultSdkDirName,
+                InstalledSdkVersions = ImmutableArray.Create(installedVersion)
             }})
         }, JsonSerializer.Deserialize<Manifest>(manifest));
     }
@@ -77,10 +77,11 @@ public sealed class InstallTests : IDisposable
             UpdateUserEnvironment = false,
             Verbose = true,
         };
-        Assert.False(Directory.Exists(_globalOptions.SdkInstallDir));
+        var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+        Assert.False(Directory.Exists(sdkInstallDir));
         Assert.True(Directory.Exists(_globalOptions.DnvmHome));
         Assert.Equal(Result.Success, await Install.Run(_globalOptions, _logger, args));
-        var dotnetFile = Path.Combine(_globalOptions.SdkInstallDir, "dotnet" + Utilities.ExeSuffix);
+        var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
     }
