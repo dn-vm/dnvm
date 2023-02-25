@@ -15,12 +15,12 @@ namespace Dnvm;
 
 public sealed partial class Update
 {
+    private readonly string _dnvmHome;
     private readonly Logger _logger;
     private readonly CommandArguments.UpdateArguments _args;
     private readonly string _feedUrl;
     private readonly string _releasesUrl;
     private readonly string _manifestPath;
-    private readonly string _sdkInstallDir;
 
     public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
 
@@ -39,7 +39,7 @@ public sealed partial class Update
         }
         _releasesUrl = _args.DnvmReleasesUrl ?? DefaultReleasesUrl;
         _manifestPath = options.ManifestPath;
-        _sdkInstallDir = options.SdkInstallDir;
+        _dnvmHome = options.DnvmHome;
     }
 
     public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
@@ -76,25 +76,25 @@ public sealed partial class Update
 
         var manifest = ManifestUtils.ReadOrCreateManifest(_manifestPath);
         return await UpdateSdks(
+            _dnvmHome,
             _logger,
             releaseIndex,
             manifest,
             _args.Yes,
             _feedUrl,
             _releasesUrl,
-            _manifestPath,
-            _sdkInstallDir);
+            _manifestPath);
     }
 
     public static async Task<Result> UpdateSdks(
+        string dnvmHome,
         Logger logger,
         DotnetReleasesIndex releasesIndex,
         Manifest manifest,
         bool yes,
         string feedUrl,
         string releasesUrl,
-        string manifestPath,
-        string sdkInstallDir)
+        string manifestPath)
     {
         logger.Log("Looking for available updates");
         // Check for dnvm updates
@@ -118,19 +118,41 @@ public sealed partial class Update
             {
                 foreach (var (c, _, newestAvailable) in updateResults)
                 {
-                    _ = await Install.InstallSdk(
+                    var sdkDir = manifest.TrackedChannels.First(tc => tc.ChannelName == c).SdkDirName;
+                    _ = await Install.InstallSdkVersionFromChannel(
                         logger,
-                        c,
                         newestAvailable.LatestSdk,
                         Utilities.CurrentRID,
                         feedUrl,
                         manifest,
-                        manifestPath,
-                        sdkInstallDir
-                        );
+                        Path.Combine(dnvmHome, sdkDir.Name));
+
+                    var latestVersion = newestAvailable.LatestSdk;
+                    logger.Info($"Adding installed version '{latestVersion}' to manifest.");
+                    manifest = manifest with
+                    {
+                        InstalledSdkVersions = manifest.InstalledSdkVersions.Add(new InstalledSdk
+                        {
+                            Version = latestVersion,
+                            SdkDirName = sdkDir,
+                        })
+                    };
+                    var oldTracked = manifest.TrackedChannels.First(t => t.ChannelName == c);
+                    var newTracked = oldTracked with
+                    {
+                        InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestVersion)
+                    };
+                    manifest = manifest with { TrackedChannels = manifest.TrackedChannels.Replace(oldTracked, newTracked) };
                 }
             }
         }
+
+        logger.Info("Writing manifest");
+        var tmpFile = Path.GetTempFileName();
+        File.WriteAllText(tmpFile, JsonSerializer.Serialize(manifest));
+        File.Move(tmpFile, manifestPath, overwrite: true);
+
+        logger.Log("Successfully installed");
         return Success;
     }
 

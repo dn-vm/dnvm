@@ -46,7 +46,8 @@ public sealed class SelfInstallTests
         _testOutput.WriteLine(procResult.Error);
         Assert.Equal(0, procResult.ExitCode);
 
-        var dotnetPath = Path.Combine(_globalOptions.SdkInstallDir, $"dotnet{Utilities.ExeSuffix}");
+        var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+        var dotnetPath = Path.Combine(sdkInstallDir, $"dotnet{Utilities.ExeSuffix}");
         Assert.True(File.Exists(dotnetPath));
 
         var result = await ProcUtil.RunWithOutput(dotnetPath, "-h");
@@ -95,7 +96,8 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
 
         Assert.Equal(_globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dnvm: ")));
         Assert.Equal(_globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dotnet: ")));
-        Assert.Equal(_globalOptions.SdkInstallDir, await ReadLine("DOTNET_ROOT: "));
+        var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+        Assert.Equal(sdkInstallDir, await ReadLine("DOTNET_ROOT: "));
 
         async Task<string> ReadLine(string expectedPrefix)
         {
@@ -132,8 +134,9 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
 
             var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
             Assert.Contains($";{_globalOptions.DnvmInstallPath};", pathMatch);
-            Assert.DoesNotContain($";{_globalOptions.SdkInstallDir};", pathMatch);
-            Assert.Equal(_globalOptions.SdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User));
+            var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+            Assert.DoesNotContain($";{sdkInstallDir};", pathMatch);
+            Assert.Equal(sdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User));
         }
         finally
         {

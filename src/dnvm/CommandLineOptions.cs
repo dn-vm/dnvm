@@ -24,10 +24,6 @@ public abstract record CommandArguments
         public bool Yes { get; init; } = false;
         public bool Prereqs { get; init; } = false;
         /// <summary>
-        /// Directory to place the dnvm exe.
-        /// </summary>
-        public string? DnvmInstallPath { get; init; } = null;
-        /// <summary>
         /// When true, add dnvm update lines to the user's config files
         /// or environment variables.
         /// </summary>
