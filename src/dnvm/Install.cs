@@ -56,7 +56,13 @@ public sealed class Install
         {
             _feedUrl = _feedUrl[..^1];
         }
-        _sdkDir = GlobalOptions.DefaultSdkDirName;
+        // Use an explicit SdkDir if specified, otherwise, only the preview channel is isolated by
+        // default.
+        _sdkDir = (args.SdkDir, args.Channel) switch {
+            ({} sdkDir, _) => new SdkDirName(sdkDir.ToLowerInvariant()),
+            (_ , Channel.Preview) => new SdkDirName("preview"),
+            _ => GlobalOptions.DefaultSdkDirName
+        };
     }
 
     public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
@@ -241,14 +247,18 @@ public sealed class Install
             return Result.ExtractFailed;
         }
 
-        var dotnetExePath = Path.Combine(sdkInstallPath, "dotnet" + Utilities.ExeSuffix);
-        if (Environment.OSVersion.Platform == PlatformID.Unix)
+        var dotnetExePath = Path.Combine(sdkInstallPath, Utilities.DotnetExeName);
+        if (!OperatingSystem.IsWindows())
         {
             logger.Info("chmoding downloaded host");
-            var output = await ProcUtil.RunWithOutput("chmod", $"+x \"{dotnetExePath}\"");
-            if (output.ExitCode != 0)
+            try
             {
-                logger.Error("chmod failed: " + output.Error);
+                var mod = File.GetUnixFileMode(dotnetExePath);
+                File.SetUnixFileMode(dotnetExePath, mod | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+            }
+            catch (Exception e)
+            {
+                logger.Error("chmod failed: " + e.Message);
                 return Result.ExtractFailed;
             }
         }
