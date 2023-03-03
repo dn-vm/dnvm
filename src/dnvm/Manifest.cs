@@ -4,10 +4,13 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.PortableExecutable;
+using System.Security.Cryptography.X509Certificates;
 using Serde;
 using Serde.Json;
 using StaticCs;
+using StaticCs.Collections;
 
 namespace Dnvm;
 
@@ -47,13 +50,15 @@ public static class Channels
 [GenerateSerde]
 public sealed partial record Manifest
 {
+    public static readonly Manifest Empty = new();
+
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
     public const int VersionField = 3;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
-    public required ImmutableArray<InstalledSdk> InstalledSdkVersions { get; init; }
-    public required ImmutableArray<TrackedChannel> TrackedChannels { get; init; }
+    public ImmutableArray<InstalledSdk> InstalledSdkVersions { get; init; } = ImmutableArray<InstalledSdk>.Empty;
+    public ImmutableArray<TrackedChannel> TrackedChannels { get; init; } = ImmutableArray<TrackedChannel>.Empty;
 
     public override string ToString()
     {
@@ -84,11 +89,11 @@ public sealed partial record Manifest
 }
 
 [GenerateSerde]
-public partial record struct TrackedChannel
+public readonly partial record struct TrackedChannel()
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
-    public ImmutableArray<string> InstalledSdkVersions { get; init; }
+    public ImmutableArray<string> InstalledSdkVersions { get; init; } = ImmutableArray<string>.Empty;
 
     public bool Equals(TrackedChannel other)
     {
@@ -111,10 +116,9 @@ public partial record struct TrackedChannel
 }
 
 [GenerateSerde]
-public readonly partial record struct InstalledSdk
+public readonly partial record struct InstalledSdk(string Version)
 {
-    public string Version { get; init; }
-    public required SdkDirName SdkDirName { get; init; }
+    public SdkDirName SdkDirName { get; init; } = GlobalOptions.DefaultSdkDirName;
 }
 
 [GenerateSerde]
@@ -126,11 +130,71 @@ public readonly partial record struct SdkDirName(string Name);
 
 public static partial class ManifestUtils
 {
+    public static Manifest ReadManifest(string manifestPath)
+    {
+        var text = File.ReadAllText(manifestPath);
+        return DeserializeNewOrOldManifest(text) ?? throw new InvalidDataException();
+    }
+
+    /// <summary>
+    /// Tries to read or create a manifest from the given path. If an IO exception other than <see
+    /// cref="DirectoryNotFoundException" /> or <see cref="FileNotFoundException" /> occurs, it will
+    /// be rethrown. Throws <see cref="InvalidDataException" />.
+    /// </summary>
+    public static Manifest ReadOrCreateManifest(string manifestPath)
+    {
+        try
+        {
+            return ReadManifest(manifestPath);
+        }
+        // Not found is expected
+        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) {}
+
+        return new Manifest()
+        {
+            InstalledSdkVersions = ImmutableArray<InstalledSdk>.Empty,
+            TrackedChannels = ImmutableArray<TrackedChannel>.Empty
+        };
+    }
+
+    public static Manifest AddSdk(this Manifest manifest, InstalledSdk sdk, Channel c)
+    {
+        Manifest newManifest;
+        if (manifest.TrackedChannels.FirstOrNull(x => x.ChannelName == c) is { } trackedChannel)
+        {
+            if (trackedChannel.InstalledSdkVersions.Contains(sdk.Version))
+            {
+                return manifest;
+            }
+            newManifest = manifest with
+            {
+                TrackedChannels = manifest.TrackedChannels.Select(x => x.ChannelName == c
+                    ? x with { InstalledSdkVersions = x.InstalledSdkVersions.Add(sdk.Version) }
+                    : x).ToImmutableArray(),
+                InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
+            };
+        }
+        else
+        {
+            newManifest = manifest with
+            {
+                TrackedChannels = manifest.TrackedChannels.Add(new TrackedChannel()
+                {
+                    ChannelName = c,
+                    SdkDirName = sdk.SdkDirName,
+                    InstalledSdkVersions = ImmutableArray.Create(sdk.Version)
+                }),
+                InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
+            };
+        }
+        return newManifest;
+    }
+
     /// <summary>
     /// Either reads a manifest in the current format, or reads a
     /// manifest in the old format and converts it to the new format.
     /// </summary>
-    private static Manifest? ReadNewOrOldManifest(string manifestSrc)
+    private static Manifest? DeserializeNewOrOldManifest(string manifestSrc)
     {
         try
         {
@@ -147,42 +211,6 @@ public static partial class ManifestUtils
         catch
         {
             return null;
-        }
-    }
-
-    /// <summary>
-    /// Tries to read or create a manifest from the given path. If an IO exception other than <see
-    /// cref="DirectoryNotFoundException" /> or <see cref="FileNotFoundException" /> occurs, it will
-    /// be rethrown. Throws <see cref="InvalidDataException" />.
-    /// </summary>
-    public static Manifest ReadOrCreateManifest(string manifestPath)
-    {
-        string? text = null;
-        try
-        {
-            text = File.ReadAllText(manifestPath);
-        }
-        // Not found is expected
-        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) {}
-
-        if (text is not null)
-        {
-            var manifestOpt = ManifestUtils.ReadNewOrOldManifest(text);
-            if (manifestOpt is null)
-            {
-                throw new InvalidDataException();
-            }
-            else
-            {
-                return manifestOpt;
-            }
-        }
-        else
-        {
-            return new Manifest() {
-                InstalledSdkVersions = ImmutableArray<InstalledSdk>.Empty,
-                TrackedChannels = ImmutableArray<TrackedChannel>.Empty
-            };
         }
     }
 

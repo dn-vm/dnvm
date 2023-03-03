@@ -23,6 +23,7 @@ public static class Program
         {
             CommandArguments.InstallArguments o => (int)await Install.Run(dnvmHome, logger, o),
             CommandArguments.UpdateArguments o => (int)await Update.Run(dnvmHome, logger, o),
+            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, dnvmHome),
             _ => throw new InvalidOperationException("Should be unreachable")
         };
     }

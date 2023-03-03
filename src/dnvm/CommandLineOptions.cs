@@ -8,6 +8,7 @@ namespace Dnvm;
 public abstract record CommandArguments
 {
     private CommandArguments() {}
+
     public sealed record InstallArguments : CommandArguments
     {
         public required Channel Channel { get; init; }
@@ -51,6 +52,9 @@ public abstract record CommandArguments
         /// </summary>
         public bool Yes { get; init; } = false;
     }
+
+    public sealed record ListArguments : CommandArguments
+    { }
 }
 
 sealed record class CommandLineArguments(CommandArguments Command)
@@ -131,6 +135,12 @@ sealed record class CommandLineArguments(CommandArguments Command)
                     FeedUrl = feedUrl,
                     DnvmReleasesUrl = dnvmReleasesUrl,
                 };
+            }
+
+            var list = syntax.DefineCommand("list", ref commandName, "List installed SDKs");
+            if (list.IsActive)
+            {
+                command = new CommandArguments.ListArguments();
             }
         });
 
