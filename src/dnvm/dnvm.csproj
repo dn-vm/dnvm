@@ -27,6 +27,7 @@
 
     <PackageReference Include="Serde" Version="0.4.6" />
     <PackageReference Include="StaticCs" Version="0.2.0" />
+    <PackageReference Include="StaticCs.Collections" Version="1.0.1" />
   </ItemGroup>
 
 </Project>
