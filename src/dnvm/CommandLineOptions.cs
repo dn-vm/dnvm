@@ -60,6 +60,11 @@ public abstract record CommandArguments
 
     public sealed record ListArguments : CommandArguments
     { }
+
+    public sealed record SelectArguments : CommandArguments
+    {
+        public required string SdkDirName { get; init; }
+    }
 }
 
 sealed record class CommandLineArguments(CommandArguments Command)
@@ -150,8 +155,29 @@ sealed record class CommandLineArguments(CommandArguments Command)
             {
                 command = new CommandArguments.ListArguments();
             }
+
+            var select = syntax.DefineCommand("select", ref commandName, "Select the active SDK directory");
+            if (select.IsActive)
+            {
+                string? sdkDirName = null;
+                syntax.DefineParameter("sdkDirName", ref sdkDirName!, "The name of the SDK directory to select.");
+                if (sdkDirName is null)
+                {
+                    throw new FormatException("The select command requires a parameter specifying the SDK directory to select.");
+                }
+                command = new CommandArguments.SelectArguments
+                {
+                    SdkDirName = sdkDirName,
+                };
+            }
         });
 
-        return new CommandLineArguments(command!);
+        if (command is null)
+        {
+            throw new InvalidOperationException("Expected command or exception");
+        }
+
+        return new CommandLineArguments(command);
     }
+
 }

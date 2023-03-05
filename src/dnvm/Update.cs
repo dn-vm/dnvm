@@ -120,6 +120,7 @@ public sealed partial class Update
                 {
                     var sdkDir = manifest.TrackedChannels.First(tc => tc.ChannelName == c).SdkDirName;
                     _ = await Install.InstallSdkVersionFromChannel(
+                        dnvmHome,
                         logger,
                         newestAvailable.LatestSdk,
                         Utilities.CurrentRID,
