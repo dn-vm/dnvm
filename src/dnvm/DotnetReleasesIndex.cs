@@ -30,18 +30,19 @@ public partial record DotnetReleasesIndex
             {
                 continue;
             }
-            switch (c)
+            var found = (c, supportPhase, releaseType) switch
             {
-                case Channel.Latest when supportPhase is "active":
-                case Channel.Lts when releaseType is "lts":
-                case Channel.Sts when releaseType is "sts":
-                case Channel.Preview when supportPhase is "preview":
-                    if (latestRelease is not { } latest ||
-                        SemVersion.ComparePrecedence(releaseVersion, latest.Version) > 0)
-                    {
-                        latestRelease = (release, releaseVersion);
-                    }
-                   break;
+                (Channel.Latest, "active", _)
+                or (Channel.Lts, "active", "lts")
+                or (Channel.Sts, "active", "sts")
+                or (Channel.Preview, "preview", _) => true,
+                _ => false
+            };
+            if (found &&
+                (latestRelease is not { } latest ||
+                 SemVersion.ComparePrecedence(releaseVersion, latest.Version) > 0))
+            {
+                latestRelease = (release, releaseVersion);
             }
         }
         return latestRelease?.Release;

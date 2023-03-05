@@ -148,4 +148,55 @@ public sealed class UpdateTests : IAsyncLifetime
     {
         Assert.NotNull(Program.SemVer); // Should throw if version is not parsable.
     }
+
+    [Fact]
+    public void LatestLtsStsDoNotAcceptPreview()
+    {
+        var ltsRelease = new DotnetReleasesIndex.Release
+        {
+            LatestRelease = "42.42.42",
+            LatestSdk = "42.42.42",
+            MajorMinorVersion = "42.42",
+            ReleaseType = "lts",
+            SupportPhase = "active"
+        };
+        var stsRelease = new DotnetReleasesIndex.Release {
+            LatestRelease = "50.50.50",
+            LatestSdk = "50.50.50",
+            MajorMinorVersion = "50.50",
+            ReleaseType = "sts",
+            SupportPhase = "active"
+        };
+        var ltsPreview = new DotnetReleasesIndex.Release {
+            LatestRelease = "100.100.100-preview.1",
+            LatestSdk = "100.100.100-preview.1",
+            MajorMinorVersion = "100.100",
+            ReleaseType = "lts",
+            SupportPhase = "preview"
+        };
+        var stsPreview = new DotnetReleasesIndex.Release {
+            LatestRelease = "99.99.99-preview.1",
+            LatestSdk = "99.99.99-preview.1",
+            MajorMinorVersion = "99.99",
+            ReleaseType = "sts",
+            SupportPhase = "preview"
+        };
+        var releasesIndex = new DotnetReleasesIndex {
+            Releases = ImmutableArray.Create(new[] { ltsRelease, stsRelease, ltsPreview, stsPreview })
+        };
+
+        var actual = releasesIndex.GetLatestReleaseForChannel(Channel.Latest);
+        // STS is newest
+        Assert.Equal(stsRelease, actual);
+
+        actual = releasesIndex.GetLatestReleaseForChannel(Channel.Lts);
+        Assert.Equal(ltsRelease, actual);
+
+        actual = releasesIndex.GetLatestReleaseForChannel(Channel.Sts);
+        Assert.Equal(stsRelease, actual);
+
+        actual = releasesIndex.GetLatestReleaseForChannel(Channel.Preview);
+        // LTS preview is newest
+        Assert.Equal(ltsPreview, actual);
+    }
 }
