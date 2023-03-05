@@ -128,6 +128,11 @@ public readonly partial record struct SdkDirName(string Name);
 
 public static partial class ManifestUtils
 {
+    /// <summary>
+    /// Reads a manifest (any version) from the given path and returns
+    /// an up-to-date <see cref="Manifest" /> (latest version).
+    /// Throws <see cref="InvalidDataException" /> if the manifest is invalid.
+    /// </summary>
     public static Manifest ReadManifest(string manifestPath)
     {
         var text = File.ReadAllText(manifestPath);
