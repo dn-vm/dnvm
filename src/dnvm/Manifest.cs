@@ -1,12 +1,8 @@
 
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Reflection.PortableExecutable;
-using System.Security.Cryptography.X509Certificates;
 using Serde;
 using Serde.Json;
 using StaticCs;
@@ -57,6 +53,8 @@ public sealed partial record Manifest
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
+
+    public SdkDirName CurrentSdkDir { get; init; } = GlobalOptions.DefaultSdkDirName;
     public ImmutableArray<InstalledSdk> InstalledSdkVersions { get; init; } = ImmutableArray<InstalledSdk>.Empty;
     public ImmutableArray<TrackedChannel> TrackedChannels { get; init; } = ImmutableArray<TrackedChannel>.Empty;
 

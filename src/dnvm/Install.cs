@@ -93,6 +93,7 @@ public sealed class Install
         }
 
         return await InstallLatestFromChannel(
+            _dnvmHome,
             _logger,
             _installArgs.Channel,
             _installArgs.Force,
@@ -103,6 +104,7 @@ public sealed class Install
     }
 
     private static async Task<Result> InstallLatestFromChannel(
+        string dnvmHome,
         Logger logger,
         Channel channel,
         bool force,
@@ -172,6 +174,7 @@ public sealed class Install
         }
 
         var installResult = await InstallSdkVersionFromChannel(
+            dnvmHome,
             logger,
             latestVersion,
             rid,
@@ -206,6 +209,7 @@ public sealed class Install
     }
 
     public static async Task<Result> InstallSdkVersionFromChannel(
+        string dnvmHome,
         Logger logger,
         string latestVersion,
         RID rid,
@@ -262,6 +266,7 @@ public sealed class Install
                 return Result.ExtractFailed;
             }
         }
+        CreateSymlinkIfMissing(dnvmHome, sdkInstallPath);
 
         return Result.Success;
     }
@@ -381,6 +386,7 @@ public sealed class Install
         }
 
         var result = await InstallLatestFromChannel(
+            _dnvmHome,
             _logger,
             channel,
             _installArgs.Force,
@@ -409,7 +415,7 @@ public sealed class Install
     /// Creates a symlink from the dotnet exe in the dnvm home directory to the dotnet exe in the
     /// sdk install directory.
     /// </summary>
-    private static void RetargetSymlink(string dnvmHome, string sdkInstallDir)
+    internal static void RetargetSymlink(string dnvmHome, string sdkInstallDir)
     {
         var symlinkPath = Path.Combine(dnvmHome, DotnetExeName);
         // Delete if it already exists
@@ -419,6 +425,15 @@ public sealed class Install
         }
         catch { }
         File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetExeName));
+    }
+
+    private static void CreateSymlinkIfMissing(string dnvmHome, string sdkInstallDir)
+    {
+        var symlinkPath = Path.Combine(dnvmHome, DotnetExeName);
+        if (!File.Exists(symlinkPath))
+        {
+            RetargetSymlink(dnvmHome, sdkInstallDir);
+        }
     }
 
     /// <summary>

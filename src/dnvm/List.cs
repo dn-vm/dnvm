@@ -36,14 +36,15 @@ public static class ListCommand
     {
         logger.Log("Installed SDKs:");
         logger.Log("");
-        var header = "Channel\tVersion\tLocation";
+        var header = "  | Channel\tVersion\tLocation";
         logger.Log(header);
         logger.Log(new string('-', header.Length));
         foreach (var channel in manifest.TrackedChannels)
         {
+            char selected = manifest.CurrentSdkDir == channel.SdkDirName ? '*' : ' ';
             foreach (var version in channel.InstalledSdkVersions)
             {
-                logger.Log($"{channel.ChannelName}\t{version}\t{channel.SdkDirName.Name}");
+                logger.Log($"{selected} | {channel.ChannelName}\t{version}\t{channel.SdkDirName.Name}");
             }
         }
     }

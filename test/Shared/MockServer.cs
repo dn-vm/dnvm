@@ -1,12 +1,7 @@
 
 using System.Collections.Immutable;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
 using System.Net;
-using System.Runtime.ConstrainedExecution;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Unicode;
 using Serde.Json;
 using static Dnvm.Utilities;
 
@@ -23,15 +18,24 @@ public sealed class MockServer : IAsyncDisposable
 
     public DotnetReleasesIndex ReleasesIndexJson { get; set; } = new DotnetReleasesIndex
     {
-        Releases = ImmutableArray.Create(new[] { new DotnetReleasesIndex.Release {
-            LatestRelease = "42.42.42",
-            LatestSdk = "42.42.142",
-            MajorMinorVersion = "42.42",
-            ReleaseType = "lts",
-            SupportPhase = "active"
-        }})
+        Releases = ImmutableArray.Create(new DotnetReleasesIndex.Release[] {
+            new() {
+                LatestRelease = "42.42.42",
+                LatestSdk = "42.42.142",
+                MajorMinorVersion = "42.42",
+                ReleaseType = "lts",
+                SupportPhase = "active"
+            },
+            new() {
+                LatestRelease = "99.99.99-preview",
+                LatestSdk = "99.99.99-preview",
+                MajorMinorVersion = "99.99",
+                ReleaseType = "sts",
+                SupportPhase = "preview"
+            }
+        })
     };
-    private DotnetReleasesIndex.Release Release => ReleasesIndexJson.Releases.Single();
+    private DotnetReleasesIndex.Release LtsRelease => ReleasesIndexJson.Releases[0];
 
     public DnvmReleases DnvmReleases { get; set; }
     public MockServer()
@@ -96,14 +100,22 @@ public sealed class MockServer : IAsyncDisposable
         _task = Task.Run(WaitForConnection);
     }
 
-    private Dictionary<string, Action<HttpListenerResponse>> UrlToHandler => new()
+    private Dictionary<string, Action<HttpListenerResponse>> UrlToHandler
     {
-        ["/release-metadata/releases-index.json"] = GetReleasesIndexJson,
-        ["/sdk/lts/latest.version"] = GetLatestVersionUrl,
-        [$"/sdk/{Release.LatestSdk}/dotnet-sdk-{Release.LatestSdk}-{CurrentRID}{ZipSuffix}"] = GetSdk,
-        ["/releases.json"] = GetReleasesJson,
-        [$"/dnvm/dnvm{ZipSuffix}"] = GetDnvm,
-    };
+        get {
+            var routes = new Dictionary<string, Action<HttpListenerResponse>>()
+            {
+                ["/release-metadata/releases-index.json"] = GetReleasesIndexJson,
+                ["/releases.json"] = GetReleasesJson,
+                [$"/dnvm/dnvm{ZipSuffix}"] = GetDnvm,
+            };
+            foreach (var r in ReleasesIndexJson.Releases)
+            {
+                routes[$"/sdk/{r.LatestSdk}/dotnet-sdk-{r.LatestSdk}-{CurrentRID}{ZipSuffix}"] = GetSdk;
+            }
+            return routes;
+        }
+    }
 
     private void GetReleasesIndexJson(HttpListenerResponse response)
     {
@@ -118,17 +130,6 @@ public sealed class MockServer : IAsyncDisposable
             buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ReleasesIndexJson));
             response.StatusCode = (int)HttpStatusCode.OK;
         }
-        // Get a response stream and write the response to it.
-        response.ContentLength64 = buffer.Length;
-        var output = response.OutputStream;
-        output.Write(buffer, 0, buffer.Length);
-        // You must close the output stream.
-        output.Close();
-    }
-
-    private void GetLatestVersionUrl(HttpListenerResponse response)
-    {
-        byte[] buffer = System.Text.Encoding.UTF8.GetBytes(Release.LatestSdk);
         // Get a response stream and write the response to it.
         response.ContentLength64 = buffer.Length;
         var output = response.OutputStream;
