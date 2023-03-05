@@ -2,21 +2,13 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <InvariantGlobalization>true</InvariantGlobalization>
     <PublishAot>true</PublishAot>
     <!-- Skip symbol stripping on osx. The symbols are so broken that dsymutil crashes. -->
     <StripSymbols Condition="!$([MSBuild]::IsOsPlatform('OSX'))">true</StripSymbols>
-    <!-- Error that osx isn't supported on net7.0. Disable for now, since we're fine taking a
-    dependency on preview bits. Will move to net8.0 previews ASAP. -->
-    <DisableUnsupportedError>true</DisableUnsupportedError>
   </PropertyGroup>
-
-  <ItemGroup Condition="$([MSBuild]::IsOsPlatform('OSX'))">
-    <KnownILCompilerPack Remove="Microsoft.DotNet.ILCompiler" />
-    <KnownILCompilerPack Include="Microsoft.DotNet.ILCompiler" TargetFramework="net7.0" ILCompilerPackNamePattern="runtime.**RID**.Microsoft.DotNet.ILCompiler" ILCompilerPackVersion="8.0.0-alpha.1.22559.2" ILCompilerRuntimeIdentifiers="linux-x64;linux-arm64;win-x64;win-arm64;osx-x64;osx-arm64;linux-musl-x64;linux-musl-arm64" />
-  </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="env.sh" />
