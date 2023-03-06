@@ -3,6 +3,7 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
+using Vfs;
 
 namespace Dnvm;
 
@@ -18,13 +19,14 @@ public static class Program
         Console.WriteLine();
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(Console.Out, Console.Error);
-        var dnvmHome = GetGlobalConfig();
+        var globalOptions = GetGlobalConfig();
+        var home = new DnvmHome(new OsFs(globalOptions.DnvmHome));
         return options.Command switch
         {
-            CommandArguments.InstallArguments o => (int)await Install.Run(dnvmHome, logger, o),
-            CommandArguments.UpdateArguments o => (int)await Update.Run(dnvmHome, logger, o),
-            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, dnvmHome),
-            CommandArguments.SelectArguments o => await SelectCommand.Run(dnvmHome, logger, o),
+            CommandArguments.InstallArguments o => (int)await Install.Run(globalOptions, logger, o),
+            CommandArguments.UpdateArguments o => (int)await Update.Run(globalOptions, logger, o),
+            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, home),
+            CommandArguments.SelectArguments o => await SelectCommand.Run(globalOptions, logger, o),
             _ => throw new InvalidOperationException("Should be unreachable")
         };
     }

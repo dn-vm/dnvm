@@ -6,30 +6,24 @@ namespace Dnvm;
 
 public static class ListCommand
 {
-    public static Task<int> Run(Logger logger, GlobalOptions globalOptions)
-    {
-        var manifestPath = globalOptions.ManifestPath;
-        return Run(logger, manifestPath);
-    }
-
     /// <summary>
     /// Prints a list of installed SDK versions and their locations.
-    private static Task<int> Run(Logger logger, string manifestPath)
+    public async static Task<int> Run(Logger logger, DnvmHome home)
     {
         Manifest manifest;
         try
         {
-            manifest = ManifestUtils.ReadManifest(manifestPath);
+            manifest = await home.ReadManifest();
         }
         catch (Exception e)
         {
             logger.Error("Error reading manifest: " + e.Message);
-            return Task.FromResult(1);
+            return 1;
         }
 
         PrintSdks(logger, manifest);
 
-        return Task.FromResult(0);
+        return 0;
     }
 
     public static void PrintSdks(Logger logger, Manifest manifest)
