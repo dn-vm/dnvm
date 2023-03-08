@@ -3,7 +3,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Serde.Json;
-using Vfs;
+using Zio;
 
 namespace Dnvm;
 
@@ -11,15 +11,13 @@ public sealed class DnvmHome
 {
     public const string ManifestFileName = "dnvmManifest.json";
 
-    public readonly IVfs Vfs;
-    private readonly VfsPath _root;
+    public readonly IFileSystem Vfs;
 
-    public VfsPath ManifestPath => _root.Combine(ManifestFileName);
+    public UPath ManifestPath => UPath.Root / ManifestFileName;
 
-    public DnvmHome(IVfs vfs)
+    public DnvmHome(IFileSystem vfs)
     {
         Vfs = vfs;
-        _root = new VfsPath(vfs);
     }
 
     /// <summary>
@@ -27,15 +25,15 @@ public sealed class DnvmHome
     /// an up-to-date <see cref="Manifest" /> (latest version).
     /// Throws <see cref="InvalidDataException" /> if the manifest is invalid.
     /// </summary>
-    public async Task<Manifest> ReadManifest()
+    public Manifest ReadManifest()
     {
-        var text = await Vfs.ReadAllTextAsync(ManifestPath);
+        var text = Vfs.ReadAllText(ManifestPath);
         return ManifestUtils.DeserializeNewOrOldManifest(text) ?? throw new InvalidDataException();
     }
 
-    public Task WriteManifest(Manifest manifest)
+    public void WriteManifest(Manifest manifest)
     {
         var text = JsonSerializer.Serialize(manifest);
-        return Vfs.WriteAllText(ManifestPath, text);
+        Vfs.WriteAllText(ManifestPath, text);
     }
 }

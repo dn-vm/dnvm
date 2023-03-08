@@ -3,7 +3,7 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
-using Vfs;
+using Zio.FileSystems;
 
 namespace Dnvm;
 
@@ -20,7 +20,7 @@ public static class Program
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(Console.Out, Console.Error);
         var globalOptions = GetGlobalConfig();
-        var home = new DnvmHome(new OsFs(globalOptions.DnvmHome));
+        var home = new DnvmHome(new SubFileSystem(new PhysicalFileSystem(), globalOptions.DnvmHome));
         return options.Command switch
         {
             CommandArguments.InstallArguments o => (int)await Install.Run(globalOptions, logger, o),

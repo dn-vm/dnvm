@@ -8,22 +8,22 @@ public static class ListCommand
 {
     /// <summary>
     /// Prints a list of installed SDK versions and their locations.
-    public async static Task<int> Run(Logger logger, DnvmHome home)
+    public static Task<int> Run(Logger logger, DnvmHome home)
     {
         Manifest manifest;
         try
         {
-            manifest = await home.ReadManifest();
+            manifest = home.ReadManifest();
         }
         catch (Exception e)
         {
             logger.Error("Error reading manifest: " + e.Message);
-            return 1;
+            return Task.FromResult(1);
         }
 
         PrintSdks(logger, manifest);
 
-        return 0;
+        return Task.FromResult(0);
     }
 
     public static void PrintSdks(Logger logger, Manifest manifest)
