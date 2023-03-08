@@ -40,7 +40,7 @@ Installed SDKs:
         var manifest = Manifest.Empty
             .AddSdk(new InstalledSdk("42.42.42"), Channel.Latest);
 
-        var home = new DnvmHome(new MemoryFileSystem());
+        var home = new DnvmFs(new MemoryFileSystem());
         home.WriteManifest(manifest);
 
         var ret = await ListCommand.Run(_logger, home);

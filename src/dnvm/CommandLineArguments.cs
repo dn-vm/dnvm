@@ -13,33 +13,45 @@ public abstract record CommandArguments
     {
         public required Channel Channel { get; init; }
         /// <summary>
-        /// URL to the dotnet feed containing the releases index and download artifacts.
+        /// URL to the dotnet feed containing the releases index and SDKs.
         /// </summary>
         public string? FeedUrl { get; init; }
         public bool Verbose { get; init; } = false;
         public bool Force { get; init; } = false;
-        public bool Self { get; init; } = false;
         /// <summary>
         /// Answer yes to every question or use the defaults.
         /// </summary>
         public bool Yes { get; init; } = false;
         public bool Prereqs { get; init; } = false;
         /// <summary>
+        /// When specified, install the SDK into a separate directory with the given name,
+        /// translated to lower-case. Preview releases are installed into a directory named 'preview'
+        /// by default.
+        /// </summary>
+        public string? SdkDir { get; init; } = null;
+    }
+
+    public sealed record SelfInstallArguments : CommandArguments
+    {
+        public bool Verbose { get; init; } = false;
+        public bool Force { get; init; } = false;
+        /// <summary>
+        /// URL to the dotnet feed containing the releases index and download artifacts.
+        /// </summary>
+        public string? FeedUrl { get; init; }
+        /// <summary>
+        /// Answer yes to every question or use the defaults.
+        /// </summary>
+        public bool Yes { get; init; } = false;
+        /// <summary>
         /// When true, add dnvm update lines to the user's config files
         /// or environment variables.
         /// </summary>
         public bool UpdateUserEnvironment { get; init; } = true;
         /// <summary>
-        /// When specified, install dnvm into a separate directory with the given name, translated
-        /// to lower-case. Preview release are installed into a directory named 'preview' by
-        /// default.
+        /// Indicates that this is an update to an existing dnvm installation.
         /// </summary>
-        public string? SdkDir { get; init; } = null;
-        /// <summary>
-        /// Only valid for self-install. Indicates that this is an update to
-        /// an existing dnvm installation.
-        /// </summary>
-        public bool Update {get; init; } = false;
+        public bool Update { get; init; } = false;
     }
 
     public sealed record UpdateArguments : CommandArguments
@@ -83,20 +95,16 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 Channel channel = Channel.Latest;
                 bool verbose = default;
                 bool force = default;
-                bool self = default;
                 bool yes = false;
                 bool prereqs = default;
                 string? feedUrl = default;
                 string? sdkDir = null;
-                bool selfUpdate = false;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
                 syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
-                syntax.DefineOption("self", ref self, "Install dnvm itself into the target location");
                 syntax.DefineOption("y", ref yes, "Answer yes to every question (or accept default).");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from.");
                 syntax.DefineOption("s|sdkDir", ref sdkDir, "Install the SDK into a separate directory with the given name.");
-                syntax.DefineOption("update", ref selfUpdate, "[internal] Update the dnvm installation in the current location. Only intended to be called from dnvm.");
                 syntax.DefineParameter("channel", ref channel, c =>
                     {
                         if (Enum.TryParse<Channel>(c, ignoreCase: true, out var result))
@@ -110,21 +118,39 @@ sealed record class CommandLineArguments(CommandArguments Command)
                     },
                     $"Download from the channel specified. Defaults to '{channel.ToString().ToLowerInvariant()}'.");
 
-                if (selfUpdate && !self)
-                {
-                    throw new FormatException("The --update option can only be used with --self");
-                }
-
                 command = new CommandArguments.InstallArguments
                 {
                     Channel = channel,
                     Verbose = verbose,
                     Force = force,
-                    Self = self,
                     Yes = yes,
                     Prereqs = prereqs,
                     FeedUrl = feedUrl,
                     SdkDir = sdkDir,
+                };
+            }
+
+            var selfInstall = syntax.DefineCommand("selfinstall", ref commandName, "Install dnvm to the local machine");
+            if (selfInstall.IsActive)
+            {
+                bool verbose = default;
+                bool force = default;
+                bool yes = false;
+                string? feedUrl = default;
+                bool selfUpdate = false;
+
+                syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
+                syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
+                syntax.DefineOption("y", ref yes, "Answer yes to every question (or accept default).");
+                syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from.");
+                syntax.DefineOption("update", ref selfUpdate, "[internal] Update the dnvm installation in the current location. Only intended to be called from dnvm.");
+
+                command = new CommandArguments.SelfInstallArguments
+                {
+                    Verbose = verbose,
+                    Yes = yes,
+                    FeedUrl = feedUrl,
+                    Force = force,
                     Update = selfUpdate,
                 };
             }

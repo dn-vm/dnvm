@@ -4,18 +4,27 @@ using System.IO;
 using System.Threading.Tasks;
 using Serde.Json;
 using Zio;
+using Zio.FileSystems;
 
 namespace Dnvm;
 
-public sealed class DnvmHome
+public sealed class DnvmFs : IDisposable
 {
     public const string ManifestFileName = "dnvmManifest.json";
 
     public readonly IFileSystem Vfs;
 
-    public UPath ManifestPath => UPath.Root / ManifestFileName;
+    public static UPath ManifestPath => UPath.Root / ManifestFileName;
+    public static UPath EnvPath => UPath.Root / "env";
 
-    public DnvmHome(IFileSystem vfs)
+    public static DnvmFs CreatePhysical(string realPath)
+    {
+        UPath upathTest = "";
+        var physicalFs = new PhysicalFileSystem();
+        return new DnvmFs(new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)));
+    }
+
+    public DnvmFs(IFileSystem vfs)
     {
         Vfs = vfs;
     }
@@ -35,5 +44,10 @@ public sealed class DnvmHome
     {
         var text = JsonSerializer.Serialize(manifest);
         Vfs.WriteAllText(ManifestPath, text);
+    }
+
+    public void Dispose()
+    {
+        Vfs.Dispose();
     }
 }

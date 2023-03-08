@@ -41,7 +41,6 @@ public sealed class InstallTests : IDisposable
         {
             Channel = channel,
             FeedUrl = server.PrefixString,
-            UpdateUserEnvironment = false,
         };
         var installCmd = new Install(_globalOptions, _logger, options);
         var task = installCmd.Run();
@@ -74,7 +73,6 @@ public sealed class InstallTests : IDisposable
         {
             Channel = Channel.Lts,
             FeedUrl = server.PrefixString,
-            UpdateUserEnvironment = false,
             Verbose = true,
         };
         var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
@@ -98,7 +96,6 @@ public sealed class InstallTests : IDisposable
         {
             Channel = Channel.Preview,
             FeedUrl = server.PrefixString,
-            UpdateUserEnvironment = false,
         };
         // Check that the preview install is isolated into a "preview" subdirectory
         var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, Channel.Preview.ToString().ToLowerInvariant());
@@ -122,7 +119,6 @@ public sealed class InstallTests : IDisposable
         {
             Channel = Channel.Sts,
             FeedUrl = server.PrefixString,
-            UpdateUserEnvironment = false,
             SdkDir = dirName
         };
         // Check that the SDK is installed is isolated into the "sts" subdirectory

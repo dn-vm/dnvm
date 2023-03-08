@@ -20,14 +20,14 @@ public static class Program
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(Console.Out, Console.Error);
         var globalOptions = GetGlobalConfig();
-        var physicalFs = new PhysicalFileSystem();
-        var home = new DnvmHome(new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(globalOptions.DnvmHome)));
+        var dnvmFs = DnvmFs.CreatePhysical(globalOptions.DnvmHome);
         return options.Command switch
         {
             CommandArguments.InstallArguments o => (int)await Install.Run(globalOptions, logger, o),
             CommandArguments.UpdateArguments o => (int)await Update.Run(globalOptions, logger, o),
-            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, home),
+            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, dnvmFs),
             CommandArguments.SelectArguments o => await SelectCommand.Run(globalOptions, logger, o),
+            CommandArguments.SelfInstallArguments o => (int)await SelfInstallCommand.Run(dnvmFs, globalOptions, logger, o),
             _ => throw new InvalidOperationException("Should be unreachable")
         };
     }
