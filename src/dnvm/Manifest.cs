@@ -197,7 +197,7 @@ public static partial class ManifestUtils
     /// Either reads a manifest in the current format, or reads a
     /// manifest in the old format and converts it to the new format.
     /// </summary>
-    private static Manifest? DeserializeNewOrOldManifest(string manifestSrc)
+    public static Manifest? DeserializeNewOrOldManifest(string manifestSrc)
     {
         try
         {

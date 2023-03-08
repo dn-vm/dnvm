@@ -1,47 +1,29 @@
 
 using Serde.Json;
+using Vfs;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Dnvm.Test;
 
-public sealed class ListTests : IDisposable
+public sealed class ListTests
 {
+    private readonly StringWriter _writer = new();
     private readonly Logger _logger;
-    private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
-    private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
-    private readonly Dictionary<string, string> _envVars = new();
-    private readonly GlobalOptions _globalOptions;
 
-    public ListTests(ITestOutputHelper output)
+    public ListTests()
     {
-        var wrapper = new OutputWrapper(output);
-        _logger = new Logger(wrapper, wrapper);
-        _globalOptions = new GlobalOptions {
-            DnvmHome = _dnvmHome.Path,
-            UserHome = _userHome.Path,
-            GetUserEnvVar = s => _envVars[s],
-            SetUserEnvVar = (name, val) => _envVars[name] = val,
-        };
-    }
-
-    public void Dispose()
-    {
-        _userHome.Dispose();
-        _dnvmHome.Dispose();
+        _logger = new Logger(_writer, _writer);
     }
 
     [Fact]
     public void BasicList()
     {
-        var writer = new StringWriter();
-        var logger = new Logger(writer, writer);
-
         var manifest = Manifest.Empty
             .AddSdk(new InstalledSdk("1.0.0"), Channel.Latest)
             .AddSdk(new InstalledSdk("4.0.0-preview1") { SdkDirName = new("preview") }, Channel.Preview);
 
-        ListCommand.PrintSdks(logger, manifest);
+        ListCommand.PrintSdks(_logger, manifest);
         var output = """
 Installed SDKs:
 
@@ -52,21 +34,20 @@ Installed SDKs:
 
 """;
 
-        Assert.Equal(output, writer.ToString());
+        Assert.Equal(output, _writer.ToString());
     }
 
     [Fact]
-    public void ListFromFile()
+    public async Task ListFromFile()
     {
-        var writer = new StringWriter();
-        var logger = new Logger(writer, writer);
-
         var manifest = Manifest.Empty
             .AddSdk(new InstalledSdk("42.42.42"), Channel.Latest);
 
-        File.WriteAllText(_globalOptions.ManifestPath, JsonSerializer.Serialize(manifest));
+        var home = new DnvmHome(new MemoryFs());
+        await home.WriteManifest(manifest);
 
-        ListCommand.Run(logger, _globalOptions);
+        var ret = await ListCommand.Run(_logger, home);
+        Assert.Equal(0, ret);
         var output = """
 Installed SDKs:
 
@@ -76,6 +57,6 @@ Installed SDKs:
 
 """;
 
-        Assert.Equal(output, writer.ToString());
+        Assert.Equal(output, _writer.ToString());
     }
 }
