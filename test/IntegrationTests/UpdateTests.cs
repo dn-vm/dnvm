@@ -120,7 +120,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
                 Version = Program.SemVer.ToString() // report the same version as installed
             }
         };
-        _logger.Info(Program.SemVer.ToString());
+        _logger.Log(Program.SemVer.ToString());
         var result = await ProcUtil.RunWithOutput(
             dnvmTmpPath,
             $"update --self -v --feed-url {mockServer.PrefixString}releases.json");

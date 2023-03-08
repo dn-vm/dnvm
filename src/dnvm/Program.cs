@@ -9,7 +9,7 @@ namespace Dnvm;
 
 public static class Program
 {
-    public static SemVersion SemVer = SemVersion.Parse(GitVersionInformation.SemVer, SemVersionStyles.Strict);
+    public static SemVersion SemVer = SemVersion.Parse(GitVersionInformation.MajorMinorPatch, SemVersionStyles.Strict);
 
     internal static readonly HttpClient HttpClient = new();
 
