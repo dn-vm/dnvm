@@ -126,6 +126,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             $"update --self -v --feed-url {mockServer.PrefixString}releases.json");
         var output = result.Out;
         var error = result.Error;
+        _logger.Log(error);
         Assert.Equal("", error);
         Assert.Equal(0, result.ExitCode);
         result = await ProcUtil.RunWithOutput(dnvmTmpPath, "-h");
