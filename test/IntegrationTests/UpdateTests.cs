@@ -22,6 +22,7 @@ public sealed class UpdateTests
     public async Task SelfUpdateNewVersion()
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
+        using var dnvmHome = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
         var startVer = Program.SemVer;
@@ -35,15 +36,11 @@ public sealed class UpdateTests
         // replace the old version. However, the endpoint is set to serve a shell
         // script instead. The shell script will print a message to stdout, which
         // we can check for.
-        var proc = Process.Start(new ProcessStartInfo() {
-            FileName = dnvmTmpPath,
-            Arguments = $"update --self -v --dnvm-url {mockServer.PrefixString}releases.json",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        });
-        proc!.WaitForExit();
-        var output = proc.StandardOutput.ReadToEnd();
-        var error = proc.StandardError.ReadToEnd();
+        var proc = await ProcUtil.RunWithOutput(dnvmTmpPath,
+            $"update --self -v --dnvm-url {mockServer.PrefixString}releases.json",
+            new() { ["DNVM_HOME"] = dnvmHome.Path });
+        var output = proc.Out;
+        var error = proc.Error;
         Assert.Equal("", error);
         Assert.Contains("Hello from dnvm test", output);
         Assert.Equal(0, proc.ExitCode);
@@ -112,6 +109,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     public async Task SelfUpdateUpToDate()
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
+        using var dnvmHome = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
         await using var mockServer = new MockServer();
@@ -123,7 +121,8 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         _logger.Log(Program.SemVer.ToString());
         var result = await ProcUtil.RunWithOutput(
             dnvmTmpPath,
-            $"update --self -v --feed-url {mockServer.PrefixString}releases.json");
+            $"update --self -v --feed-url {mockServer.PrefixString}releases.json",
+            new() { ["DNVM_HOME"] = dnvmHome.Path });
         var output = result.Out;
         var error = result.Error;
         _logger.Log(error);
