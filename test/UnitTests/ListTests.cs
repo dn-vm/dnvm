@@ -1,8 +1,5 @@
-
-using Serde.Json;
-using Vfs;
 using Xunit;
-using Xunit.Abstractions;
+using Zio.FileSystems;
 
 namespace Dnvm.Test;
 
@@ -43,8 +40,8 @@ Installed SDKs:
         var manifest = Manifest.Empty
             .AddSdk(new InstalledSdk("42.42.42"), Channel.Latest);
 
-        var home = new DnvmHome(new MemoryFs());
-        await home.WriteManifest(manifest);
+        var home = new DnvmHome(new MemoryFileSystem());
+        home.WriteManifest(manifest);
 
         var ret = await ListCommand.Run(_logger, home);
         Assert.Equal(0, ret);
