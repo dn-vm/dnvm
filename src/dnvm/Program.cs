@@ -20,7 +20,8 @@ public static class Program
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(Console.Out, Console.Error);
         var globalOptions = GetGlobalConfig();
-        var home = new DnvmHome(new SubFileSystem(new PhysicalFileSystem(), globalOptions.DnvmHome));
+        var physicalFs = new PhysicalFileSystem();
+        var home = new DnvmHome(new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(globalOptions.DnvmHome)));
         return options.Command switch
         {
             CommandArguments.InstallArguments o => (int)await Install.Run(globalOptions, logger, o),
