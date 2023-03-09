@@ -37,7 +37,6 @@ public sealed class SelectTests : IDisposable
         var mockServer = new MockServer();
         var result = await Install.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
             Channel = Channel.Latest,
-            UpdateUserEnvironment = false,
             FeedUrl = mockServer.PrefixString,
         });
         Assert.Equal(Install.Result.Success, result);
@@ -45,7 +44,6 @@ public sealed class SelectTests : IDisposable
         Assert.True(File.Exists(defaultDotnet));
         result = await Install.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
             Channel = Channel.Preview,
-            UpdateUserEnvironment = false,
             FeedUrl = mockServer.PrefixString,
         });
         Assert.Equal(Install.Result.Success, result);
