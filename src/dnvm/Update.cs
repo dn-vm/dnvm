@@ -186,9 +186,18 @@ public sealed partial class Update
             return Result.NotASingleFile;
         }
 
-        if (await CheckForSelfUpdates(_logger, _releasesUrl) is not (true, DnvmReleases releases))
+        DnvmReleases releases;
+        switch (await CheckForSelfUpdates(_logger, _releasesUrl))
         {
-            return Result.Success;
+            case (false, null):
+                return Result.SelfUpdateFailed;
+            case (false, _):
+                return Result.Success;
+            case (true, {} r):
+                releases = r;
+                break;
+            default:
+                throw ExceptionUtilities.Unreachable;
         }
 
         string artifactDownloadLink = GetReleaseLink(releases);
@@ -213,8 +222,8 @@ public sealed partial class Update
         {
             return SelfUpdateFailed;
         }
-        RunSelfInstall(dnvmTmpPath);
-        return Success;
+        var exitCode = RunSelfInstall(dnvmTmpPath);
+        return exitCode == 0 ? Success : SelfUpdateFailed;
     }
 
     private static async Task<(bool UpdateAvailable, DnvmReleases? Releases)> CheckForSelfUpdates(
@@ -333,13 +342,15 @@ public sealed partial class Update
         return false;
     }
 
-    public void RunSelfInstall(string newFileName)
+    public static int RunSelfInstall(string newFileName)
     {
         var psi = new ProcessStartInfo
         {
             FileName = newFileName,
-            ArgumentList = { "install", "--self", "--update" }
+            ArgumentList = { "selfinstall", "--update" }
         };
-        _ = Process.Start(psi);
+        var proc = Process.Start(psi);
+        proc!.WaitForExit();
+        return proc.ExitCode;
     }
 }

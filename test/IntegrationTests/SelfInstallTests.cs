@@ -1,4 +1,5 @@
 
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -13,7 +14,7 @@ public sealed class SelfInstallTests
     internal static readonly string DnvmExe = Path.Combine(
         Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
         "dnvm_aot",
-        "dnvm" + Utilities.ExeSuffix);
+        Utilities.DnvmExeName);
 
     private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
     private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
@@ -144,6 +145,30 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             Environment.SetEnvironmentVariable(PATH, savedPath, EnvironmentVariableTarget.User);
             Environment.SetEnvironmentVariable(DOTNET_ROOT, savedDotnetRoot, EnvironmentVariableTarget.User);
         }
+    }
+
+    [Fact]
+    public async Task RealUpdateSelf()
+    {
+        await using var mockServer = new MockServer();
+        var copiedExe = Path.Combine(_globalOptions.DnvmHome, Utilities.DnvmExeName);
+        File.Copy(DnvmExe, copiedExe);
+        using var tmpDir = TestUtils.CreateTempDirectory();
+        mockServer.DnvmPath = Assets.MakeZipOrTarball(_globalOptions.DnvmHome, Path.Combine(tmpDir.Path, "dnvm"));
+
+        var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
+        var result = await ProcUtil.RunWithOutput(
+            copiedExe,
+            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v",
+            new() {
+                ["HOME"] = _globalOptions.UserHome,
+                ["DNVM_HOME"] = _globalOptions.DnvmHome
+            }
+        );
+        Assert.Equal(0, result.ExitCode);
+        var timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
+        Assert.True(timeAfterUpdate > timeBeforeUpdate);
+        Assert.Contains("Process successfully upgraded", result.Out);
     }
 
     [Fact]

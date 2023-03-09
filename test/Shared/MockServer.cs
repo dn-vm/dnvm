@@ -15,6 +15,7 @@ public sealed class MockServer : IAsyncDisposable
 
     public string PrefixString => $"http://localhost:{Port}/";
     public string DnvmReleasesUrl => PrefixString + "releases.json";
+    public string? DnvmPath { get; set; } = null;
 
     public DotnetReleasesIndex ReleasesIndexJson { get; set; } = new DotnetReleasesIndex
     {
@@ -35,7 +36,6 @@ public sealed class MockServer : IAsyncDisposable
             }
         })
     };
-    private DotnetReleasesIndex.Release LtsRelease => ReleasesIndexJson.Releases[0];
 
     public DnvmReleases DnvmReleases { get; set; }
     public MockServer()
@@ -147,9 +147,11 @@ public sealed class MockServer : IAsyncDisposable
         response.OutputStream.Close();
     }
 
-    private static void GetDnvm(HttpListenerResponse response)
+    private void GetDnvm(HttpListenerResponse response)
     {
-        using var f = Assets.MakeFakeDnvmArchive();
+        using var f = DnvmPath is null
+            ? Assets.MakeFakeDnvmArchive()
+            : File.OpenRead(DnvmPath);
         response.ContentLength64 = f.Length;
         f.CopyTo(response.OutputStream);
         response.OutputStream.Close();

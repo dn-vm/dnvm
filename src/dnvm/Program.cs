@@ -28,7 +28,7 @@ public static class Program
             CommandArguments.ListArguments => (int)await ListCommand.Run(logger, dnvmFs),
             CommandArguments.SelectArguments o => await SelectCommand.Run(globalOptions, logger, o),
             CommandArguments.SelfInstallArguments o => (int)await SelfInstallCommand.Run(dnvmFs, globalOptions, logger, o),
-            _ => throw new InvalidOperationException("Should be unreachable")
+            _ => throw ExceptionUtilities.Unreachable
         };
     }
 

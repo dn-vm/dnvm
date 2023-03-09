@@ -208,6 +208,8 @@ public class SelfInstallCommand
                 File.Move(destPath, backupPath, overwrite: true);
                 File.Move(srcPath, destPath, overwrite: false);
                 logger.Log("Process successfully upgraded");
+                // Set last write time
+                File.SetLastWriteTimeUtc(destPath, DateTime.UtcNow);
                 if (Environment.OSVersion.Platform == PlatformID.Unix)
                 {
                     // Can't delete the open file on Windows

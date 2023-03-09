@@ -32,7 +32,7 @@ public sealed class UpdateTests
         // script instead. The shell script will print a message to stdout, which
         // we can check for.
         var proc = await ProcUtil.RunWithOutput(dnvmTmpPath,
-            $"update --self -v --dnvm-url {mockServer.PrefixString}releases.json",
+            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}",
             new() { ["DNVM_HOME"] = dnvmHome.Path });
         var output = proc.Out;
         var error = proc.Error;
@@ -57,7 +57,7 @@ public sealed class UpdateTests
         _logger.Log(Program.SemVer.ToString());
         var result = await ProcUtil.RunWithOutput(
             dnvmTmpPath,
-            $"update --self -v --feed-url {mockServer.PrefixString}releases.json",
+            $"update --self -v --feed-url {mockServer.DnvmReleasesUrl}",
             new() { ["DNVM_HOME"] = dnvmHome.Path });
         var output = result.Out;
         var error = result.Error;
