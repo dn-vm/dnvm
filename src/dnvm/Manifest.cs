@@ -35,17 +35,14 @@ public enum Channel
 
 public static class Channels
 {
-    public static string GetDesc(this Channel c)
+    public static string GetDesc(this Channel c) => c switch
     {
-        return c switch
-        {
-            Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
-            Channel.Lts => "The latest version in Long-Term support",
-            Channel.Sts => "The latest version in Short-Term support",
-            Channel.Preview => "The latest preview version",
-            _ => throw new NotImplementedException(),
-        };
-    }
+        Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
+        Channel.Lts => "The latest version in Long-Term support",
+        Channel.Sts => "The latest version in Short-Term support",
+        Channel.Preview => "The latest preview version",
+        _ => throw new NotImplementedException(),
+    };
 }
 
 [GenerateSerde]
@@ -79,11 +76,11 @@ public sealed partial record Manifest
     public override int GetHashCode()
     {
         int code = 0;
-        foreach (InstalledSdk item in InstalledSdkVersions)
+        foreach (var item in InstalledSdkVersions)
         {
             code = HashCode.Combine(code, item);
         }
-        foreach (TrackedChannel item in TrackedChannels)
+        foreach (var item in TrackedChannels)
         {
             code = HashCode.Combine(code, item);
         }
@@ -218,7 +215,7 @@ public static partial class ManifestUtils
     {
         try
         {
-            int? version = JsonSerializer.Deserialize<ManifestVersionOnly>(manifestSrc).Version;
+            var version = JsonSerializer.Deserialize<ManifestVersionOnly>(manifestSrc).Version;
             return version switch
             {
                 // The first version didn't have a version field
