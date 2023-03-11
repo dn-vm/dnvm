@@ -23,7 +23,7 @@ public static class SelectCommand
     /// </summary>
     public static Task<Manifest> SelectNewDir(string dnvmHome, SdkDirName newDir, Manifest manifest)
     {
-        Install.RetargetSymlink(dnvmHome, newDir);
+        InstallCommand.RetargetSymlink(dnvmHome, newDir);
         return Task.FromResult(manifest with { CurrentSdkDir = newDir });
     }
 }

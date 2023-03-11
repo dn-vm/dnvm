@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using Serde.Json;
 using Xunit;
 using Xunit.Abstractions;
-using static Dnvm.Install;
+using static Dnvm.InstallCommand;
 
 namespace Dnvm.Test;
 
@@ -42,7 +42,7 @@ public sealed class InstallTests : IDisposable
             Channel = channel,
             FeedUrl = server.PrefixString,
         };
-        var installCmd = new Install(_globalOptions, _logger, options);
+        var installCmd = new InstallCommand(_globalOptions, _logger, options);
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
@@ -78,7 +78,7 @@ public sealed class InstallTests : IDisposable
         var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
         Assert.False(Directory.Exists(sdkInstallDir));
         Assert.True(Directory.Exists(_globalOptions.DnvmHome));
-        Assert.Equal(Result.Success, await Install.Run(_globalOptions, _logger, args));
+        Assert.Equal(Result.Success, await InstallCommand.Run(_globalOptions, _logger, args));
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
@@ -101,7 +101,7 @@ public sealed class InstallTests : IDisposable
         var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, Channel.Preview.ToString().ToLowerInvariant());
         Assert.False(Directory.Exists(sdkInstallDir));
         Assert.True(Directory.Exists(_globalOptions.DnvmHome));
-        Assert.Equal(Result.Success, await Install.Run(_globalOptions, _logger, args));
+        Assert.Equal(Result.Success, await InstallCommand.Run(_globalOptions, _logger, args));
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
@@ -125,7 +125,7 @@ public sealed class InstallTests : IDisposable
         var sdkInstallDir = Path.Combine(_globalOptions.DnvmHome, dirName);
         Assert.False(Directory.Exists(sdkInstallDir));
         Assert.True(Directory.Exists(_globalOptions.DnvmHome));
-        Assert.Equal(Result.Success, await Install.Run(_globalOptions, _logger, args));
+        Assert.Equal(Result.Success, await InstallCommand.Run(_globalOptions, _logger, args));
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));

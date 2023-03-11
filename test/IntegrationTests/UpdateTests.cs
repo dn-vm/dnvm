@@ -74,6 +74,6 @@ public sealed class UpdateTests
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
-        Assert.True(await Update.ValidateBinary(_logger, dnvmTmpPath));
+        Assert.True(await UpdateCommand.ValidateBinary(_logger, dnvmTmpPath));
     }
 }

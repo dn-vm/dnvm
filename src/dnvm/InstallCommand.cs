@@ -3,15 +3,13 @@ using System;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Serde.Json;
-using Zio;
 using static Dnvm.Utilities;
 
 namespace Dnvm;
 
-public sealed class Install
+public sealed class InstallCommand
 {
     private readonly GlobalOptions _globalOptions;
     // Place to install dnvm
@@ -38,7 +36,7 @@ public sealed class Install
         CouldntFetchIndex
     }
 
-    public Install(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
+    public InstallCommand(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
     {
         _globalOptions = options;
         _logger = logger;
@@ -71,7 +69,7 @@ public sealed class Install
 
     public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
     {
-        return new Install(options, logger, args).Run();
+        return new InstallCommand(options, logger, args).Run();
     }
 
     public async Task<Result> Run()

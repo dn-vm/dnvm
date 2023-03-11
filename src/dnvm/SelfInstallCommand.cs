@@ -120,7 +120,7 @@ public class SelfInstallCommand
         }
 
         var updateUserEnv = _installArgs.UpdateUserEnvironment;
-        var sdkDirName = Install.GetSdkDirNameFromChannel(channel);
+        var sdkDirName = InstallCommand.GetSdkDirNameFromChannel(channel);
         if (!_installArgs.Yes && MissingFromEnv(sdkDirName))
         {
             Console.Write("One or more paths are missing from the user environment. Attempt to update the user environment? [Y/n] ");
@@ -144,7 +144,7 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
 
-        var result = await Install.InstallLatestFromChannel(
+        var result = await InstallCommand.InstallLatestFromChannel(
             _dnvmHome,
             _logger,
             channel,
@@ -153,12 +153,12 @@ public class SelfInstallCommand
             ManifestPath,
             sdkDirName);
 
-        if (result is not Install.Result.Success)
+        if (result is not InstallCommand.Result.Success)
         {
             return Result.InstallFailed;
         }
 
-        Install.RetargetSymlink(_dnvmHome, sdkDirName);
+        InstallCommand.RetargetSymlink(_dnvmHome, sdkDirName);
 
         // Set up path
         if (updateUserEnv)
@@ -193,7 +193,7 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
         logger.Info($"Retargeting symlink in {dnvmHome} to {SdkInstallPath}");
-        Install.RetargetSymlink(dnvmHome, sdkDirName);
+        InstallCommand.RetargetSymlink(dnvmHome, sdkDirName);
         if (!OperatingSystem.IsWindows())
         {
             await WriteEnvFile(dnvmFs, SdkInstallPath, logger);
