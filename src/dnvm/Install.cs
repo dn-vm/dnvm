@@ -55,9 +55,16 @@ public sealed class Install
         }
         // Use an explicit SdkDir if specified, otherwise, only the preview channel is isolated by
         // default.
-        _sdkDir = (args.SdkDir, args.Channel) switch {
-            ({} sdkDir, _) => new SdkDirName(sdkDir.ToLowerInvariant()),
-            (_ , Channel.Preview) => new SdkDirName("preview"),
+        _sdkDir = args.SdkDir switch {
+            {} sdkDir => new SdkDirName(sdkDir.ToLowerInvariant()),
+            _ => GetSdkDirNameFromChannel(args.Channel)
+        };
+    }
+
+    internal static SdkDirName GetSdkDirNameFromChannel(Channel channel)
+    {
+        return channel switch {
+            Channel.Preview => new SdkDirName("preview"),
             _ => GlobalOptions.DefaultSdkDirName
         };
     }
@@ -89,8 +96,7 @@ public sealed class Install
             _installArgs.Force,
             _feedUrl,
             ManifestPath,
-            _sdkDir,
-            SdkInstallPath);
+            _sdkDir);
     }
 
     internal static async Task<Result> InstallLatestFromChannel(
@@ -100,9 +106,9 @@ public sealed class Install
         bool force,
         string feedUrl,
         string manifestPath,
-        SdkDirName sdkDir,
-        string sdkInstallDir)
+        SdkDirName sdkDir)
     {
+        string sdkInstallDir = Path.Combine(dnvmHome, sdkDir.Name);
         Manifest manifest;
         try
         {
@@ -170,7 +176,7 @@ public sealed class Install
             rid,
             feedUrl,
             manifest,
-            sdkInstallDir);
+            sdkDir);
 
         if (installResult != Result.Success)
         {
@@ -205,8 +211,9 @@ public sealed class Install
         RID rid,
         string feedUrl,
         Manifest manifest,
-        string sdkInstallPath)
+        SdkDirName sdkDirName)
     {
+        var sdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
         string archiveName = ConstructArchiveName(latestVersion, rid, Utilities.ZipSuffix);
         using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
         string archivePath = Path.Combine(tempDir.Path, archiveName);
@@ -256,7 +263,7 @@ public sealed class Install
                 return Result.ExtractFailed;
             }
         }
-        CreateSymlinkIfMissing(dnvmHome, sdkInstallPath);
+        CreateSymlinkIfMissing(dnvmHome, sdkDirName);
 
         return Result.Success;
     }
@@ -280,9 +287,10 @@ public sealed class Install
     /// Creates a symlink from the dotnet exe in the dnvm home directory to the dotnet exe in the
     /// sdk install directory.
     /// </summary>
-    internal static void RetargetSymlink(string dnvmHome, string sdkInstallDir)
+    internal static void RetargetSymlink(string dnvmHome, SdkDirName sdkDirName)
     {
         var symlinkPath = Path.Combine(dnvmHome, DotnetExeName);
+        var sdkInstallDir = Path.Combine(dnvmHome, sdkDirName.Name);
         // Delete if it already exists
         try
         {
@@ -292,12 +300,12 @@ public sealed class Install
         File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetExeName));
     }
 
-    private static void CreateSymlinkIfMissing(string dnvmHome, string sdkInstallDir)
+    private static void CreateSymlinkIfMissing(string dnvmHome, SdkDirName sdkDirName)
     {
         var symlinkPath = Path.Combine(dnvmHome, DotnetExeName);
         if (!File.Exists(symlinkPath))
         {
-            RetargetSymlink(dnvmHome, sdkInstallDir);
+            RetargetSymlink(dnvmHome, sdkDirName);
         }
     }
 

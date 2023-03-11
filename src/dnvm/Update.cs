@@ -126,7 +126,7 @@ public sealed partial class Update
                         Utilities.CurrentRID,
                         feedUrl,
                         manifest,
-                        Path.Combine(dnvmHome, sdkDir.Name));
+                        sdkDir);
 
                     var latestVersion = newestAvailable.LatestSdk;
                     logger.Info($"Adding installed version '{latestVersion}' to manifest.");

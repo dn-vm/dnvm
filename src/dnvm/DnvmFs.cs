@@ -17,9 +17,10 @@ public sealed class DnvmFs : IDisposable
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
 
+    public string RealPath => Vfs.ConvertPathToInternal(UPath.Root);
+
     public static DnvmFs CreatePhysical(string realPath)
     {
-        UPath upathTest = "";
         var physicalFs = new PhysicalFileSystem();
         return new DnvmFs(new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)));
     }

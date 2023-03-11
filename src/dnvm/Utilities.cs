@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -34,6 +35,16 @@ public static class Utilities
     public static string SeqToString<T>(this IEnumerable<T> e)
     {
         return "[ " + string.Join(", ", e.ToString()) + " ]";
+    }
+
+    public static ImmutableArray<U> SelectAsArray<T, U>(this ImmutableArray<T> e, Func<T, U> f)
+    {
+        var builder = ImmutableArray.CreateBuilder<U>(e.Length);
+        foreach (var item in e)
+        {
+            builder.Add(f(item));
+        }
+        return builder.MoveToImmutable();
     }
 
     public static readonly RID CurrentRID = new RID(

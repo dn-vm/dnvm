@@ -19,15 +19,12 @@ public class SelfInstallCommand
     private readonly GlobalOptions _globalOptions;
     // Place to install dnvm
     private string _dnvmHome;
-    private readonly SdkDirName _sdkDir;
-    private string SdkInstallPath => Path.Combine(_dnvmHome, _sdkDir.Name);
     private string ManifestPath => _globalOptions.ManifestPath;
     private readonly CommandArguments.SelfInstallArguments _installArgs;
     private readonly string _feedUrl;
 
     public SelfInstallCommand(GlobalOptions options, Logger logger, CommandArguments.SelfInstallArguments args)
     {
-        _sdkDir = GlobalOptions.DefaultSdkDirName;
         _globalOptions = options;
         _logger = logger;
         _installArgs = args;
@@ -123,7 +120,8 @@ public class SelfInstallCommand
         }
 
         var updateUserEnv = _installArgs.UpdateUserEnvironment;
-        if (!_installArgs.Yes && MissingFromEnv())
+        var sdkDirName = Install.GetSdkDirNameFromChannel(channel);
+        if (!_installArgs.Yes && MissingFromEnv(sdkDirName))
         {
             Console.Write("One or more paths are missing from the user environment. Attempt to update the user environment? [Y/n] ");
             if (Console.ReadLine()?.Trim().ToLowerInvariant() == "y")
@@ -153,20 +151,19 @@ public class SelfInstallCommand
             _installArgs.Force,
             _feedUrl,
             ManifestPath,
-            _sdkDir,
-            SdkInstallPath);
+            sdkDirName);
 
         if (result is not Install.Result.Success)
         {
             return Result.InstallFailed;
         }
 
-        Install.RetargetSymlink(_dnvmHome, SdkInstallPath);
+        Install.RetargetSymlink(_dnvmHome, sdkDirName);
 
         // Set up path
         if (updateUserEnv)
         {
-            await AddToPath(dnvmFs);
+            await AddToPath(dnvmFs, sdkDirName);
         }
 
         return Result.Success;
@@ -177,14 +174,26 @@ public class SelfInstallCommand
     /// </summary>
     internal async Task<Result> SelfUpdate(DnvmFs dnvmFs)
     {
+        SdkDirName sdkDirName;
+        try
+        {
+            var manifest = dnvmFs.ReadManifest();
+            sdkDirName = manifest.CurrentSdkDir;
+        }
+        catch
+        {
+            sdkDirName = GlobalOptions.DefaultSdkDirName;
+        }
+
         var dnvmHome = dnvmFs.Vfs.ConvertPathToInternal(UPath.Root);
+        var SdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
         var logger = _logger;
         if (!ReplaceBinary(dnvmHome, logger))
         {
             return Result.SelfInstallFailed;
         }
         logger.Info($"Retargeting symlink in {dnvmHome} to {SdkInstallPath}");
-        Install.RetargetSymlink(dnvmHome, SdkInstallPath);
+        Install.RetargetSymlink(dnvmHome, sdkDirName);
         if (!OperatingSystem.IsWindows())
         {
             await WriteEnvFile(dnvmFs, SdkInstallPath, logger);
@@ -288,8 +297,9 @@ public class SelfInstallCommand
         }
     }
 
-    private bool MissingFromEnv()
+    private bool MissingFromEnv(SdkDirName sdkDirName)
     {
+        string SdkInstallPath = Path.Combine(_dnvmHome, sdkDirName.Name);
         if (GetEnvVar("DOTNET_ROOT") != SdkInstallPath ||
             !PathContains(_dnvmHome))
         {
@@ -298,8 +308,9 @@ public class SelfInstallCommand
         return false;
     }
 
-    private async Task<int> AddToPath(DnvmFs dnvmFs)
+    private async Task<int> AddToPath(DnvmFs dnvmFs, SdkDirName sdkDir)
     {
+        string SdkInstallPath = Path.Combine(dnvmFs.RealPath, sdkDir.Name);
         if (OperatingSystem.IsWindows())
         {
             if (FindDotnetInSystemPath())

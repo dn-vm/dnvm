@@ -35,12 +35,17 @@ public enum Channel
 
 public static class Channels
 {
-    public static string GetDesc(this Channel c) => c switch {
-        Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
-        Channel.Lts => "The latest version in Long-Term support",
-        Channel.Sts => "The latest version in Short-Term support",
-        Channel.Preview => "The latest preview version",
-    };
+    public static string GetDesc(this Channel c)
+    {
+        return c switch
+        {
+            Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
+            Channel.Lts => "The latest version in Long-Term support",
+            Channel.Sts => "The latest version in Short-Term support",
+            Channel.Preview => "The latest preview version",
+            _ => throw new NotImplementedException(),
+        };
+    }
 }
 
 [GenerateSerde]
@@ -49,7 +54,7 @@ public sealed partial record Manifest
     public static readonly Manifest Empty = new();
 
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
-    public const int VersionField = 3;
+    public const int VersionField = 4;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
@@ -67,18 +72,18 @@ public sealed partial record Manifest
 
     public bool Equals(Manifest? other)
     {
-        return other is not null && this.InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions) &&
-            this.TrackedChannels.SequenceEqual(other.TrackedChannels);
+        return other is not null && InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions) &&
+            TrackedChannels.SequenceEqual(other.TrackedChannels);
     }
 
     public override int GetHashCode()
     {
         int code = 0;
-        foreach (var item in InstalledSdkVersions)
+        foreach (InstalledSdk item in InstalledSdkVersions)
         {
             code = HashCode.Combine(code, item);
         }
-        foreach (var item in TrackedChannels)
+        foreach (TrackedChannel item in TrackedChannels)
         {
             code = HashCode.Combine(code, item);
         }
@@ -95,9 +100,9 @@ public readonly partial record struct TrackedChannel()
 
     public bool Equals(TrackedChannel other)
     {
-        return this.ChannelName == other.ChannelName &&
-            this.SdkDirName == other.SdkDirName &&
-            this.InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions);
+        return ChannelName == other.ChannelName &&
+            SdkDirName == other.SdkDirName &&
+            InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions);
     }
 
     public override int GetHashCode()
@@ -105,7 +110,7 @@ public readonly partial record struct TrackedChannel()
         int code = 0;
         code = HashCode.Combine(code, ChannelName);
         code = HashCode.Combine(code, SdkDirName);
-        foreach (var item in InstalledSdkVersions)
+        foreach (string item in InstalledSdkVersions)
         {
             code = HashCode.Combine(code, item);
         }
@@ -135,8 +140,20 @@ public static partial class ManifestUtils
     /// </summary>
     public static Manifest ReadManifest(string manifestPath)
     {
-        var text = File.ReadAllText(manifestPath);
+        string text = File.ReadAllText(manifestPath);
         return DeserializeNewOrOldManifest(text) ?? throw new InvalidDataException();
+    }
+
+    public static Manifest ReadOrCreateManifest(DnvmFs fs)
+    {
+        try
+        {
+            return fs.ReadManifest();
+        }
+        // Not found is expected
+        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) { }
+
+        return Manifest.Empty;
     }
 
     /// <summary>
@@ -151,7 +168,7 @@ public static partial class ManifestUtils
             return ReadManifest(manifestPath);
         }
         // Not found is expected
-        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) {}
+        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) { }
 
         return new Manifest()
         {
@@ -201,12 +218,13 @@ public static partial class ManifestUtils
     {
         try
         {
-            var version = JsonSerializer.Deserialize<ManifestVersionOnly>(manifestSrc).Version;
+            int? version = JsonSerializer.Deserialize<ManifestVersionOnly>(manifestSrc).Version;
             return version switch
             {
                 // The first version didn't have a version field
                 null => JsonSerializer.Deserialize<ManifestV1>(manifestSrc).Convert().Convert(),
                 ManifestV2.VersionField => JsonSerializer.Deserialize<ManifestV2>(manifestSrc).Convert(),
+                ManifestV3.VersionField => JsonSerializer.Deserialize<ManifestV3>(manifestSrc).Convert(),
                 Manifest.VersionField => JsonSerializer.Deserialize<Manifest>(manifestSrc),
                 _ => null,
             };
@@ -218,7 +236,7 @@ public static partial class ManifestUtils
     }
 
     [GenerateDeserialize]
-    private partial struct ManifestVersionOnly
+    private readonly partial struct ManifestVersionOnly
     {
         public int? Version { get; init; }
     }
