@@ -1,3 +1,5 @@
+using Spectre.Console;
+using Spectre.Console.Testing;
 using Xunit;
 using Zio.FileSystems;
 
@@ -5,12 +7,12 @@ namespace Dnvm.Test;
 
 public sealed class ListTests
 {
-    private readonly StringWriter _writer = new();
+    private readonly TestConsole _console = new();
     private readonly Logger _logger;
 
     public ListTests()
     {
-        _logger = new Logger(_writer, _writer);
+       _logger = new Logger(_console);
     }
 
     [Fact]
@@ -31,7 +33,7 @@ Installed SDKs:
 
 """;
 
-        Assert.Equal(output, _writer.ToString());
+        Assert.Equal(output, _console.Output);
     }
 
     [Fact]
@@ -54,6 +56,6 @@ Installed SDKs:
 
 """;
 
-        Assert.Equal(output, _writer.ToString());
+        Assert.Equal(output, _console.Output);
     }
 }
