@@ -35,18 +35,18 @@ public sealed class SelectTests : IDisposable
     public async Task SelectPreview()
     {
         var mockServer = new MockServer();
-        var result = await Install.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
+        var result = await InstallCommand.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
             Channel = Channel.Latest,
             FeedUrl = mockServer.PrefixString,
         });
-        Assert.Equal(Install.Result.Success, result);
+        Assert.Equal(InstallCommand.Result.Success, result);
         var defaultDotnet = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name, Utilities.DotnetExeName);
         Assert.True(File.Exists(defaultDotnet));
-        result = await Install.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
+        result = await InstallCommand.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
             Channel = Channel.Preview,
             FeedUrl = mockServer.PrefixString,
         });
-        Assert.Equal(Install.Result.Success, result);
+        Assert.Equal(InstallCommand.Result.Success, result);
         var previewDotnet = Path.Combine(_globalOptions.DnvmHome, "preview", Utilities.DotnetExeName);
         Assert.True(File.Exists(previewDotnet));
         // Symlink should point to the default SDK

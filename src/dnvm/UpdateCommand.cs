@@ -9,11 +9,11 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Semver;
 using Serde.Json;
-using static Dnvm.Update.Result;
+using static Dnvm.UpdateCommand.Result;
 
 namespace Dnvm;
 
-public sealed partial class Update
+public sealed partial class UpdateCommand
 {
     private readonly string _dnvmHome;
     private readonly Logger _logger;
@@ -24,7 +24,7 @@ public sealed partial class Update
 
     public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
 
-    public Update(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
+    public UpdateCommand(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
     {
         _logger = logger;
         _args = args;
@@ -44,7 +44,7 @@ public sealed partial class Update
 
     public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
     {
-        return new Update(options, logger, args).Run();
+        return new UpdateCommand(options, logger, args).Run();
     }
 
     public enum Result
@@ -119,7 +119,7 @@ public sealed partial class Update
                 foreach (var (c, _, newestAvailable) in updateResults)
                 {
                     var sdkDir = manifest.TrackedChannels.First(tc => tc.ChannelName == c).SdkDirName;
-                    _ = await Install.InstallSdkVersionFromChannel(
+                    _ = await InstallCommand.InstallSdkVersionFromChannel(
                         dnvmHome,
                         logger,
                         newestAvailable.LatestSdk,

@@ -60,7 +60,7 @@ public sealed class UpdateTests : IAsyncLifetime
         var releasesIndex = _mockServer.ReleasesIndexJson;
         var writer = new StringWriter();
         var logger = new Logger(writer, writer);
-        _ = await Update.UpdateSdks(
+        _ = await UpdateCommand.UpdateSdks(
             _dnvmHome.Path,
             logger,
             releasesIndex,
@@ -87,7 +87,7 @@ public sealed class UpdateTests : IAsyncLifetime
             })
         };
         var releasesIndex = _mockServer.ReleasesIndexJson;
-        var results = Update.FindPotentialUpdates(manifest, releasesIndex);
+        var results = UpdateCommand.FindPotentialUpdates(manifest, releasesIndex);
         var (channel, newestInstalled, newestAvailable) = results[0];
         Assert.Equal(Channel.Latest, channel);
         Assert.Equal(new SemVersion(41, 0, 0), newestInstalled);
@@ -110,12 +110,12 @@ public sealed class UpdateTests : IAsyncLifetime
                 }
             })
         };
-        var result = await Install.Run(_globalOptions, _logger, new() {
+        var result = await InstallCommand.Run(_globalOptions, _logger, new() {
             Channel = channel,
             FeedUrl = _mockServer.PrefixString,
             Verbose = true
         });
-        Assert.Equal(Install.Result.Success, result);
+        Assert.Equal(InstallCommand.Result.Success, result);
         // Update with a newer version
         _mockServer.ReleasesIndexJson = new() {
             Releases = ImmutableArray.Create(new DotnetReleasesIndex.Release[] {
@@ -128,9 +128,9 @@ public sealed class UpdateTests : IAsyncLifetime
                 }
             })
         };
-        var updateResult = await Update.Run(_globalOptions, _logger, _updateArguments);
+        var updateResult = await UpdateCommand.Run(_globalOptions, _logger, _updateArguments);
         var sdkVersions = ImmutableArray.Create(new[] { "41.0.100", "41.0.101" });
-        Assert.Equal(Update.Result.Success, updateResult);
+        Assert.Equal(UpdateCommand.Result.Success, updateResult);
         var expectedManifest = new Manifest {
             InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk { Version = v, SdkDirName = GlobalOptions.DefaultSdkDirName }).ToImmutableArray(),
             TrackedChannels = ImmutableArray.Create(new[] { new TrackedChannel() {
