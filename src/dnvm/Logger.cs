@@ -10,15 +10,8 @@ public enum LogLevel
     Info,
 }
 
-public sealed class Logger
+public sealed record Logger(IAnsiConsole Console)
 {
-    private readonly IAnsiConsole _console;
-
-    public Logger(IAnsiConsole console)
-    {
-        _console = console;
-    }
-
     // Mutable for now, should be immutable once the command line parser supports global options
     public LogLevel LogLevel = LogLevel.Normal;
 
@@ -26,7 +19,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Error)
         {
-            _console.WriteLine("Error: " + msg);
+            Console.WriteLine("Error: " + msg);
         }
     }
 
@@ -34,7 +27,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Info)
         {
-            _console.WriteLine("Log: " + msg);
+            Console.WriteLine("Log: " + msg);
         }
     }
 
@@ -42,7 +35,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Warn)
         {
-            _console.WriteLine("Warning: " + msg);
+            Console.WriteLine("Warning: " + msg);
         }
     }
 
@@ -50,7 +43,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Normal)
         {
-            _console.WriteLine(msg);
+            Console.WriteLine(msg);
         }
     }
 }

@@ -26,10 +26,12 @@ public sealed class ListTests
         var output = """
 Installed SDKs:
 
-  | Channel	Version	Location
-----------------------------
-* | Latest	1.0.0	dn
-  | Preview	4.0.0-preview1	preview
+┌───┬─────────┬────────────────┬──────────┐
+│   │ Channel │ Version        │ Location │
+├───┼─────────┼────────────────┼──────────┤
+│ * │ Latest  │ 1.0.0          │ dn       │
+│   │ Preview │ 4.0.0-preview1 │ preview  │
+└───┴─────────┴────────────────┴──────────┘
 
 """;
 
@@ -50,9 +52,11 @@ Installed SDKs:
         var output = """
 Installed SDKs:
 
-  | Channel	Version	Location
-----------------------------
-* | Latest	42.42.42	dn
+┌───┬─────────┬──────────┬──────────┐
+│   │ Channel │ Version  │ Location │
+├───┼─────────┼──────────┼──────────┤
+│ * │ Latest  │ 42.42.42 │ dn       │
+└───┴─────────┴──────────┴──────────┘
 
 """;
 

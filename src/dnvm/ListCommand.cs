@@ -1,6 +1,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Spectre.Console;
 
 namespace Dnvm;
 
@@ -30,16 +31,19 @@ public static class ListCommand
     {
         logger.Log("Installed SDKs:");
         logger.Log("");
-        var header = "  | Channel\tVersion\tLocation";
-        logger.Log(header);
-        logger.Log(new string('-', header.Length));
+        var table = new Table();
+        table.AddColumn(new TableColumn(" "));
+        table.AddColumn("Channel");
+        table.AddColumn("Version");
+        table.AddColumn("Location");
         foreach (var channel in manifest.TrackedChannels)
         {
-            char selected = manifest.CurrentSdkDir == channel.SdkDirName ? '*' : ' ';
+            string selected = manifest.CurrentSdkDir == channel.SdkDirName ? "*" : " ";
             foreach (var version in channel.InstalledSdkVersions)
             {
-                logger.Log($"{selected} | {channel.ChannelName}\t{version}\t{channel.SdkDirName.Name}");
+                table.AddRow(selected, channel.ChannelName.ToString(), version, channel.SdkDirName.Name);
             }
         }
+        logger.Console.Write(table);
     }
 }
