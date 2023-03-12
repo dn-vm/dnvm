@@ -1,3 +1,4 @@
+using System.Security;
 using Spectre.Console;
 
 namespace Dnvm;
@@ -36,6 +37,14 @@ public sealed record Logger(IAnsiConsole Console)
         if (LogLevel >= LogLevel.Warn)
         {
             Console.WriteLine("Warning: " + msg);
+        }
+    }
+
+    public void Log()
+    {
+        if (LogLevel >= LogLevel.Normal)
+        {
+            Console.WriteLine();
         }
     }
 

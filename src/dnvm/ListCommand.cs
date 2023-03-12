@@ -30,7 +30,7 @@ public static class ListCommand
     public static void PrintSdks(Logger logger, Manifest manifest)
     {
         logger.Log("Installed SDKs:");
-        logger.Log("");
+        logger.Log();
         var table = new Table();
         table.AddColumn(new TableColumn(" "));
         table.AddColumn("Channel");
