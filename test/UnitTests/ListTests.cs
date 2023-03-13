@@ -22,6 +22,7 @@ public sealed class ListTests
             .AddSdk(new InstalledSdk("1.0.0"), Channel.Latest)
             .AddSdk(new InstalledSdk("4.0.0-preview1") { SdkDirName = new("preview") }, Channel.Preview);
 
+        var newline = Text.NewLine;
         ListCommand.PrintSdks(_logger, manifest);
         var output = """
 Installed SDKs:
@@ -32,10 +33,9 @@ Installed SDKs:
 │ * │ Latest  │ 1.0.0          │ dn       │
 │   │ Preview │ 4.0.0-preview1 │ preview  │
 └───┴─────────┴────────────────┴──────────┘
-
 """;
 
-        Assert.Equal(output, _console.Output);
+        Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
     }
 
     [Fact]
@@ -57,9 +57,8 @@ Installed SDKs:
 ├───┼─────────┼──────────┼──────────┤
 │ * │ Latest  │ 42.42.42 │ dn       │
 └───┴─────────┴──────────┴──────────┘
-
 """;
 
-        Assert.Equal(output, _console.Output);
+        Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
     }
 }
