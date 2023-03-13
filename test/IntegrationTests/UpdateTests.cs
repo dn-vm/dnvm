@@ -5,12 +5,9 @@ namespace Dnvm.Test;
 
 public sealed class UpdateTests
 {
-    private readonly Logger _logger;
-
     public UpdateTests(ITestOutputHelper output)
     {
         var wrapper = new OutputWrapper(output);
-        _logger = new Logger(wrapper, wrapper);
     }
 
     [Fact]
@@ -54,14 +51,12 @@ public sealed class UpdateTests
                 Version = Program.SemVer.ToString() // report the same version as installed
             }
         };
-        _logger.Log(Program.SemVer.ToString());
         var result = await ProcUtil.RunWithOutput(
             dnvmTmpPath,
             $"update --self -v --feed-url {mockServer.DnvmReleasesUrl}",
             new() { ["DNVM_HOME"] = dnvmHome.Path });
         var output = result.Out;
         var error = result.Error;
-        _logger.Log(error);
         Assert.Equal("", error);
         Assert.Equal(0, result.ExitCode);
         result = await ProcUtil.RunWithOutput(dnvmTmpPath, "-h");
@@ -74,6 +69,6 @@ public sealed class UpdateTests
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
-        Assert.True(await UpdateCommand.ValidateBinary(_logger, dnvmTmpPath));
+        Assert.True(await UpdateCommand.ValidateBinary(null, dnvmTmpPath));
     }
 }

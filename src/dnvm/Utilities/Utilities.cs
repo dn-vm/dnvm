@@ -9,6 +9,7 @@ using System.IO.Compression;
 using System.IO.Enumeration;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
 using StaticCs;
@@ -31,6 +32,14 @@ public readonly record struct DirectoryResource(
 public static class Utilities
 {
     public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? ".zip" : ".tar.gz";
+
+    [UnsupportedOSPlatform("windows")]
+    public static void ChmodExec(string path)
+    {
+        var mod = File.GetUnixFileMode(path);
+        File.SetUnixFileMode(path, mod | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+
+    }
 
     public static string SeqToString<T>(this IEnumerable<T> e)
     {

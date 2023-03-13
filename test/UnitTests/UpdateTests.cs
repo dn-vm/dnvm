@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Runtime.InteropServices.Marshalling;
 using Semver;
 using Serde.Json;
+using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -21,7 +22,7 @@ public sealed class UpdateTests : IAsyncLifetime
     public UpdateTests(ITestOutputHelper output)
     {
         var wrapper = new OutputWrapper(output);
-        _logger = new Logger(wrapper, wrapper);
+        _logger = new Logger(new TestConsole());
         _globalOptions = new GlobalOptions() {
             DnvmHome = _dnvmHome.Path,
             UserHome = _userHome.Path,
@@ -58,8 +59,8 @@ public sealed class UpdateTests : IAsyncLifetime
             })
         };
         var releasesIndex = _mockServer.ReleasesIndexJson;
-        var writer = new StringWriter();
-        var logger = new Logger(writer, writer);
+        var console = new TestConsole();
+        var logger = new Logger(console);
         _ = await UpdateCommand.UpdateSdks(
             _dnvmHome.Path,
             logger,
@@ -69,7 +70,7 @@ public sealed class UpdateTests : IAsyncLifetime
             _updateArguments.FeedUrl!,
             _updateArguments.DnvmReleasesUrl!,
             _globalOptions.ManifestPath);
-        Assert.Contains("dnvm is out of date", writer.ToString());
+        Assert.Contains("dnvm is out of date", console.Output);
     }
 
     [Fact]

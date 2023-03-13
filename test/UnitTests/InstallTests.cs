@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Serde.Json;
+using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
 using static Dnvm.InstallCommand;
@@ -17,7 +18,7 @@ public sealed class InstallTests : IDisposable
     public InstallTests(ITestOutputHelper output)
     {
         var wrapper = new OutputWrapper(output);
-        _logger = new Logger(wrapper, wrapper);
+        _logger = new Logger(new TestConsole());
         _globalOptions = new GlobalOptions {
             DnvmHome = _dnvmHome.Path,
             UserHome = _userHome.Path,

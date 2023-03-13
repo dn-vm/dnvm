@@ -252,8 +252,7 @@ public sealed class InstallCommand
             logger.Info("chmoding downloaded host");
             try
             {
-                var mod = File.GetUnixFileMode(dotnetExePath);
-                File.SetUnixFileMode(dotnetExePath, mod | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+                Utilities.ChmodExec(dotnetExePath);
             }
             catch (Exception e)
             {

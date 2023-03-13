@@ -1,5 +1,6 @@
 
 using Dnvm.Test;
+using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -16,7 +17,7 @@ public sealed class SelectTests : IDisposable
     public SelectTests(ITestOutputHelper output)
     {
         var wrapper = new OutputWrapper(output);
-        _logger = new Logger(wrapper, wrapper);
+        _logger = new Logger(new TestConsole());
         _globalOptions = new GlobalOptions {
             DnvmHome = _dnvmHome.Path,
             UserHome = _userHome.Path,

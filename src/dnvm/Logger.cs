@@ -1,6 +1,5 @@
-
-using System;
-using System.IO;
+using System.Security;
+using Spectre.Console;
 
 namespace Dnvm;
 
@@ -12,17 +11,8 @@ public enum LogLevel
     Info,
 }
 
-public sealed class Logger
+public sealed record Logger(IAnsiConsole Console)
 {
-    private readonly TextWriter _output;
-    private readonly TextWriter _error;
-
-    public Logger(TextWriter output, TextWriter error)
-    {
-        _output = output;
-        _error = error;
-    }
-
     // Mutable for now, should be immutable once the command line parser supports global options
     public LogLevel LogLevel = LogLevel.Normal;
 
@@ -30,8 +20,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Error)
         {
-            _error.WriteLine("Error: " + msg);
-            _error.Flush();
+            Console.WriteLine("Error: " + msg);
         }
     }
 
@@ -39,8 +28,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Info)
         {
-            _output.WriteLine("Log: " + msg);
-            _output.Flush();
+            Console.WriteLine("Log: " + msg);
         }
     }
 
@@ -48,8 +36,15 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Warn)
         {
-            _output.WriteLine("Warning: " + msg);
-            _output.Flush();
+            Console.WriteLine("Warning: " + msg);
+        }
+    }
+
+    public void Log()
+    {
+        if (LogLevel >= LogLevel.Normal)
+        {
+            Console.WriteLine();
         }
     }
 
@@ -57,8 +52,7 @@ public sealed class Logger
     {
         if (LogLevel >= LogLevel.Normal)
         {
-            _output.WriteLine(msg);
-            _output.Flush();
+            Console.WriteLine(msg);
         }
     }
 }

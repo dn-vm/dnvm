@@ -22,6 +22,8 @@
     <PackageReference Include="Semver" Version="2.2.0" />
 
     <PackageReference Include="Serde" Version="0.4.6" />
+
+    <PackageReference Include="Spectre.Console" Version="0.46.0" />
     <PackageReference Include="StaticCs" Version="0.2.0" />
     <PackageReference Include="StaticCs.Collections" Version="1.0.1" />
     <PackageReference Include="zio" Version="0.16.2" />

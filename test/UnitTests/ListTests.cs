@@ -1,3 +1,5 @@
+using Spectre.Console;
+using Spectre.Console.Testing;
 using Xunit;
 using Zio.FileSystems;
 
@@ -5,12 +7,12 @@ namespace Dnvm.Test;
 
 public sealed class ListTests
 {
-    private readonly StringWriter _writer = new();
+    private readonly TestConsole _console = new();
     private readonly Logger _logger;
 
     public ListTests()
     {
-        _logger = new Logger(_writer, _writer);
+       _logger = new Logger(_console);
     }
 
     [Fact]
@@ -20,18 +22,20 @@ public sealed class ListTests
             .AddSdk(new InstalledSdk("1.0.0"), Channel.Latest)
             .AddSdk(new InstalledSdk("4.0.0-preview1") { SdkDirName = new("preview") }, Channel.Preview);
 
+        var newline = Text.NewLine;
         ListCommand.PrintSdks(_logger, manifest);
         var output = """
 Installed SDKs:
 
-  | Channel	Version	Location
-----------------------------
-* | Latest	1.0.0	dn
-  | Preview	4.0.0-preview1	preview
-
+┌───┬─────────┬────────────────┬──────────┐
+│   │ Channel │ Version        │ Location │
+├───┼─────────┼────────────────┼──────────┤
+│ * │ Latest  │ 1.0.0          │ dn       │
+│   │ Preview │ 4.0.0-preview1 │ preview  │
+└───┴─────────┴────────────────┴──────────┘
 """;
 
-        Assert.Equal(output, _writer.ToString());
+        Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
     }
 
     [Fact]
@@ -48,12 +52,13 @@ Installed SDKs:
         var output = """
 Installed SDKs:
 
-  | Channel	Version	Location
-----------------------------
-* | Latest	42.42.42	dn
-
+┌───┬─────────┬──────────┬──────────┐
+│   │ Channel │ Version  │ Location │
+├───┼─────────┼──────────┼──────────┤
+│ * │ Latest  │ 42.42.42 │ dn       │
+└───┴─────────┴──────────┴──────────┘
 """;
 
-        Assert.Equal(output, _writer.ToString());
+        Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
     }
 }

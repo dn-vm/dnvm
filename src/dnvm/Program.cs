@@ -3,6 +3,7 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
+using Spectre.Console;
 using Zio.FileSystems;
 
 namespace Dnvm;
@@ -18,7 +19,7 @@ public static class Program
         Console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.Sha);
         Console.WriteLine();
         var options = CommandLineArguments.Parse(args);
-        var logger = new Logger(Console.Out, Console.Error);
+        var logger = new Logger(AnsiConsole.Console);
         var globalOptions = GetGlobalConfig();
         var dnvmFs = DnvmFs.CreatePhysical(globalOptions.DnvmHome);
         return options.Command switch

@@ -301,14 +301,11 @@ public sealed partial class UpdateCommand
         await action(tempDownloadPath);
     }
 
-    public static async Task<bool> ValidateBinary(Logger logger, string fileName)
+    public static async Task<bool> ValidateBinary(Logger? logger, string fileName)
     {
-        // Replace with File.SetUnixFileMode when available
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var chmod = Process.Start("chmod", $"+x \"{fileName}\"");
-            await chmod.WaitForExitAsync();
-            logger.Info("chmod return: " + chmod.ExitCode);
+            Utilities.ChmodExec(fileName);
         }
 
         // Run exe and make sure it's OK
@@ -327,14 +324,14 @@ public sealed partial class UpdateCommand
             const string usageString = "usage: ";
             if (ps.ExitCode != 0)
             {
-                logger.Error("Could not run downloaded dnvm:");
-                logger.Error(error);
+                logger?.Error("Could not run downloaded dnvm:");
+                logger?.Error(error);
                 return false;
             }
             else if (!output.Contains(usageString))
             {
-                logger.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
-                logger.Log(output);
+                logger?.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
+                logger?.Log(output);
                 return false;
             }
             return true;
