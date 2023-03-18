@@ -284,9 +284,13 @@ public sealed class InstallCommand
     /// Creates a symlink from the dotnet exe in the dnvm home directory to the dotnet exe in the
     /// sdk install directory.
     /// </summary>
+    /// <remarks>
+    /// Doesn't use a symlink on Windows because the dotnet muxer doesn't properly resolve through
+    /// symlinks.
+    /// </remarks>
     internal static void RetargetSymlink(string dnvmHome, SdkDirName sdkDirName)
     {
-        var symlinkPath = Path.Combine(dnvmHome, DotnetExeName);
+        var symlinkPath = Path.Combine(dnvmHome, DotnetSymlinkName);
         var sdkInstallDir = Path.Combine(dnvmHome, sdkDirName.Name);
         // Delete if it already exists
         try
@@ -294,12 +298,24 @@ public sealed class InstallCommand
             File.Delete(symlinkPath);
         }
         catch { }
-        File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetExeName));
+        if (OperatingSystem.IsWindows())
+        {
+            // On Windows, we can't create a symlink, so create a .cmd file that calls the dotnet.exe
+            File.WriteAllText(symlinkPath, $"""
+@echo off
+"%~dp0{sdkDirName.Name}\{DotnetExeName}" %*
+""");
+        }
+        else
+        {
+            // On Unix, we can create a symlink
+            File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetSymlinkName));
+        }
     }
 
     private static void CreateSymlinkIfMissing(string dnvmHome, SdkDirName sdkDirName)
     {
-        var symlinkPath = Path.Combine(dnvmHome, DotnetExeName);
+        var symlinkPath = Path.Combine(dnvmHome, DotnetSymlinkName);
         if (!File.Exists(symlinkPath))
         {
             RetargetSymlink(dnvmHome, sdkDirName);

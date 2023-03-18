@@ -41,6 +41,7 @@ public sealed class SelectTests : IDisposable
             FeedUrl = mockServer.PrefixString,
         });
         Assert.Equal(InstallCommand.Result.Success, result);
+        var defaultSdkDir = GlobalOptions.DefaultSdkDirName;
         var defaultDotnet = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name, Utilities.DotnetExeName);
         Assert.True(File.Exists(defaultDotnet));
         result = await InstallCommand.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
@@ -50,10 +51,10 @@ public sealed class SelectTests : IDisposable
         Assert.Equal(InstallCommand.Result.Success, result);
         var previewDotnet = Path.Combine(_globalOptions.DnvmHome, "preview", Utilities.DotnetExeName);
         Assert.True(File.Exists(previewDotnet));
-        // Symlink should point to the default SDK
-        var dotnetSymlink = Path.Combine(_globalOptions.DnvmHome, Utilities.DotnetExeName);
-        var finfo = new FileInfo(dotnetSymlink);
-        Assert.Equal(defaultDotnet, finfo.LinkTarget);
+
+        // Check that the dotnet link/cmd points to the default SDK
+        var dotnetSymlink = Path.Combine(_globalOptions.DnvmHome, Utilities.DotnetSymlinkName);
+        AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
 
         // Select the preview SDK
         var manifest = ManifestUtils.ReadManifest(_globalOptions.ManifestPath);
@@ -63,7 +64,19 @@ public sealed class SelectTests : IDisposable
         manifest = await SelectCommand.SelectNewDir(_globalOptions.DnvmHome, previewSdkDir, manifest);
 
         Assert.Equal(previewSdkDir, manifest.CurrentSdkDir);
-        finfo = new FileInfo(dotnetSymlink);
-        Assert.Equal(previewDotnet, finfo.LinkTarget);
+        AssertSymlinkTarget(dotnetSymlink, previewSdkDir);
+    }
+
+    private static void AssertSymlinkTarget(string dotnetSymlink, SdkDirName dirName)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Contains($"{dirName.Name}\\{Utilities.DotnetExeName}", File.ReadAllText(dotnetSymlink));
+        }
+        else
+        {
+            var finfo = new FileInfo(dotnetSymlink);
+            Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DotnetExeName), finfo.LinkTarget);
+        }
     }
 }
