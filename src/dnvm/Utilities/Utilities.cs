@@ -8,6 +8,7 @@ using System.IO;
 using System.IO.Compression;
 using System.IO.Enumeration;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
@@ -83,6 +84,9 @@ public static class Utilities
 
     public static string DnvmExeName = "dnvm" + ExeSuffix;
     public static string DotnetExeName = "dotnet" + ExeSuffix;
+    public static string DotnetSymlinkName = "dotnet" + (OperatingSystem.IsWindows()
+        ? ".cmd"
+        : "");
 
     public static async Task<string?> ExtractArchiveToDir(string archivePath, string dirPath)
     {
