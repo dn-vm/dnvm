@@ -1,5 +1,6 @@
 ﻿
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
@@ -21,6 +22,7 @@ public static class Program
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(AnsiConsole.Console);
         var globalOptions = GetGlobalConfig();
+        Directory.CreateDirectory(globalOptions.DnvmHome);
         var dnvmFs = DnvmFs.CreatePhysical(globalOptions.DnvmHome);
         return options.Command switch
         {
