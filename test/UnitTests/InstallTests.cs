@@ -33,10 +33,16 @@ public sealed class InstallTests : IDisposable
         _dnvmHome.Dispose();
     }
 
+    private static ValueTask TestWithServer(Func<MockServer, ValueTask> test)
+        => TaskScope.With(async taskScope =>
+        {
+            await using var mockServer = new MockServer(taskScope);
+            await test(mockServer);
+        });
+
     [Fact]
-    public async Task LtsInstall()
+    public ValueTask LtsInstall() => TestWithServer(async server =>
     {
-        await using var server = new MockServer();
         const Channel channel = Channel.Lts;
         var options = new CommandArguments.InstallArguments()
         {
@@ -64,12 +70,11 @@ public sealed class InstallTests : IDisposable
                 InstalledSdkVersions = ImmutableArray.Create(installedVersion)
             }})
         }, JsonSerializer.Deserialize<Manifest>(manifest));
-    }
+    });
 
     [Fact]
-    public async Task SdkInstallDirMissing()
+    public ValueTask SdkInstallDirMissing() => TestWithServer(async server =>
     {
-        await using var server = new MockServer();
         var args = new CommandArguments.InstallArguments()
         {
             Channel = Channel.Lts,
@@ -83,12 +88,11 @@ public sealed class InstallTests : IDisposable
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
-    }
+    });
 
     [Fact]
-    public async Task PreviewIsolated()
+    public ValueTask PreviewIsolated() => TestWithServer(async server =>
     {
-        await using var server = new MockServer();
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { SupportPhase = "preview" }).ToImmutableArray()
         };
@@ -106,12 +110,11 @@ public sealed class InstallTests : IDisposable
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
-    }
+    });
 
     [Fact]
-    public async Task InstallStsToSubdir()
+    public ValueTask InstallStsToSubdir() => TestWithServer(async server =>
     {
-        await using var server = new MockServer();
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { ReleaseType = "sts" }).ToImmutableArray()
         };
@@ -130,5 +133,5 @@ public sealed class InstallTests : IDisposable
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
-    }
+    });
 }

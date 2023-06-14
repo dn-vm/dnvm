@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <Rid>$(NETCoreSdkPortableRuntimeIdentifier)</Rid>
-    <DnvmPath>$(ArtifactsPath)/bin/dnvm/Release/$(TargetFramework)/$(Rid)/publish/dnvm$(ExeSuffix)</DnvmPath>
+    <DnvmPath>$(ArtifactsPath)/publish/dnvm/release_$(Rid)/dnvm$(ExeSuffix)</DnvmPath>
   </PropertyGroup>
 
   <ItemGroup>

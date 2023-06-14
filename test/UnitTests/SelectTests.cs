@@ -1,4 +1,5 @@
 
+using System.Runtime.CompilerServices;
 using Dnvm.Test;
 using Spectre.Console.Testing;
 using Xunit;
@@ -35,36 +36,41 @@ public sealed class SelectTests : IDisposable
     [Fact]
     public async Task SelectPreview()
     {
-        var mockServer = new MockServer();
-        var result = await InstallCommand.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
-            Channel = Channel.Latest,
-            FeedUrl = mockServer.PrefixString,
+        await TaskScope.With(async scope =>
+        {
+            await using var mockServer = new MockServer(scope);
+            var result = await InstallCommand.Run(_globalOptions, _logger, new CommandArguments.InstallArguments
+            {
+                Channel = Channel.Latest,
+                FeedUrl = mockServer.PrefixString,
+            });
+            Assert.Equal(InstallCommand.Result.Success, result);
+            var defaultSdkDir = GlobalOptions.DefaultSdkDirName;
+            var defaultDotnet = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name, Utilities.DotnetExeName);
+            Assert.True(File.Exists(defaultDotnet));
+            result = await InstallCommand.Run(_globalOptions, _logger, new CommandArguments.InstallArguments
+            {
+                Channel = Channel.Preview,
+                FeedUrl = mockServer.PrefixString,
+            });
+            Assert.Equal(InstallCommand.Result.Success, result);
+            var previewDotnet = Path.Combine(_globalOptions.DnvmHome, "preview", Utilities.DotnetExeName);
+            Assert.True(File.Exists(previewDotnet));
+
+            // Check that the dotnet link/cmd points to the default SDK
+            var dotnetSymlink = Path.Combine(_globalOptions.DnvmHome, Utilities.DotnetSymlinkName);
+            AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
+
+            // Select the preview SDK
+            var manifest = ManifestUtils.ReadManifest(_globalOptions.ManifestPath);
+            Assert.Equal(GlobalOptions.DefaultSdkDirName, manifest.CurrentSdkDir);
+
+            var previewSdkDir = new SdkDirName("preview");
+            manifest = await SelectCommand.SelectNewDir(_globalOptions.DnvmHome, previewSdkDir, manifest);
+
+            Assert.Equal(previewSdkDir, manifest.CurrentSdkDir);
+            AssertSymlinkTarget(dotnetSymlink, previewSdkDir);
         });
-        Assert.Equal(InstallCommand.Result.Success, result);
-        var defaultSdkDir = GlobalOptions.DefaultSdkDirName;
-        var defaultDotnet = Path.Combine(_globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name, Utilities.DotnetExeName);
-        Assert.True(File.Exists(defaultDotnet));
-        result = await InstallCommand.Run(_globalOptions, _logger, new CommandArguments.InstallArguments {
-            Channel = Channel.Preview,
-            FeedUrl = mockServer.PrefixString,
-        });
-        Assert.Equal(InstallCommand.Result.Success, result);
-        var previewDotnet = Path.Combine(_globalOptions.DnvmHome, "preview", Utilities.DotnetExeName);
-        Assert.True(File.Exists(previewDotnet));
-
-        // Check that the dotnet link/cmd points to the default SDK
-        var dotnetSymlink = Path.Combine(_globalOptions.DnvmHome, Utilities.DotnetSymlinkName);
-        AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
-
-        // Select the preview SDK
-        var manifest = ManifestUtils.ReadManifest(_globalOptions.ManifestPath);
-        Assert.Equal(GlobalOptions.DefaultSdkDirName, manifest.CurrentSdkDir);
-
-        var previewSdkDir = new SdkDirName("preview");
-        manifest = await SelectCommand.SelectNewDir(_globalOptions.DnvmHome, previewSdkDir, manifest);
-
-        Assert.Equal(previewSdkDir, manifest.CurrentSdkDir);
-        AssertSymlinkTarget(dotnetSymlink, previewSdkDir);
     }
 
     private static void AssertSymlinkTarget(string dotnetSymlink, SdkDirName dirName)

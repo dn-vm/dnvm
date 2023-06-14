@@ -33,10 +33,16 @@ public sealed class SelfInstallTests
         };
     }
 
+    private static ValueTask TestWithServer(Func<MockServer, ValueTask> test)
+        => TaskScope.With(async taskScope =>
+        {
+            await using var mockServer = new MockServer(taskScope);
+            await test(mockServer);
+        });
+
     [Fact]
-    public async Task FirstRunInstallsDotnet()
+    public ValueTask FirstRunInstallsDotnet() => TestWithServer(async mockServer =>
     {
-        await using var mockServer = new MockServer();
         var procResult = await ProcUtil.RunWithOutput(DnvmExe,
             $"selfinstall --feed-url {mockServer.PrefixString} -y -v",
             new() {
@@ -54,12 +60,11 @@ public sealed class SelfInstallTests
 
         var result = await ProcUtil.RunWithOutput(dotnetPath, "-h");
         Assert.Contains(Assets.ArchiveToken, result.Out);
-    }
+    });
 
     [ConditionalFact(typeof(UnixOnly))]
-    public async Task FirstRunWritesEnv()
+    public ValueTask FirstRunWritesEnv() => TestWithServer(async mockServer =>
     {
-        await using var mockServer = new MockServer();
         var psi = new ProcessStartInfo
         {
             FileName = DnvmExe,
@@ -108,12 +113,11 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             Assert.StartsWith(expectedPrefix, s);
             return s![expectedPrefix.Length..];
         }
-    }
+    });
 
     [ConditionalFact(typeof(WindowsOnly))]
-    public async Task FirstRunSetsUserPath()
+    public ValueTask FirstRunSetsUserPath() => TestWithServer(async mockServer =>
     {
-        await using var mockServer = new MockServer();
         const string PATH = "PATH";
         const string DOTNET_ROOT = "DOTNET_ROOT";
 
@@ -145,12 +149,11 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             Environment.SetEnvironmentVariable(PATH, savedPath, EnvironmentVariableTarget.User);
             Environment.SetEnvironmentVariable(DOTNET_ROOT, savedDotnetRoot, EnvironmentVariableTarget.User);
         }
-    }
+    });
 
     [Fact]
-    public async Task RealUpdateSelf()
+    public ValueTask RealUpdateSelf() => TestWithServer(async mockServer =>
     {
-        await using var mockServer = new MockServer();
         var copiedExe = Path.Combine(_globalOptions.DnvmHome, Utilities.DnvmExeName);
         File.Copy(DnvmExe, copiedExe);
         using var tmpDir = TestUtils.CreateTempDirectory();
@@ -169,7 +172,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         var timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
         Assert.True(timeAfterUpdate > timeBeforeUpdate);
         Assert.Contains("Process successfully upgraded", result.Out);
-    }
+    });
 
     [Fact]
     public async Task RunUpdateSelfInstaller()

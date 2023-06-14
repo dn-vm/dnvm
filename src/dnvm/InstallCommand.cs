@@ -117,7 +117,7 @@ public sealed class InstallCommand
             logger.Error("Manifest file corrupted");
             return Result.ManifestFileCorrupted;
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             logger.Error("Error reading manifest file: " + e.Message);
             return Result.ManifestIOError;
@@ -143,7 +143,7 @@ public sealed class InstallCommand
         {
             versionIndex = await DotnetReleasesIndex.FetchLatestIndex(feedUrl);
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             logger.Error("Could not fetch the releases index: ");
             logger.Error(e.Message);
