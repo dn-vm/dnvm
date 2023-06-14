@@ -12,7 +12,6 @@ jobs:
   publish:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
             rid: linux-x64
@@ -34,7 +33,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v2
       with:
-        dotnet-version: '8.0.100-preview.1.23115.2'
+        dotnet-version: '8.0.100-preview.2.23157.25'
     - name: Restore local tools
       run: dotnet tool restore
     - name: Publish Windows
@@ -43,7 +42,7 @@ jobs:
       run: ./publish.ps1
     - name: Publish Unix
       if: matrix.os != 'windows-latest'
-      run: ./publish.sh
+      run: ./publish.sh -r ${{ matrix.rid }}
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
@@ -51,7 +50,7 @@ jobs:
          # A file, directory or wildcard pattern that describes what to upload
         path: artifacts/dnvm-*-${{ matrix.rid }}.${{ matrix.zipSuffix }}
   release:
-    condition: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: publish
     runs-on: ubuntu-latest
     steps:
