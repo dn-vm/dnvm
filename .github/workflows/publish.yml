@@ -14,7 +14,6 @@ jobs:
   publish:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
             rid: linux-x64
