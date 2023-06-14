@@ -2,8 +2,7 @@ name: Publish
 
 on:
   push:
-    branches: [ "main" ]
-    tags: [ "*" ]
+    branches: [ * ]
 
 permissions:
   contents: write
@@ -51,7 +50,7 @@ jobs:
          # A file, directory or wildcard pattern that describes what to upload
         path: artifacts/dnvm-*-${{ matrix.rid }}.${{ matrix.zipSuffix }}
   release:
-    condition: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: publish
     runs-on: ubuntu-latest
     steps:
