@@ -23,6 +23,9 @@ jobs:
           - os: macos-latest
             rid: osx-x64
             zipSuffix: tar.gz
+          - os: macos-latest
+            rid: osx-arm64
+            zipSuffix: tar.gz
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
