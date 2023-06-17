@@ -5,20 +5,23 @@ namespace Dnvm.Test;
 
 public sealed class UpdateTests
 {
-    public UpdateTests(ITestOutputHelper output)
+    private ValueTask TestWithServer(Func<MockServer, ValueTask> test)
     {
-        var wrapper = new OutputWrapper(output);
+        return TaskScope.With(async taskScope =>
+        {
+            await using var mockServer = new MockServer(taskScope);
+            await test(mockServer);
+        });
     }
 
     [Fact]
-    public async Task SelfUpdateNewVersion()
+    public ValueTask SelfUpdateNewVersion() => TestWithServer(async mockServer =>
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
         var startVer = Program.SemVer;
-        await using var mockServer = new MockServer();
         mockServer.DnvmReleases = mockServer.DnvmReleases with {
             LatestVersion = mockServer.DnvmReleases.LatestVersion with {
                 Version = startVer.WithMajor(startVer.Major + 1).ToString()
@@ -36,16 +39,15 @@ public sealed class UpdateTests
         Assert.Equal("", error);
         Assert.Contains("Hello from dnvm test", output);
         Assert.Equal(0, proc.ExitCode);
-    }
+    });
 
     [Fact]
-    public async Task SelfUpdateUpToDate()
+    public ValueTask SelfUpdateUpToDate() => TestWithServer(async mockServer =>
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
-        await using var mockServer = new MockServer();
         mockServer.DnvmReleases = mockServer.DnvmReleases with {
             LatestVersion = mockServer.DnvmReleases.LatestVersion with {
                 Version = Program.SemVer.ToString() // report the same version as installed
@@ -62,7 +64,7 @@ public sealed class UpdateTests
         result = await ProcUtil.RunWithOutput(dnvmTmpPath, "-h");
         Assert.DoesNotContain("Hello from dnvm test", result.Out);
         Assert.Equal(0, result.ExitCode);
-    }
+    });
 
     [Fact]
     public async Task ValidateBinary()

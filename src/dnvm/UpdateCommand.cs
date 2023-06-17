@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Semver;
 using Serde.Json;
@@ -67,7 +68,7 @@ public sealed partial class UpdateCommand
         {
             releaseIndex = await DotnetReleasesIndex.FetchLatestIndex(_feedUrl);
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             _logger.Error("Could not fetch the releases index: ");
             _logger.Error(e.Message);
@@ -83,7 +84,8 @@ public sealed partial class UpdateCommand
             _args.Yes,
             _feedUrl,
             _releasesUrl,
-            _manifestPath);
+            _manifestPath,
+            cancellationToken: default);
     }
 
     public static async Task<Result> UpdateSdks(
@@ -94,11 +96,12 @@ public sealed partial class UpdateCommand
         bool yes,
         string feedUrl,
         string releasesUrl,
-        string manifestPath)
+        string manifestPath,
+        CancellationToken cancellationToken)
     {
         logger.Log("Looking for available updates");
         // Check for dnvm updates
-        if (await CheckForSelfUpdates(logger, releasesUrl) is (true, _))
+        if (await CheckForSelfUpdates(logger, releasesUrl, cancellationToken) is (true, _))
         {
             logger.Log("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
         }
@@ -187,7 +190,7 @@ public sealed partial class UpdateCommand
         }
 
         DnvmReleases releases;
-        switch (await CheckForSelfUpdates(_logger, _releasesUrl))
+        switch (await CheckForSelfUpdates(_logger, _releasesUrl, cancellationToken: default))
         {
             case (false, null):
                 return Result.SelfUpdateFailed;
@@ -228,7 +231,8 @@ public sealed partial class UpdateCommand
 
     private static async Task<(bool UpdateAvailable, DnvmReleases? Releases)> CheckForSelfUpdates(
         Logger logger,
-        string releasesUrl)
+        string releasesUrl,
+        CancellationToken cancellationToken)
     {
         logger.Log("Checking for updates to dnvm");
         logger.Info("Using dnvm releases URL: " + releasesUrl);
@@ -236,11 +240,11 @@ public sealed partial class UpdateCommand
         string releasesJson;
         try
         {
-            releasesJson = await Program.HttpClient.GetStringAsync((string)releasesUrl);
+            releasesJson = await Program.HttpClient.GetStringAsync(releasesUrl, cancellationToken);
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error((string)("Could not fetch releases from URL: " + releasesUrl));
+            logger.Error("Could not fetch releases from URL: " + releasesUrl);
             logger.Error(e.Message);
             return (false, null);
         }

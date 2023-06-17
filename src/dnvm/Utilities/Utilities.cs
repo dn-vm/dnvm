@@ -3,7 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.IO.Enumeration;
@@ -70,10 +70,8 @@ public static class Utilities
             throw new NotSupportedException("Current OS is not supported: " + RuntimeInformation.OSDescription);
     }
 
-    public static bool IsSingleFile =>
-#pragma warning disable IL3000
-        Assembly.GetExecutingAssembly()?.Location == "";
-#pragma warning restore IL3000
+    [UnconditionalSuppressMessage("SingleFile", "IL3000", Justification = "Checks for empty location")]
+    public static bool IsSingleFile => Assembly.GetExecutingAssembly()?.Location == "";
 
     public static string ProcessPath = Environment.ProcessPath
         ?? throw new InvalidOperationException("Cannot find exe name");

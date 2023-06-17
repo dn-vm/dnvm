@@ -9,15 +9,13 @@ using Xunit.Abstractions;
 
 namespace Dnvm.Test;
 
-public sealed class UpdateTests : IAsyncLifetime
+public sealed class UpdateTests : IDisposable
 {
-    private readonly MockServer _mockServer = new MockServer();
     private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
     private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
     private readonly Dictionary<string, string> _envVars = new();
     private readonly GlobalOptions _globalOptions;
     private readonly Logger _logger;
-    private readonly CommandArguments.UpdateArguments _updateArguments;
 
     public UpdateTests(ITestOutputHelper output)
     {
@@ -29,52 +27,70 @@ public sealed class UpdateTests : IAsyncLifetime
             GetUserEnvVar = s => _envVars[s],
             SetUserEnvVar = (name, val) => _envVars[name] = val,
         };
-        _updateArguments = new() {
-            FeedUrl = _mockServer.PrefixString,
-            DnvmReleasesUrl = _mockServer.DnvmReleasesUrl,
-            Verbose = true,
-            Yes = true,
-        };
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
-
-    public async Task DisposeAsync()
+    public void Dispose()
     {
-        await _mockServer.DisposeAsync();
         _userHome.Dispose();
         _dnvmHome.Dispose();
     }
 
-    [Fact]
-    public async Task UpdateChecksForSelfUpdate()
+    private ValueTask TestWithServer(Action<MockServer, CommandArguments.UpdateArguments, CancellationToken> test)
+        => TestWithServer((mockServer, updateArguments, cancellationToken) => {
+            test(mockServer, updateArguments, cancellationToken);
+            return ValueTask.CompletedTask;
+        });
+
+    private ValueTask TestWithServer(Func<MockServer, CommandArguments.UpdateArguments, CancellationToken, ValueTask> test)
     {
-        var sdkDir = GlobalOptions.DefaultSdkDirName;
-        var manifest = new Manifest {
-            InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = "42.42.142", SdkDirName = sdkDir }),
-            TrackedChannels = ImmutableArray.Create(new TrackedChannel {
-                ChannelName = Channel.Latest,
-                SdkDirName = sdkDir,
-                InstalledSdkVersions = ImmutableArray.Create("42.42.142")
-            })
-        };
-        var releasesIndex = _mockServer.ReleasesIndexJson;
-        var console = new TestConsole();
-        var logger = new Logger(console);
-        _ = await UpdateCommand.UpdateSdks(
-            _dnvmHome.Path,
-            logger,
-            releasesIndex,
-            manifest,
-            yes: false,
-            _updateArguments.FeedUrl!,
-            _updateArguments.DnvmReleasesUrl!,
-            _globalOptions.ManifestPath);
-        Assert.Contains("dnvm is out of date", console.Output);
+        return TaskScope.With(async taskScope =>
+        {
+            await using var mockServer = new MockServer(taskScope);
+            var updateArguments = new CommandArguments.UpdateArguments() {
+                FeedUrl = mockServer.PrefixString,
+                DnvmReleasesUrl = mockServer.DnvmReleasesUrl,
+                Verbose = true,
+                Yes = true,
+            };
+            await test(mockServer, updateArguments, taskScope.CancellationToken);
+        });
     }
 
     [Fact]
-    public void FindsNewerLatestToLtsVersion()
+    public ValueTask UpdateChecksForSelfUpdate()
+    {
+        return TestWithServer(async (mockServer, updateArguments, cancellationToken) =>
+        {
+            var sdkDir = GlobalOptions.DefaultSdkDirName;
+            var manifest = new Manifest
+            {
+                InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = "42.42.142", SdkDirName = sdkDir }),
+                TrackedChannels = ImmutableArray.Create(new TrackedChannel
+                {
+                    ChannelName = Channel.Latest,
+                    SdkDirName = sdkDir,
+                    InstalledSdkVersions = ImmutableArray.Create("42.42.142")
+                })
+            };
+            var releasesIndex = mockServer.ReleasesIndexJson;
+            var console = new TestConsole();
+            var logger = new Logger(console);
+            _ = await UpdateCommand.UpdateSdks(
+                _dnvmHome.Path,
+                logger,
+                releasesIndex,
+                manifest,
+                yes: false,
+                updateArguments.FeedUrl!,
+                updateArguments.DnvmReleasesUrl!,
+                _globalOptions.ManifestPath,
+                cancellationToken);
+            Assert.Contains("dnvm is out of date", console.Output);
+        });
+    }
+
+    [Fact]
+    public ValueTask FindsNewerLatestToLtsVersion() => TestWithServer((mockServer, _, _) =>
     {
         // Construct a manifest with an installed version "41.0.0" in the Latest channel
         // and confirm that 42.42 is processed as newer
@@ -87,20 +103,20 @@ public sealed class UpdateTests : IAsyncLifetime
                 InstalledSdkVersions = ImmutableArray.Create(installedVersion)
             })
         };
-        var releasesIndex = _mockServer.ReleasesIndexJson;
+        var releasesIndex = mockServer.ReleasesIndexJson;
         var results = UpdateCommand.FindPotentialUpdates(manifest, releasesIndex);
         var (channel, newestInstalled, newestAvailable) = results[0];
         Assert.Equal(Channel.Latest, channel);
         Assert.Equal(new SemVersion(41, 0, 0), newestInstalled);
         Assert.Equal("42.42.42", newestAvailable!.LatestRelease);
         Assert.Single(results);
-    }
+    });
 
     [Fact]
-    public async Task InstallAndUpdate()
+    public async ValueTask InstallAndUpdate() => await TestWithServer(async (mockServer, updateArguments, cancellationToken) =>
     {
         const Channel channel = Channel.Latest;
-        _mockServer.ReleasesIndexJson = new() {
+        mockServer.ReleasesIndexJson = new() {
             Releases = ImmutableArray.Create(new DotnetReleasesIndex.Release[] {
                 new() {
                     LatestRelease = "41.0.0",
@@ -113,12 +129,12 @@ public sealed class UpdateTests : IAsyncLifetime
         };
         var result = await InstallCommand.Run(_globalOptions, _logger, new() {
             Channel = channel,
-            FeedUrl = _mockServer.PrefixString,
+            FeedUrl = mockServer.PrefixString,
             Verbose = true
         });
         Assert.Equal(InstallCommand.Result.Success, result);
         // Update with a newer version
-        _mockServer.ReleasesIndexJson = new() {
+        mockServer.ReleasesIndexJson = new() {
             Releases = ImmutableArray.Create(new DotnetReleasesIndex.Release[] {
                 new() {
                     LatestRelease = "41.0.1",
@@ -129,7 +145,7 @@ public sealed class UpdateTests : IAsyncLifetime
                 }
             })
         };
-        var updateResult = await UpdateCommand.Run(_globalOptions, _logger, _updateArguments);
+        var updateResult = await UpdateCommand.Run(_globalOptions, _logger, updateArguments);
         var sdkVersions = ImmutableArray.Create(new[] { "41.0.100", "41.0.101" });
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
         var expectedManifest = new Manifest {
@@ -142,7 +158,7 @@ public sealed class UpdateTests : IAsyncLifetime
         };
         var actualManifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_globalOptions.ManifestPath));
         Assert.Equal(expectedManifest, actualManifest);
-    }
+    });
 
     [Fact]
     public void SemVerIsParsable()

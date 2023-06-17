@@ -10,7 +10,7 @@ namespace Dnvm.Test;
 public sealed class MockServer : IAsyncDisposable
 {
     private readonly HttpListener _listener;
-    private Task _task;
+    private readonly TaskScope _scope;
     public int Port { get; }
 
     public string PrefixString => $"http://localhost:{Port}/";
@@ -38,8 +38,10 @@ public sealed class MockServer : IAsyncDisposable
     };
 
     public DnvmReleases DnvmReleases { get; set; }
-    public MockServer()
+
+    public MockServer(TaskScope scope)
     {
+        _scope = scope;
         // Generate a temporary port for testing
         while (true)
         {
@@ -49,7 +51,7 @@ public sealed class MockServer : IAsyncDisposable
             {
                 _listener.Prefixes.Add(PrefixString);
                 _listener.Start();
-                _task = Task.Run(WaitForConnection);
+                _ = _scope.Run(WaitForConnection);
                 break;
             }
             catch
@@ -72,32 +74,26 @@ public sealed class MockServer : IAsyncDisposable
 
     private async Task WaitForConnection()
     {
-        var ctx = await _listener.GetContextAsync();
-        if (UrlToHandler.TryGetValue(ctx.Request.Url!.LocalPath.ToLowerInvariant(), out var action))
+        while (_listener.IsListening)
         {
+            HttpListenerContext ctx;
             try
+            {
+                ctx = await _listener.GetContextAsync();
+            }
+            catch (ObjectDisposedException)
+            {
+                break;
+            }
+            if (UrlToHandler.TryGetValue(ctx.Request.Url!.LocalPath.ToLowerInvariant(), out var action))
             {
                 action(ctx.Response);
             }
-            catch (Exception e)
+            else
             {
-                var buffer = Encoding.UTF8.GetBytes(e.Message);
-                var response = ctx.Response;
-                response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                // Get a response stream and write the response to it.
-                response.ContentLength64 = buffer.Length;
-                var output = response.OutputStream;
-                output.Write(buffer, 0, buffer.Length);
-                // You must close the output stream.
-                output.Close();
+                throw new ArgumentException($"No handler for {ctx.Request.Url.LocalPath}");
             }
         }
-        else
-        {
-            ctx.Response.StatusCode = 404;
-            ctx.Response.Close();
-        }
-        _task = Task.Run(WaitForConnection);
     }
 
     private Dictionary<string, Action<HttpListenerResponse>> UrlToHandler
@@ -119,17 +115,8 @@ public sealed class MockServer : IAsyncDisposable
 
     private void GetReleasesIndexJson(HttpListenerResponse response)
     {
-        byte[] buffer;
-        if (ReleasesIndexJson is null)
-        {
-            buffer = Encoding.UTF8.GetBytes(nameof(ReleasesIndexJson) + " property must be set");
-            response.StatusCode = (int)HttpStatusCode.InternalServerError;
-        }
-        else
-        {
-            buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ReleasesIndexJson));
-            response.StatusCode = (int)HttpStatusCode.OK;
-        }
+        byte[] buffer= Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ReleasesIndexJson));
+        response.StatusCode = (int)HttpStatusCode.OK;
         // Get a response stream and write the response to it.
         response.ContentLength64 = buffer.Length;
         var output = response.OutputStream;
@@ -168,9 +155,9 @@ public sealed class MockServer : IAsyncDisposable
         output.Close();
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        await Task.WhenAny(_task, Task.Delay(10));
-        _listener.Stop();
+        _listener.Close();
+        return ValueTask.CompletedTask;
     }
 }
