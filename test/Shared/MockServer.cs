@@ -157,6 +157,7 @@ public sealed class MockServer : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        _listener.Stop();
         _listener.Close();
         return ValueTask.CompletedTask;
     }
