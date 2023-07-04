@@ -4,6 +4,8 @@ on:
   push:
     branches: [ "main" ]
     tags: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
 
 permissions:
   contents: write
@@ -15,6 +17,9 @@ jobs:
         include:
           - os: ubuntu-latest
             rid: linux-x64
+            zipSuffix: tar.gz
+          - os: ubuntu-latest
+            rid: linux-arm64
             zipSuffix: tar.gz
           - os: windows-latest
             rid: win-x64
