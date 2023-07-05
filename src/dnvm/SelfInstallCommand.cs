@@ -113,7 +113,7 @@ public class SelfInstallCommand
                 }
                 else if (int.TryParse(resultStr, out int resultInt) && resultInt > 0 && resultInt <= channels.Length)
                 {
-                    channel = channels[resultInt];
+                    channel = channels[resultInt - 1];
                     break;
                 }
             }
