@@ -1,4 +1,5 @@
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Dnvm.Test;
 using Spectre.Console.Testing;
@@ -9,6 +10,7 @@ namespace Dnvm;
 
 public sealed class SelectTests : IDisposable
 {
+    private readonly TestConsole _console = new();
     private readonly Logger _logger;
     private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
     private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
@@ -18,7 +20,7 @@ public sealed class SelectTests : IDisposable
     public SelectTests(ITestOutputHelper output)
     {
         var wrapper = new OutputWrapper(output);
-        _logger = new Logger(new TestConsole());
+        _logger = new Logger(_console);
         _globalOptions = new GlobalOptions {
             DnvmHome = _dnvmHome.Path,
             UserHome = _userHome.Path,
@@ -66,12 +68,36 @@ public sealed class SelectTests : IDisposable
             Assert.Equal(GlobalOptions.DefaultSdkDirName, manifest.CurrentSdkDir);
 
             var previewSdkDir = new SdkDirName("preview");
-            manifest = await SelectCommand.SelectNewDir(_globalOptions.DnvmHome, previewSdkDir, manifest);
+            manifest = (await SelectCommand.RunWithManifest(_globalOptions.DnvmHome, previewSdkDir, manifest, _logger)).Unwrap();
 
             Assert.Equal(previewSdkDir, manifest.CurrentSdkDir);
             AssertSymlinkTarget(dotnetSymlink, previewSdkDir);
         });
     }
+
+    [Fact]
+    public Task BadDirName() => MockServer.WithScope(async server =>
+    {
+        var dn = new SdkDirName("dn");
+        var manifest = new Manifest()
+        {
+            CurrentSdkDir = dn,
+            TrackedChannels = ImmutableArray.Create<TrackedChannel>(new TrackedChannel
+            {
+                ChannelName = Channel.Latest,
+                SdkDirName = dn
+            })
+        };
+        var result = await SelectCommand.RunWithManifest(_globalOptions.DnvmHome, new SdkDirName("bad"), manifest, _logger);
+        Assert.Equal(SelectCommand.Result.BadDirName, result);
+
+        Assert.Equal("""
+Invalid SDK directory name: bad
+Valid SDK directory names:
+  dn
+
+""", _console.Output);
+    });
 
     private static void AssertSymlinkTarget(string dotnetSymlink, SdkDirName dirName)
     {

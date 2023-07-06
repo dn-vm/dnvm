@@ -29,7 +29,7 @@ public static class Program
             CommandArguments.InstallArguments o => (int)await InstallCommand.Run(globalOptions, logger, o),
             CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(globalOptions, logger, o),
             CommandArguments.ListArguments => (int)await ListCommand.Run(logger, dnvmFs),
-            CommandArguments.SelectArguments o => await SelectCommand.Run(globalOptions, logger, o),
+            CommandArguments.SelectArguments o => (int)await SelectCommand.Run(globalOptions, logger, o),
             CommandArguments.SelfInstallArguments o => (int)await SelfInstallCommand.Run(dnvmFs, globalOptions, logger, o),
             _ => throw ExceptionUtilities.Unreachable
         };

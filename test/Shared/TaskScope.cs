@@ -1,6 +1,4 @@
 
-using System.Diagnostics;
-
 public sealed class TaskScope
 {
     private readonly CancellationTokenSource _cts = new();
