@@ -85,6 +85,11 @@ public sealed class MockServer : IAsyncDisposable
             {
                 break;
             }
+            catch (HttpListenerException e)
+            {
+                throw new InvalidOperationException("Error code " + e.ErrorCode);
+            }
+
             if (UrlToHandler.TryGetValue(ctx.Request.Url!.LocalPath.ToLowerInvariant(), out var action))
             {
                 action(ctx.Response);
