@@ -96,7 +96,7 @@ Invalid SDK directory name: bad
 Valid SDK directory names:
   dn
 
-""", _console.Output);
+""".Replace(Environment.NewLine, "\n"), _console.Output);
     });
 
     private static void AssertSymlinkTarget(string dotnetSymlink, SdkDirName dirName)
