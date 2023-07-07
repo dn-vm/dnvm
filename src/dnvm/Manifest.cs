@@ -43,6 +43,8 @@ public static class Channels
         Channel.Preview => "The latest preview version",
         _ => throw new NotImplementedException(),
     };
+
+    public static string GetLowerName(this Channel c) => c.ToString().ToLowerInvariant();
 }
 
 [GenerateSerde]
