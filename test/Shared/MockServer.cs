@@ -85,9 +85,9 @@ public sealed class MockServer : IAsyncDisposable
             {
                 break;
             }
-            catch (HttpListenerException e)
+            catch (HttpListenerException e) when (e.ErrorCode == 995) // ERROR_OPERATION_ABORTED
             {
-                throw new InvalidOperationException("Error code " + e.ErrorCode);
+                break;
             }
 
             if (UrlToHandler.TryGetValue(ctx.Request.Url!.LocalPath.ToLowerInvariant(), out var action))
