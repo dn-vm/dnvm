@@ -37,10 +37,10 @@ jobs:
       run: |
         sudo dpkg --add-architecture arm64
         sudo bash -c 'cat > /etc/apt/sources.list.d/arm64.list <<EOF
-        deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
-        deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
-        deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
-        deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse
         EOF'
         sudo apt update
         sudo apt install -y binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu zlib1g-dev:arm64
