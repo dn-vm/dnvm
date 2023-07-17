@@ -35,16 +35,17 @@ jobs:
     - name: Install linux arm64 prereqs
       if: matrix.rid == 'linux-arm64'
       run: |
-        sudo dpkg --add-architecture arm64
-        sudo mkdir -p /etc/apt/sources.list.d
-        sudo cat > /etc/apt/sources.list.d/arm64.list <<EOF
+        sudo su -
+        dpkg --add-architecture arm64
+        mkdir -p /etc/apt/sources.list.d
+        cat > /etc/apt/sources.list.d/arm64.list <<EOF
         deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
         deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
         deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
         deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
         EOF
-        sudo apt update
-        sudo apt install -y binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu zlib1g-dev:arm64
+        apt update
+        apt install -y binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu zlib1g-dev:arm64
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
