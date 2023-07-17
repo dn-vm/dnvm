@@ -37,7 +37,6 @@ jobs:
       run: |
         sudo su -
         dpkg --add-architecture arm64
-        mkdir -p /etc/apt/sources.list.d
         cat > /etc/apt/sources.list.d/arm64.list <<EOF
         deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
         deb [arch=arm64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
