@@ -43,7 +43,7 @@ jobs:
         EOF'
         sudo sed -i -e 's/deb http/deb [arch=amd64] http/g' /etc/apt/sources.list
         sudo apt update
-        sudo apt install -y binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu zlib1g-dev:arm64
+        sudo apt install -y clang binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu zlib1g-dev:arm64
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
