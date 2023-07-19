@@ -5,7 +5,7 @@ namespace Dnvm.Test;
 
 public sealed class UpdateTests
 {
-    private ValueTask TestWithServer(Func<MockServer, ValueTask> test)
+    private Task TestWithServer(Func<MockServer, Task> test)
     {
         return TaskScope.With(async taskScope =>
         {
@@ -15,7 +15,7 @@ public sealed class UpdateTests
     }
 
     [Fact]
-    public ValueTask SelfUpdateNewVersion() => TestWithServer(async mockServer =>
+    public Task SelfUpdateNewVersion() => TestWithServer(async mockServer =>
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();
@@ -42,7 +42,7 @@ public sealed class UpdateTests
     });
 
     [Fact]
-    public ValueTask SelfUpdateUpToDate() => TestWithServer(async mockServer =>
+    public Task SelfUpdateUpToDate() => TestWithServer(async mockServer =>
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();

@@ -33,7 +33,7 @@ public sealed class SelfInstallTests
         };
     }
 
-    private static ValueTask TestWithServer(Func<MockServer, ValueTask> test)
+    private static Task TestWithServer(Func<MockServer, Task> test)
         => TaskScope.With(async taskScope =>
         {
             await using var mockServer = new MockServer(taskScope);
@@ -41,7 +41,7 @@ public sealed class SelfInstallTests
         });
 
     [Fact]
-    public ValueTask FirstRunInstallsDotnet() => TestWithServer(async mockServer =>
+    public Task FirstRunInstallsDotnet() => TestWithServer(async mockServer =>
     {
         var procResult = await ProcUtil.RunWithOutput(DnvmExe,
             $"selfinstall --feed-url {mockServer.PrefixString} -y -v",
@@ -63,7 +63,7 @@ public sealed class SelfInstallTests
     });
 
     [ConditionalFact(typeof(UnixOnly))]
-    public ValueTask FirstRunWritesEnv() => TestWithServer(async mockServer =>
+    public Task FirstRunWritesEnv() => TestWithServer(async mockServer =>
     {
         var psi = new ProcessStartInfo
         {
@@ -116,7 +116,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     });
 
     [ConditionalFact(typeof(WindowsOnly))]
-    public ValueTask FirstRunSetsUserPath() => TestWithServer(async mockServer =>
+    public Task FirstRunSetsUserPath() => TestWithServer(async mockServer =>
     {
         const string PATH = "PATH";
         const string DOTNET_ROOT = "DOTNET_ROOT";
@@ -152,7 +152,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     });
 
     [Fact]
-    public ValueTask RealUpdateSelf() => TestWithServer(async mockServer =>
+    public Task RealUpdateSelf() => TestWithServer(async mockServer =>
     {
         var copiedExe = Path.Combine(_globalOptions.DnvmHome, Utilities.DnvmExeName);
         File.Copy(DnvmExe, copiedExe);

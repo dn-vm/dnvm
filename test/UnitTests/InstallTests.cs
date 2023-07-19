@@ -33,7 +33,7 @@ public sealed class InstallTests : IDisposable
         _dnvmHome.Dispose();
     }
 
-    private static ValueTask TestWithServer(Func<MockServer, ValueTask> test)
+    private static Task TestWithServer(Func<MockServer, Task> test)
         => TaskScope.With(async taskScope =>
         {
             await using var mockServer = new MockServer(taskScope);
@@ -41,7 +41,7 @@ public sealed class InstallTests : IDisposable
         });
 
     [Fact]
-    public ValueTask LtsInstall() => TestWithServer(async server =>
+    public Task LtsInstall() => TestWithServer(async server =>
     {
         const Channel channel = Channel.Lts;
         var options = new CommandArguments.InstallArguments()
@@ -73,7 +73,7 @@ public sealed class InstallTests : IDisposable
     });
 
     [Fact]
-    public ValueTask SdkInstallDirMissing() => TestWithServer(async server =>
+    public Task SdkInstallDirMissing() => TestWithServer(async server =>
     {
         var args = new CommandArguments.InstallArguments()
         {
@@ -91,7 +91,7 @@ public sealed class InstallTests : IDisposable
     });
 
     [Fact]
-    public ValueTask PreviewIsolated() => TestWithServer(async server =>
+    public Task PreviewIsolated() => TestWithServer(async server =>
     {
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { SupportPhase = "preview" }).ToImmutableArray()
@@ -113,7 +113,7 @@ public sealed class InstallTests : IDisposable
     });
 
     [Fact]
-    public ValueTask InstallStsToSubdir() => TestWithServer(async server =>
+    public Task InstallStsToSubdir() => TestWithServer(async server =>
     {
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { ReleaseType = "sts" }).ToImmutableArray()
