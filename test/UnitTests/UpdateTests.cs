@@ -35,13 +35,13 @@ public sealed class UpdateTests : IDisposable
         _dnvmHome.Dispose();
     }
 
-    private ValueTask TestWithServer(Action<MockServer, CommandArguments.UpdateArguments, CancellationToken> test)
+    private Task TestWithServer(Action<MockServer, CommandArguments.UpdateArguments, CancellationToken> test)
         => TestWithServer((mockServer, updateArguments, cancellationToken) => {
             test(mockServer, updateArguments, cancellationToken);
-            return ValueTask.CompletedTask;
+            return Task.CompletedTask;
         });
 
-    private ValueTask TestWithServer(Func<MockServer, CommandArguments.UpdateArguments, CancellationToken, ValueTask> test)
+    private Task TestWithServer(Func<MockServer, CommandArguments.UpdateArguments, CancellationToken, Task> test)
     {
         return TaskScope.With(async taskScope =>
         {
@@ -57,7 +57,7 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
-    public ValueTask UpdateChecksForSelfUpdate()
+    public Task UpdateChecksForSelfUpdate()
     {
         return TestWithServer(async (mockServer, updateArguments, cancellationToken) =>
         {
@@ -90,7 +90,7 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
-    public ValueTask FindsNewerLatestToLtsVersion() => TestWithServer((mockServer, _, _) =>
+    public Task FindsNewerLatestToLtsVersion() => TestWithServer((mockServer, _, _) =>
     {
         // Construct a manifest with an installed version "41.0.0" in the Latest channel
         // and confirm that 42.42 is processed as newer
@@ -113,7 +113,7 @@ public sealed class UpdateTests : IDisposable
     });
 
     [Fact]
-    public async ValueTask InstallAndUpdate() => await TestWithServer(async (mockServer, updateArguments, cancellationToken) =>
+    public async Task InstallAndUpdate() => await TestWithServer(async (mockServer, updateArguments, cancellationToken) =>
     {
         const Channel channel = Channel.Latest;
         mockServer.ReleasesIndexJson = new() {
