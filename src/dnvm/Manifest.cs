@@ -3,6 +3,7 @@ using System;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Serde;
 using Serde.Json;
 using StaticCs;
@@ -87,6 +88,14 @@ public sealed partial record Manifest
             code = HashCode.Combine(code, item);
         }
         return code;
+    }
+
+    internal Manifest Untrack(Channel channel)
+    {
+        return this with
+        {
+            TrackedChannels = TrackedChannels.Where(c => c.ChannelName != channel).ToImmutableArray()
+        };
     }
 }
 

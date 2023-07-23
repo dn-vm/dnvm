@@ -42,7 +42,7 @@ public sealed class DnvmEnv : IDisposable
     /// <summary>
     /// Get the path to DNVM_HOME, which is the location of the dnvm manifest
     /// and the installed SDKs. If the environment variable is not set, uses
-    /// <see cref="GlobalOptions.DefaultDnvmHome" /> as the default.
+    /// <see cref="DnvmEnv.DefaultDnvmHome" /> as the default.
     /// </summar>
     public static DnvmEnv CreateDefault()
     {
