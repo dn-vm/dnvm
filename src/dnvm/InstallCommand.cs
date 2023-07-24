@@ -46,7 +46,7 @@ public sealed class InstallCommand
             _logger.LogLevel = LogLevel.Info;
         }
         _dnvmHome = options.DnvmInstallPath;
-        _feedUrl = _installArgs.FeedUrl ?? GlobalOptions.DotnetFeedUrl;
+        _feedUrl = _installArgs.FeedUrl ?? options.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
             _feedUrl = _feedUrl[..^1];
