@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 using Semver;
 using Spectre.Console;
 using Zio.FileSystems;
+using static System.Environment;
 
 namespace Dnvm;
 
 public static class Program
 {
-    public static SemVersion SemVer = SemVersion.Parse(GitVersionInformation.MajorMinorPatch, SemVersionStyles.Strict);
+    public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.MajorMinorPatch, SemVersionStyles.Strict);
 
     internal static readonly HttpClient HttpClient = new();
 
@@ -21,16 +22,15 @@ public static class Program
         Console.WriteLine();
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(AnsiConsole.Console);
-        var globalOptions = GetGlobalConfig();
+        using var globalOptions = GetGlobalConfig();
         Directory.CreateDirectory(globalOptions.DnvmHome);
-        var dnvmFs = DnvmFs.CreatePhysical(globalOptions.DnvmHome);
         return options.Command switch
         {
             CommandArguments.InstallArguments o => (int)await InstallCommand.Run(globalOptions, logger, o),
             CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(globalOptions, logger, o),
-            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, dnvmFs),
+            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, globalOptions.DnvmFs),
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(globalOptions, logger, o),
-            CommandArguments.SelfInstallArguments o => (int)await SelfInstallCommand.Run(dnvmFs, globalOptions, logger, o),
+            CommandArguments.SelfInstallArguments o => (int)await SelfInstallCommand.Run(globalOptions, logger, o),
             _ => throw ExceptionUtilities.Unreachable
         };
     }
@@ -42,15 +42,17 @@ public static class Program
     /// </summar>
     private static GlobalOptions GetGlobalConfig()
     {
-        var config = GlobalOptions.Default;
-
         var home = Environment.GetEnvironmentVariable("DNVM_HOME");
-        if (!string.IsNullOrWhiteSpace(home))
-        {
-            return config with {
-                DnvmHome = home
-            };
-        }
-        return config;
+
+        var dnvmHome = string.IsNullOrWhiteSpace(home)
+            ? GlobalOptions.DefaultDnvmHome
+            : home;
+        return new GlobalOptions(
+            userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
+            dnvmHome: dnvmHome,
+            getUserEnvVar: s => GetEnvironmentVariable(s, EnvironmentVariableTarget.User),
+            setUserEnvVar: (name, val) => Environment.SetEnvironmentVariable(name, val, EnvironmentVariableTarget.User),
+            dnvmFs: DnvmFs.CreatePhysical(dnvmHome)
+        );
     }
 }

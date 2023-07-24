@@ -8,7 +8,7 @@ namespace Dnvm;
 /// GlobalConfig contains options used by all of dnvm, like the DNVM_HOME path,
 /// the SDK install path, and the location of the user's home directory.
 /// </summary>
-public readonly record struct GlobalOptions
+public sealed class GlobalOptions : IDisposable
 {
     public const string DotnetFeedUrl = "https://dotnetcli.azureedge.net/dotnet";
 
@@ -29,21 +29,34 @@ public readonly record struct GlobalOptions
     /// </summary>
     public static readonly SdkDirName DefaultSdkDirName = new("dn");
 
-    public static readonly GlobalOptions Default = new() {
-        UserHome = GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
-        DnvmHome = DefaultDnvmHome,
-        GetUserEnvVar = s => GetEnvironmentVariable(s, EnvironmentVariableTarget.User),
-        SetUserEnvVar = (name, val) => Environment.SetEnvironmentVariable(name, val, EnvironmentVariableTarget.User),
-    };
 
-    public required string DnvmHome { get; init; }
+    public string UserHome { get; }
+    public string DnvmHome { get; }
+    public Func<string, string?> GetUserEnvVar { get; }
+    public Action<string, string> SetUserEnvVar { get; }
+    public DnvmFs DnvmFs { get; }
+
+    public GlobalOptions(
+        string userHome,
+        string dnvmHome,
+        Func<string, string?> getUserEnvVar,
+        Action<string, string> setUserEnvVar,
+        DnvmFs dnvmFs)
+    {
+        UserHome = userHome;
+        DnvmHome = dnvmHome;
+        GetUserEnvVar = getUserEnvVar;
+        SetUserEnvVar = setUserEnvVar;
+        DnvmFs = dnvmFs;
+    }
 
     private readonly string? _dnvmInstallPath;
     public string DnvmInstallPath { get => _dnvmInstallPath ?? DnvmHome; init => _dnvmInstallPath = value; }
-    public required string UserHome { get; init; }
-
-    public required Func<string, string?> GetUserEnvVar { get; init; }
-    public required Action<string, string> SetUserEnvVar { get; init; }
 
     public string ManifestPath => Path.Combine(DnvmHome, ManifestFileName);
+
+    public void Dispose()
+    {
+        DnvmFs.Dispose();
+    }
 }
