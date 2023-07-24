@@ -18,4 +18,19 @@ public static class TestUtils
         Path.Combine(ArtifactsTestDir.FullName, "tmp"));
 
     public static TempDirectory CreateTempDirectory() => TempDirectory.CreateSubDirectory(ArtifactsTmpDir.FullName);
+
+    public static Task RunWithServer(Func<MockServer, Task> test)
+        => TaskScope.With(async taskScope =>
+        {
+            await using var mockServer = new MockServer(taskScope);
+            await test(mockServer);
+        });
+
+    public static Task RunWithServer(Func<MockServer, GlobalOptions, Task> test)
+        => TaskScope.With(async taskScope =>
+        {
+            await using var mockServer = new MockServer(taskScope);
+            using var testOptions = new TestOptions(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
+            await test(mockServer, testOptions.GlobalOptions);
+        });
 }

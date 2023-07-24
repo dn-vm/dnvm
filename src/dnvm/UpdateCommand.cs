@@ -23,8 +23,6 @@ public sealed partial class UpdateCommand
     private readonly string _releasesUrl;
     private readonly string _manifestPath;
 
-    public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
-
     public UpdateCommand(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
     {
         _logger = logger;
@@ -33,12 +31,12 @@ public sealed partial class UpdateCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _args.FeedUrl ?? GlobalOptions.DotnetFeedUrl;
+        _feedUrl = _args.FeedUrl ?? options.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
             _feedUrl = _feedUrl[..^1];
         }
-        _releasesUrl = _args.DnvmReleasesUrl ?? DefaultReleasesUrl;
+        _releasesUrl = _args.DnvmReleasesUrl ?? options.DnvmReleasesUrl;
         _manifestPath = options.ManifestPath;
         _dnvmHome = options.DnvmHome;
     }

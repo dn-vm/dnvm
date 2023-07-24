@@ -10,7 +10,8 @@ namespace Dnvm;
 /// </summary>
 public sealed class GlobalOptions : IDisposable
 {
-    public const string DotnetFeedUrl = "https://dotnetcli.azureedge.net/dotnet";
+    public const string DefaultDotnetFeedUrl = "https://dotnetcli.azureedge.net/dotnet";
+    public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
 
     /// <summary>
     /// Default DNVM_HOME is
@@ -35,19 +36,25 @@ public sealed class GlobalOptions : IDisposable
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
     public DnvmFs DnvmFs { get; }
+    public string DotnetFeedUrl { get; init; }
+    public string DnvmReleasesUrl { get; init; }
 
     public GlobalOptions(
         string userHome,
         string dnvmHome,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
-        DnvmFs dnvmFs)
+        DnvmFs dnvmFs,
+        string dotnetFeedUrl = DefaultDotnetFeedUrl,
+        string releasesUrl = DefaultReleasesUrl)
     {
         UserHome = userHome;
         DnvmHome = dnvmHome;
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
         DnvmFs = dnvmFs;
+        DotnetFeedUrl = dotnetFeedUrl;
+        DnvmReleasesUrl = releasesUrl;
     }
 
     private readonly string? _dnvmInstallPath;

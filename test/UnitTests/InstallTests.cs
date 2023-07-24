@@ -4,36 +4,21 @@ using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
 using static Dnvm.InstallCommand;
+using static Dnvm.Test.TestUtils;
 
 namespace Dnvm.Test;
 
-public sealed class InstallTests : IDisposable
+public sealed class InstallTests
 {
     private readonly Logger _logger;
-    private readonly TestOptions _testOptions;
-
-    private GlobalOptions GlobalOptions => _testOptions.GlobalOptions;
 
     public InstallTests(ITestOutputHelper output)
     {
         _logger = new Logger(new TestConsole());
-        _testOptions = new TestOptions();
     }
-
-    public void Dispose()
-    {
-        _testOptions.Dispose();
-    }
-
-    private static Task TestWithServer(Func<MockServer, Task> test)
-        => TaskScope.With(async taskScope =>
-        {
-            await using var mockServer = new MockServer(taskScope);
-            await test(mockServer);
-        });
 
     [Fact]
-    public Task LtsInstall() => TestWithServer(async server =>
+    public Task LtsInstall() => RunWithServer(async (server, globalOptions) =>
     {
         const Channel channel = Channel.Lts;
         var options = new CommandArguments.InstallArguments()
@@ -41,16 +26,16 @@ public sealed class InstallTests : IDisposable
             Channel = channel,
             FeedUrl = server.PrefixString,
         };
-        var installCmd = new InstallCommand(GlobalOptions, _logger, options);
+        var installCmd = new InstallCommand(globalOptions, _logger, options);
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
-        var sdkInstallDir = Path.Combine(GlobalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
 
-        var manifest = File.ReadAllText(GlobalOptions.ManifestPath);
+        var manifest = File.ReadAllText(globalOptions.ManifestPath);
         var installedVersion = server.ReleasesIndexJson.Releases[0].LatestSdk;
         var installedVersions = ImmutableArray.Create(new InstalledSdk { Version = installedVersion, SdkDirName = GlobalOptions.DefaultSdkDirName });
         Assert.Equal(new Manifest
@@ -65,7 +50,7 @@ public sealed class InstallTests : IDisposable
     });
 
     [Fact]
-    public Task SdkInstallDirMissing() => TestWithServer(async server =>
+    public Task SdkInstallDirMissing() => RunWithServer(async (server, globalOptions) =>
     {
         var args = new CommandArguments.InstallArguments()
         {
@@ -73,17 +58,17 @@ public sealed class InstallTests : IDisposable
             FeedUrl = server.PrefixString,
             Verbose = true,
         };
-        var sdkInstallDir = Path.Combine(GlobalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
         Assert.False(Directory.Exists(sdkInstallDir));
-        Assert.True(Directory.Exists(GlobalOptions.DnvmHome));
-        Assert.Equal(Result.Success, await InstallCommand.Run(GlobalOptions, _logger, args));
+        Assert.True(Directory.Exists(globalOptions.DnvmHome));
+        Assert.Equal(Result.Success, await InstallCommand.Run(globalOptions, _logger, args));
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
     });
 
     [Fact]
-    public Task PreviewIsolated() => TestWithServer(async server =>
+    public Task PreviewIsolated() => RunWithServer(async (server, globalOptions) =>
     {
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { SupportPhase = "preview" }).ToImmutableArray()
@@ -95,17 +80,17 @@ public sealed class InstallTests : IDisposable
             FeedUrl = server.PrefixString,
         };
         // Check that the preview install is isolated into a "preview" subdirectory
-        var sdkInstallDir = Path.Combine(GlobalOptions.DnvmHome, Channel.Preview.ToString().ToLowerInvariant());
+        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, Channel.Preview.ToString().ToLowerInvariant());
         Assert.False(Directory.Exists(sdkInstallDir));
-        Assert.True(Directory.Exists(GlobalOptions.DnvmHome));
-        Assert.Equal(Result.Success, await InstallCommand.Run(GlobalOptions, _logger, args));
+        Assert.True(Directory.Exists(globalOptions.DnvmHome));
+        Assert.Equal(Result.Success, await InstallCommand.Run(globalOptions, _logger, args));
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
     });
 
     [Fact]
-    public Task InstallStsToSubdir() => TestWithServer(async server =>
+    public Task InstallStsToSubdir() => RunWithServer(async (server, globalOptions) =>
     {
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { ReleaseType = "sts" }).ToImmutableArray()
@@ -118,10 +103,10 @@ public sealed class InstallTests : IDisposable
             SdkDir = dirName
         };
         // Check that the SDK is installed is isolated into the "sts" subdirectory
-        var sdkInstallDir = Path.Combine(GlobalOptions.DnvmHome, dirName);
+        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, dirName);
         Assert.False(Directory.Exists(sdkInstallDir));
-        Assert.True(Directory.Exists(GlobalOptions.DnvmHome));
-        Assert.Equal(Result.Success, await InstallCommand.Run(GlobalOptions, _logger, args));
+        Assert.True(Directory.Exists(globalOptions.DnvmHome));
+        Assert.Equal(Result.Success, await InstallCommand.Run(globalOptions, _logger, args));
         var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));

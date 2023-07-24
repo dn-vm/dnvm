@@ -5,54 +5,40 @@ using System.Reflection;
 using System.Security.Cryptography;
 using Xunit;
 using Xunit.Abstractions;
+using static Dnvm.Test.TestUtils;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 namespace Dnvm.Test;
 
-public sealed class SelfInstallTests : IDisposable
+public sealed class SelfInstallTests
 {
     internal static readonly string DnvmExe = Path.Combine(
         Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
         "dnvm_aot",
         Utilities.DnvmExeName);
 
-    private readonly TestOptions _testOptions = new();
     private readonly ITestOutputHelper _testOutput;
-
-    private GlobalOptions GlobalOptions => _testOptions.GlobalOptions;
 
     public SelfInstallTests(ITestOutputHelper testOutput)
     {
         _testOutput = testOutput;
     }
 
-    public void Dispose()
-    {
-        _testOptions.Dispose();
-    }
-
-    private static Task TestWithServer(Func<MockServer, Task> test)
-        => TaskScope.With(async taskScope =>
-        {
-            await using var mockServer = new MockServer(taskScope);
-            await test(mockServer);
-        });
-
     [Fact]
-    public Task FirstRunInstallsDotnet() => TestWithServer(async mockServer =>
+    public Task FirstRunInstallsDotnet() => RunWithServer(async (mockServer, globalOptions) =>
     {
         var procResult = await ProcUtil.RunWithOutput(DnvmExe,
             $"selfinstall --feed-url {mockServer.PrefixString} -y -v",
             new() {
-                ["HOME"] = GlobalOptions.UserHome,
-                ["DNVM_HOME"] = GlobalOptions.DnvmHome
+                ["HOME"] = globalOptions.UserHome,
+                ["DNVM_HOME"] = globalOptions.DnvmHome
             }
         );
         _testOutput.WriteLine(procResult.Out);
         _testOutput.WriteLine(procResult.Error);
         Assert.Equal(0, procResult.ExitCode);
 
-        var sdkInstallDir = Path.Combine(GlobalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
         var dotnetPath = Path.Combine(sdkInstallDir, $"dotnet{Utilities.ExeSuffix}");
         Assert.True(File.Exists(dotnetPath));
 
@@ -61,7 +47,7 @@ public sealed class SelfInstallTests : IDisposable
     });
 
     [ConditionalFact(typeof(UnixOnly))]
-    public Task FirstRunWritesEnv() => TestWithServer(async mockServer =>
+    public Task FirstRunWritesEnv() => RunWithServer(async (mockServer, globalOptions) =>
     {
         var psi = new ProcessStartInfo
         {
@@ -70,13 +56,13 @@ public sealed class SelfInstallTests : IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
-        psi.Environment["HOME"] = GlobalOptions.UserHome;
-        psi.Environment["DNVM_HOME"] = GlobalOptions.DnvmHome;
+        psi.Environment["HOME"] = globalOptions.UserHome;
+        psi.Environment["DNVM_HOME"] = globalOptions.DnvmHome;
         var proc = Process.Start(psi);
         await proc!.WaitForExitAsync();
         Assert.Equal(0, proc.ExitCode);
 
-        string envPath = Path.Combine(GlobalOptions.DnvmHome, "env");
+        string envPath = Path.Combine(globalOptions.DnvmHome, "env");
         Assert.True(File.Exists(envPath));
         // source the sh script and confirm that dnvm and dotnet are on the path
         var src = $"""
@@ -99,9 +85,9 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         await proc.WaitForExitAsync();
         Assert.Equal(0, proc.ExitCode);
 
-        Assert.Equal(GlobalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dnvm: ")));
-        Assert.Equal(GlobalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dotnet: ")));
-        var sdkInstallDir = Path.Combine(GlobalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+        Assert.Equal(globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dnvm: ")));
+        Assert.Equal(globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dotnet: ")));
+        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
         Assert.Equal(sdkInstallDir, await ReadLine("DOTNET_ROOT: "));
 
         async Task<string> ReadLine(string expectedPrefix)
@@ -114,7 +100,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     });
 
     [ConditionalFact(typeof(WindowsOnly))]
-    public Task FirstRunSetsUserPath() => TestWithServer(async mockServer =>
+    public Task FirstRunSetsUserPath() => RunWithServer(async (mockServer, globalOptions) =>
     {
         const string PATH = "PATH";
         const string DOTNET_ROOT = "DOTNET_ROOT";
@@ -126,8 +112,8 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
-        psi.Environment["HOME"] = GlobalOptions.UserHome;
-        psi.Environment["DNVM_HOME"] = GlobalOptions.DnvmHome;
+        psi.Environment["HOME"] = globalOptions.UserHome;
+        psi.Environment["DNVM_HOME"] = globalOptions.DnvmHome;
 
         var savedPath = Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User);
         var savedDotnetRoot = Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User);
@@ -137,8 +123,8 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             await proc!.WaitForExitAsync();
 
             var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
-            Assert.Contains($";{GlobalOptions.DnvmInstallPath};", pathMatch);
-            var sdkInstallDir = Path.Combine(GlobalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
+            Assert.Contains($";{globalOptions.DnvmInstallPath};", pathMatch);
+            var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
             Assert.DoesNotContain($";{sdkInstallDir};", pathMatch);
             Assert.Equal(sdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User));
         }
@@ -150,20 +136,20 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     });
 
     [Fact]
-    public Task RealUpdateSelf() => TestWithServer(async mockServer =>
+    public Task RealUpdateSelf() => RunWithServer(async (mockServer, globalOptions) =>
     {
-        var copiedExe = Path.Combine(GlobalOptions.DnvmHome, Utilities.DnvmExeName);
+        var copiedExe = Path.Combine(globalOptions.DnvmHome, Utilities.DnvmExeName);
         File.Copy(DnvmExe, copiedExe);
         using var tmpDir = TestUtils.CreateTempDirectory();
-        mockServer.DnvmPath = Assets.MakeZipOrTarball(GlobalOptions.DnvmHome, Path.Combine(tmpDir.Path, "dnvm"));
+        mockServer.DnvmPath = Assets.MakeZipOrTarball(globalOptions.DnvmHome, Path.Combine(tmpDir.Path, "dnvm"));
 
         var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
         var result = await ProcUtil.RunWithOutput(
             copiedExe,
             $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v",
             new() {
-                ["HOME"] = GlobalOptions.UserHome,
-                ["DNVM_HOME"] = GlobalOptions.DnvmHome
+                ["HOME"] = globalOptions.UserHome,
+                ["DNVM_HOME"] = globalOptions.DnvmHome
             }
         );
         Assert.Equal(0, result.ExitCode);

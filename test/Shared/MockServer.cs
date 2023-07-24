@@ -39,13 +39,6 @@ public sealed class MockServer : IAsyncDisposable
 
     public DnvmReleases DnvmReleases { get; set; }
 
-    public static async Task WithScope(Func<MockServer, ValueTask> test)
-        => await TaskScope.With(async taskScope =>
-        {
-            await using var mockServer = new MockServer(taskScope);
-            await test(mockServer);
-        });
-
     public MockServer(TaskScope scope)
     {
         _scope = scope;

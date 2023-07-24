@@ -11,14 +11,16 @@ public sealed class TestOptions : IDisposable
 
     public GlobalOptions GlobalOptions { get; init; }
 
-    public TestOptions()
+    public TestOptions(string dotnetFeedUrl, string releasesUrl)
     {
         GlobalOptions = new GlobalOptions(
-            dnvmHome: _dnvmHome.Path,
             userHome: _userHome.Path,
+            dnvmHome: _dnvmHome.Path,
             getUserEnvVar: s => _envVars[s],
             setUserEnvVar: (name, val) => _envVars[name] = val,
-            dnvmFs: new DnvmFs(new MemoryFileSystem())
+            dnvmFs: new DnvmFs(new MemoryFileSystem()),
+            dotnetFeedUrl,
+            releasesUrl
         );
     }
 
