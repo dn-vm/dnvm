@@ -11,28 +11,19 @@ namespace Dnvm.Test;
 
 public sealed class UpdateTests : IDisposable
 {
-    private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
-    private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
-    private readonly Dictionary<string, string> _envVars = new();
-    private readonly GlobalOptions _globalOptions;
+    private readonly TestOptions _testOptions = new();
     private readonly Logger _logger;
+
+    private GlobalOptions GlobalOptions => _testOptions.GlobalOptions;
 
     public UpdateTests(ITestOutputHelper output)
     {
-        var wrapper = new OutputWrapper(output);
         _logger = new Logger(new TestConsole());
-        _globalOptions = new GlobalOptions() {
-            DnvmHome = _dnvmHome.Path,
-            UserHome = _userHome.Path,
-            GetUserEnvVar = s => _envVars[s],
-            SetUserEnvVar = (name, val) => _envVars[name] = val,
-        };
     }
 
     public void Dispose()
     {
-        _userHome.Dispose();
-        _dnvmHome.Dispose();
+        _testOptions.Dispose();
     }
 
     private Task TestWithServer(Action<MockServer, CommandArguments.UpdateArguments, CancellationToken> test)
@@ -76,14 +67,14 @@ public sealed class UpdateTests : IDisposable
             var console = new TestConsole();
             var logger = new Logger(console);
             _ = await UpdateCommand.UpdateSdks(
-                _dnvmHome.Path,
+                GlobalOptions.DnvmHome,
                 logger,
                 releasesIndex,
                 manifest,
                 yes: false,
                 updateArguments.FeedUrl!,
                 updateArguments.DnvmReleasesUrl!,
-                _globalOptions.ManifestPath,
+                GlobalOptions.ManifestPath,
                 cancellationToken);
             Assert.Contains("dnvm is out of date", console.Output);
         });
@@ -127,7 +118,7 @@ public sealed class UpdateTests : IDisposable
                 }
             })
         };
-        var result = await InstallCommand.Run(_globalOptions, _logger, new() {
+        var result = await InstallCommand.Run(GlobalOptions, _logger, new() {
             Channel = channel,
             FeedUrl = mockServer.PrefixString,
             Verbose = true
@@ -145,7 +136,7 @@ public sealed class UpdateTests : IDisposable
                 }
             })
         };
-        var updateResult = await UpdateCommand.Run(_globalOptions, _logger, updateArguments);
+        var updateResult = await UpdateCommand.Run(GlobalOptions, _logger, updateArguments);
         var sdkVersions = ImmutableArray.Create(new[] { "41.0.100", "41.0.101" });
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
         var expectedManifest = new Manifest {
@@ -156,7 +147,7 @@ public sealed class UpdateTests : IDisposable
                 InstalledSdkVersions = sdkVersions
             }})
         };
-        var actualManifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(_globalOptions.ManifestPath));
+        var actualManifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(GlobalOptions.ManifestPath));
         Assert.Equal(expectedManifest, actualManifest);
     });
 

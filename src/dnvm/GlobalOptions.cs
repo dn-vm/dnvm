@@ -8,7 +8,7 @@ namespace Dnvm;
 /// GlobalConfig contains options used by all of dnvm, like the DNVM_HOME path,
 /// the SDK install path, and the location of the user's home directory.
 /// </summary>
-public readonly record struct GlobalOptions
+public sealed class GlobalOptions : IDisposable
 {
     public const string DotnetFeedUrl = "https://dotnetcli.azureedge.net/dotnet";
 
@@ -34,16 +34,22 @@ public readonly record struct GlobalOptions
         DnvmHome = DefaultDnvmHome,
         GetUserEnvVar = s => GetEnvironmentVariable(s, EnvironmentVariableTarget.User),
         SetUserEnvVar = (name, val) => Environment.SetEnvironmentVariable(name, val, EnvironmentVariableTarget.User),
+        DnvmFs = DnvmFs.CreatePhysical(DefaultDnvmHome),
     };
 
+    public required string UserHome { get; init; }
     public required string DnvmHome { get; init; }
+    public required Func<string, string?> GetUserEnvVar { get; init; }
+    public required Action<string, string> SetUserEnvVar { get; init; }
+    public required DnvmFs DnvmFs { get; init; }
 
     private readonly string? _dnvmInstallPath;
     public string DnvmInstallPath { get => _dnvmInstallPath ?? DnvmHome; init => _dnvmInstallPath = value; }
-    public required string UserHome { get; init; }
-
-    public required Func<string, string?> GetUserEnvVar { get; init; }
-    public required Action<string, string> SetUserEnvVar { get; init; }
 
     public string ManifestPath => Path.Combine(DnvmHome, ManifestFileName);
+
+    public void Dispose()
+    {
+        DnvmFs.Dispose();
+    }
 }

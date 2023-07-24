@@ -40,9 +40,9 @@ public class SelfInstallCommand
         }
     }
 
-    public static Task<Result> Run(DnvmFs dnvmFs, GlobalOptions options, Logger logger, CommandArguments.SelfInstallArguments args)
+    public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.SelfInstallArguments args)
     {
-        return new SelfInstallCommand(options, logger, args).Run(dnvmFs);
+        return new SelfInstallCommand(options, logger, args).Run();
     }
 
     public enum Result
@@ -52,8 +52,9 @@ public class SelfInstallCommand
         InstallFailed,
     }
 
-    public async Task<Result> Run(DnvmFs dnvmFs)
+    public async Task<Result> Run()
     {
+        var dnvmFs = _globalOptions.DnvmFs;
         if (!Utilities.IsSingleFile)
         {
             _logger.Log("Cannot self-install into target location: the current executable is not deployed as a single file.");
@@ -73,7 +74,7 @@ public class SelfInstallCommand
 
         if (!_installArgs.Yes)
         {
-            Console.Write($"Please select install location [default: {GlobalOptions.Default.DnvmInstallPath}]: ");
+            Console.Write($"Please select install location [default: {GlobalOptions.DefaultDnvmHome}]: ");
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
