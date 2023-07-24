@@ -12,7 +12,7 @@ namespace Dnvm;
 
 public static class Program
 {
-    public static SemVersion SemVer = SemVersion.Parse(GitVersionInformation.MajorMinorPatch, SemVersionStyles.Strict);
+    public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.MajorMinorPatch, SemVersionStyles.Strict);
 
     internal static readonly HttpClient HttpClient = new();
 
@@ -22,7 +22,7 @@ public static class Program
         Console.WriteLine();
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(AnsiConsole.Console);
-        var globalOptions = GetGlobalConfig();
+        using var globalOptions = GetGlobalConfig();
         Directory.CreateDirectory(globalOptions.DnvmHome);
         return options.Command switch
         {
@@ -47,12 +47,12 @@ public static class Program
         var dnvmHome = string.IsNullOrWhiteSpace(home)
             ? GlobalOptions.DefaultDnvmHome
             : home;
-        return new GlobalOptions {
-            UserHome = GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
-            DnvmHome = dnvmHome,
-            GetUserEnvVar = s => GetEnvironmentVariable(s, EnvironmentVariableTarget.User),
-            SetUserEnvVar = (name, val) => Environment.SetEnvironmentVariable(name, val, EnvironmentVariableTarget.User),
-            DnvmFs = DnvmFs.CreatePhysical(dnvmHome)
-        };
+        return new GlobalOptions(
+            userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
+            dnvmHome: dnvmHome,
+            getUserEnvVar: s => GetEnvironmentVariable(s, EnvironmentVariableTarget.User),
+            setUserEnvVar: (name, val) => Environment.SetEnvironmentVariable(name, val, EnvironmentVariableTarget.User),
+            dnvmFs: DnvmFs.CreatePhysical(dnvmHome)
+        );
     }
 }

@@ -13,18 +13,19 @@ public sealed class TestOptions : IDisposable
 
     public TestOptions()
     {
-        GlobalOptions = new GlobalOptions {
-            DnvmHome = _dnvmHome.Path,
-            UserHome = _userHome.Path,
-            GetUserEnvVar = s => _envVars[s],
-            SetUserEnvVar = (name, val) => _envVars[name] = val,
-            DnvmFs = new DnvmFs(new MemoryFileSystem())
-        };
+        GlobalOptions = new GlobalOptions(
+            dnvmHome: _dnvmHome.Path,
+            userHome: _userHome.Path,
+            getUserEnvVar: s => _envVars[s],
+            setUserEnvVar: (name, val) => _envVars[name] = val,
+            dnvmFs: new DnvmFs(new MemoryFileSystem())
+        );
     }
 
     public void Dispose()
     {
         _userHome.Dispose();
         _dnvmHome.Dispose();
+        GlobalOptions.Dispose();
     }
 }
