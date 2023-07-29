@@ -16,7 +16,7 @@ namespace Dnvm;
 
 public sealed partial class UpdateCommand
 {
-    private readonly string _dnvmHome;
+    private readonly DnvmFs _dnvmFs;
     private readonly Logger _logger;
     private readonly CommandArguments.UpdateArguments _args;
     private readonly string _feedUrl;
@@ -38,7 +38,7 @@ public sealed partial class UpdateCommand
         }
         _releasesUrl = _args.DnvmReleasesUrl ?? options.DnvmReleasesUrl;
         _manifestPath = options.ManifestPath;
-        _dnvmHome = options.DnvmHome;
+        _dnvmFs = options.DnvmFs;
     }
 
     public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
@@ -75,7 +75,7 @@ public sealed partial class UpdateCommand
 
         var manifest = ManifestUtils.ReadOrCreateManifest(_manifestPath);
         return await UpdateSdks(
-            _dnvmHome,
+            _dnvmFs,
             _logger,
             releaseIndex,
             manifest,
@@ -87,7 +87,7 @@ public sealed partial class UpdateCommand
     }
 
     public static async Task<Result> UpdateSdks(
-        string dnvmHome,
+        DnvmFs dnvmFs,
         Logger logger,
         DotnetReleasesIndex releasesIndex,
         Manifest manifest,
@@ -121,7 +121,7 @@ public sealed partial class UpdateCommand
                 {
                     var sdkDir = manifest.TrackedChannels.First(tc => tc.ChannelName == c).SdkDirName;
                     _ = await InstallCommand.InstallSdkVersionFromChannel(
-                        dnvmHome,
+                        dnvmFs,
                         logger,
                         newestAvailable.LatestSdk,
                         Utilities.CurrentRID,

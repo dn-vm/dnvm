@@ -14,6 +14,8 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
 using StaticCs;
+using Zio;
+using Zio.FileSystems;
 
 namespace Dnvm;
 
@@ -39,7 +41,14 @@ public static class Utilities
     {
         var mod = File.GetUnixFileMode(path);
         File.SetUnixFileMode(path, mod | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+    }
 
+    [UnsupportedOSPlatform("windows")]
+    public static void ChmodExec(IFileSystem vfs, UPath upath)
+    {
+        var realPath = vfs.ConvertPathToInternal(upath);
+        var mod = File.GetUnixFileMode(realPath);
+        File.SetUnixFileMode(realPath, mod | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
     }
 
     public static string SeqToString<T>(this IEnumerable<T> e)
@@ -104,6 +113,40 @@ public static class Utilities
             {
                 return e.Message;
             }
+        }
+        return null;
+    }
+
+    public static async Task<string?> ExtractArchiveToDir(string archivePath, DnvmFs dnvmFs, UPath dest)
+    {
+        dnvmFs.Vfs.CreateDirectory(dest);
+        using var tempFs = dnvmFs.TempFs;
+        var tempExtractDir = UPath.Root / Path.GetRandomFileName();
+        var tempRealPath = tempFs.ConvertPathToInternal(tempExtractDir);
+        if (Utilities.CurrentRID.OS != OSPlatform.Windows)
+        {
+            var procResult = await ProcUtil.RunWithOutput("tar", $"-xzf \"{archivePath}\" -C \"{tempRealPath}\"");
+            return procResult.ExitCode == 0 ? null : procResult.Error;
+        }
+        else
+        {
+            try
+            {
+                ZipFile.ExtractToDirectory(archivePath, tempRealPath, overwriteFiles: true);
+            }
+            catch (Exception e)
+            {
+                return e.Message;
+            }
+        }
+        try
+        {
+            var extractDirName = tempExtractDir.FullName;
+            tempFs.CopyDirectory(tempExtractDir, dnvmFs.Vfs, dest, overwrite: true);
+        }
+        catch (Exception e)
+        {
+            return e.Message;
         }
         return null;
     }

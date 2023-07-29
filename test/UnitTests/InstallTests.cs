@@ -10,12 +10,7 @@ namespace Dnvm.Test;
 
 public sealed class InstallTests
 {
-    private readonly Logger _logger;
-
-    public InstallTests(ITestOutputHelper output)
-    {
-        _logger = new Logger(new TestConsole());
-    }
+    private readonly Logger _logger = new Logger(new TestConsole());
 
     [Fact]
     public Task LtsInstall() => RunWithServer(async (server, globalOptions) =>
@@ -24,7 +19,6 @@ public sealed class InstallTests
         var options = new CommandArguments.InstallArguments()
         {
             Channel = channel,
-            FeedUrl = server.PrefixString,
         };
         var installCmd = new InstallCommand(globalOptions, _logger, options);
         var task = installCmd.Run();
@@ -55,7 +49,6 @@ public sealed class InstallTests
         var args = new CommandArguments.InstallArguments()
         {
             Channel = Channel.Lts,
-            FeedUrl = server.PrefixString,
             Verbose = true,
         };
         var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
@@ -77,7 +70,6 @@ public sealed class InstallTests
         var args = new CommandArguments.InstallArguments()
         {
             Channel = Channel.Preview,
-            FeedUrl = server.PrefixString,
         };
         // Check that the preview install is isolated into a "preview" subdirectory
         var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, Channel.Preview.ToString().ToLowerInvariant());
@@ -99,7 +91,6 @@ public sealed class InstallTests
         var args = new CommandArguments.InstallArguments()
         {
             Channel = Channel.Sts,
-            FeedUrl = server.PrefixString,
             SdkDir = dirName
         };
         // Check that the SDK is installed is isolated into the "sts" subdirectory

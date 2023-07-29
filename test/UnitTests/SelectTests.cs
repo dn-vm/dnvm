@@ -24,7 +24,6 @@ public sealed class SelectTests
         var result = await InstallCommand.Run(globalOptions, _logger, new CommandArguments.InstallArguments
         {
             Channel = Channel.Latest,
-            FeedUrl = mockServer.PrefixString,
         });
         Assert.Equal(InstallCommand.Result.Success, result);
         var defaultSdkDir = GlobalOptions.DefaultSdkDirName;
@@ -33,7 +32,6 @@ public sealed class SelectTests
         result = await InstallCommand.Run(globalOptions, _logger, new CommandArguments.InstallArguments
         {
             Channel = Channel.Preview,
-            FeedUrl = mockServer.PrefixString,
         });
         Assert.Equal(InstallCommand.Result.Success, result);
         var previewDotnet = Path.Combine(globalOptions.DnvmHome, "preview", Utilities.DotnetExeName);
