@@ -146,12 +146,11 @@ public class SelfInstallCommand
         }
 
         var result = await InstallCommand.InstallLatestFromChannel(
-            _dnvmHome,
+            dnvmFs,
             _logger,
             channel,
             _installArgs.Force,
             _feedUrl,
-            ManifestPath,
             sdkDirName);
 
         if (result is not InstallCommand.Result.Success)

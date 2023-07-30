@@ -11,13 +11,8 @@ namespace Dnvm;
 public sealed class DnvmFs : IDisposable
 {
     public const string ManifestFileName = "dnvmManifest.json";
-
-    public readonly IFileSystem Vfs;
-
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
-
-    public string RealPath => Vfs.ConvertPathToInternal(UPath.Root);
 
     public static DnvmFs CreatePhysical(string realPath)
     {
@@ -25,9 +20,20 @@ public sealed class DnvmFs : IDisposable
         return new DnvmFs(new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)));
     }
 
+    public readonly IFileSystem Vfs;
+    public string RealPath => Vfs.ConvertPathToInternal(UPath.Root);
+    public SubFileSystem TempFs { get; }
+
     public DnvmFs(IFileSystem vfs)
     {
         Vfs = vfs;
+        // TempFs must be a physical file system because we pass the path to external
+        // commands that will not be able to write to shared memory
+        var physical = new PhysicalFileSystem();
+        TempFs = new SubFileSystem(
+            physical,
+            physical.ConvertPathFromInternal(Path.GetTempPath()),
+            owned: true);
     }
 
     /// <summary>
@@ -44,11 +50,14 @@ public sealed class DnvmFs : IDisposable
     public void WriteManifest(Manifest manifest)
     {
         var text = JsonSerializer.Serialize(manifest);
-        Vfs.WriteAllText(ManifestPath, text);
+        var tmpPath = ManifestPath + ".tmp";
+        Vfs.WriteAllText(tmpPath, text);
+        Vfs.MoveFile(tmpPath, ManifestPath);
     }
 
     public void Dispose()
     {
         Vfs.Dispose();
+        TempFs.Dispose();
     }
 }

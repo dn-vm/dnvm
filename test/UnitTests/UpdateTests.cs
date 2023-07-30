@@ -48,7 +48,7 @@ public sealed class UpdateTests
         var console = new TestConsole();
         var logger = new Logger(console);
         _ = await UpdateCommand.UpdateSdks(
-            globalOptions.DnvmHome,
+            globalOptions.DnvmFs,
             logger,
             releasesIndex,
             manifest,
@@ -101,7 +101,6 @@ public sealed class UpdateTests
         };
         var result = await InstallCommand.Run(globalOptions, _logger, new() {
             Channel = channel,
-            FeedUrl = mockServer.PrefixString,
             Verbose = true
         });
         Assert.Equal(InstallCommand.Result.Success, result);
