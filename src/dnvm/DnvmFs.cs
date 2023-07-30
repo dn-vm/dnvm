@@ -29,9 +29,10 @@ public sealed class DnvmFs : IDisposable
         Vfs = vfs;
         // TempFs must be a physical file system because we pass the path to external
         // commands that will not be able to write to shared memory
+        var physical = new PhysicalFileSystem();
         TempFs = new SubFileSystem(
-            new PhysicalFileSystem(),
-            Path.GetTempPath(),
+            physical,
+            physical.ConvertPathFromInternal(Path.GetTempPath()),
             owned: true);
     }
 

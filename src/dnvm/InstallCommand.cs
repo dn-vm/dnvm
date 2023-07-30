@@ -315,15 +315,6 @@ public sealed class InstallCommand
         RetargetSymlink(dnvmHome, sdkDirName);
     }
 
-    private static void CreateSymlinkIfMissing(string dnvmHome, SdkDirName sdkDirName)
-    {
-        var symlinkPath = Path.Combine(dnvmHome, DotnetSymlinkName);
-        if (!File.Exists(symlinkPath))
-        {
-            RetargetSymlink(dnvmHome, sdkDirName);
-        }
-    }
-
     private static void CreateSymlinkIfMissing(DnvmFs dnvmFs, SdkDirName sdkDirName)
     {
         var symlinkPath = dnvmFs.Vfs.ConvertPathToInternal(DotnetSymlinkName);
