@@ -12,6 +12,7 @@ public sealed class MockServer : IAsyncDisposable
     private readonly HttpListener _listener;
     private readonly TaskScope _scope;
     public int Port { get; }
+    private volatile bool _disposing = false;
 
     public string PrefixString => $"http://localhost:{Port}/";
     public string DnvmReleasesUrl => PrefixString + "releases.json";
@@ -81,12 +82,9 @@ public sealed class MockServer : IAsyncDisposable
             {
                 ctx = await _listener.GetContextAsync();
             }
-            catch (ObjectDisposedException)
+            catch when (_disposing)
             {
-                break;
-            }
-            catch (HttpListenerException e) when (e.ErrorCode == 995) // ERROR_OPERATION_ABORTED
-            {
+                // Ignore all exceptions while disposing
                 break;
             }
 
@@ -162,6 +160,7 @@ public sealed class MockServer : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        _disposing = true;
         try
         {
             _listener.Stop();
