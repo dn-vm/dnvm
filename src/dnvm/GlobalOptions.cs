@@ -35,7 +35,7 @@ public sealed class GlobalOptions : IDisposable
     public string DnvmHome { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
-    public DnvmFs DnvmFs { get; }
+    public DnvmEnv DnvmFs { get; }
     public string DotnetFeedUrl { get; init; }
     public string DnvmReleasesUrl { get; init; }
 
@@ -44,7 +44,7 @@ public sealed class GlobalOptions : IDisposable
         string dnvmHome,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
-        DnvmFs dnvmFs,
+        DnvmEnv dnvmFs,
         string dotnetFeedUrl = DefaultDotnetFeedUrl,
         string releasesUrl = DefaultReleasesUrl)
     {

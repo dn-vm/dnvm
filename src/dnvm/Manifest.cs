@@ -143,7 +143,7 @@ public static partial class ManifestUtils
         return DeserializeNewOrOldManifest(text) ?? throw new InvalidDataException();
     }
 
-    public static Manifest ReadOrCreateManifest(DnvmFs fs)
+    public static Manifest ReadOrCreateManifest(DnvmEnv fs)
     {
         try
         {

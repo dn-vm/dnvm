@@ -78,7 +78,7 @@ public class SelfInstallCommand
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
-                dnvmFs = DnvmFs.CreatePhysical(customInstallPath);
+                dnvmFs = DnvmEnv.CreatePhysical(customInstallPath);
             }
         }
 
@@ -172,7 +172,7 @@ public class SelfInstallCommand
     /// <summary>
     /// Install the running binary to the specified location.
     /// </summary>
-    internal async Task<Result> SelfUpdate(DnvmFs dnvmFs)
+    internal async Task<Result> SelfUpdate(DnvmEnv dnvmFs)
     {
         SdkDirName sdkDirName;
         try
@@ -234,14 +234,14 @@ public class SelfInstallCommand
         }
     }
 
-    private static Task WriteEnvFile(DnvmFs dnvmFs, string sdkInstallDir, Logger logger)
+    private static Task WriteEnvFile(DnvmEnv dnvmFs, string sdkInstallDir, Logger logger)
     {
         var newContent = GetEnvShContent()
             .Replace("{install_loc}", dnvmFs.Vfs.ConvertPathToInternal(UPath.Root))
             .Replace("{sdk_install_loc}", sdkInstallDir);
 
         logger.Info("Writing env sh file");
-        dnvmFs.Vfs.WriteAllText(DnvmFs.EnvPath, newContent);
+        dnvmFs.Vfs.WriteAllText(DnvmEnv.EnvPath, newContent);
         return Task.CompletedTask;
     }
 
@@ -308,7 +308,7 @@ public class SelfInstallCommand
         return false;
     }
 
-    private async Task<int> AddToPath(DnvmFs dnvmFs, SdkDirName sdkDir)
+    private async Task<int> AddToPath(DnvmEnv dnvmFs, SdkDirName sdkDir)
     {
         string SdkInstallPath = Path.Combine(dnvmFs.RealPath, sdkDir.Name);
         if (OperatingSystem.IsWindows())

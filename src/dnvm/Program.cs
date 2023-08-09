@@ -52,7 +52,7 @@ public static class Program
             dnvmHome: dnvmHome,
             getUserEnvVar: s => GetEnvironmentVariable(s, EnvironmentVariableTarget.User),
             setUserEnvVar: (name, val) => Environment.SetEnvironmentVariable(name, val, EnvironmentVariableTarget.User),
-            dnvmFs: DnvmFs.CreatePhysical(dnvmHome)
+            dnvmFs: DnvmEnv.CreatePhysical(dnvmHome)
         );
     }
 }
