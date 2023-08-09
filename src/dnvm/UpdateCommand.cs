@@ -16,7 +16,7 @@ namespace Dnvm;
 
 public sealed partial class UpdateCommand
 {
-    private readonly DnvmFs _dnvmFs;
+    private readonly DnvmEnv _dnvmFs;
     private readonly Logger _logger;
     private readonly CommandArguments.UpdateArguments _args;
     private readonly string _feedUrl;
@@ -87,7 +87,7 @@ public sealed partial class UpdateCommand
     }
 
     public static async Task<Result> UpdateSdks(
-        DnvmFs dnvmFs,
+        DnvmEnv dnvmFs,
         Logger logger,
         DotnetReleasesIndex releasesIndex,
         Manifest manifest,

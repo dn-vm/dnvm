@@ -8,23 +8,26 @@ using Zio.FileSystems;
 
 namespace Dnvm;
 
-public sealed class DnvmFs : IDisposable
+/// <summary>
+/// Represents the environment of a dnvm process.
+/// <summary>
+public sealed class DnvmEnv : IDisposable
 {
     public const string ManifestFileName = "dnvmManifest.json";
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
 
-    public static DnvmFs CreatePhysical(string realPath)
+    public static DnvmEnv CreatePhysical(string realPath)
     {
         var physicalFs = new PhysicalFileSystem();
-        return new DnvmFs(new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)));
+        return new DnvmEnv(new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)));
     }
 
     public readonly IFileSystem Vfs;
     public string RealPath => Vfs.ConvertPathToInternal(UPath.Root);
     public SubFileSystem TempFs { get; }
 
-    public DnvmFs(IFileSystem vfs)
+    public DnvmEnv(IFileSystem vfs)
     {
         Vfs = vfs;
         // TempFs must be a physical file system because we pass the path to external

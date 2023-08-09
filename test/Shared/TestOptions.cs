@@ -18,7 +18,7 @@ public sealed class TestOptions : IDisposable
             dnvmHome: _dnvmHome.Path,
             getUserEnvVar: s => _envVars[s],
             setUserEnvVar: (name, val) => _envVars[name] = val,
-            dnvmFs: new DnvmFs(new MemoryFileSystem()),
+            dnvmFs: new DnvmEnv(new MemoryFileSystem()),
             dotnetFeedUrl,
             releasesUrl
         );

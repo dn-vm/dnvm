@@ -98,7 +98,7 @@ public sealed class InstallCommand
     }
 
     internal static async Task<Result> InstallLatestFromChannel(
-        DnvmFs dnvmFs,
+        DnvmEnv dnvmFs,
         Logger logger,
         Channel channel,
         bool force,
@@ -199,7 +199,7 @@ public sealed class InstallCommand
     }
 
     public static async Task<Result> InstallSdkVersionFromChannel(
-        DnvmFs dnvmFs,
+        DnvmEnv dnvmFs,
         Logger logger,
         string latestVersion,
         RID rid,
@@ -309,13 +309,13 @@ public sealed class InstallCommand
         }
     }
 
-    internal static void RetargetSymlink(DnvmFs dnvmFs, SdkDirName sdkDirName)
+    internal static void RetargetSymlink(DnvmEnv dnvmFs, SdkDirName sdkDirName)
     {
         var dnvmHome = dnvmFs.Vfs.ConvertPathToInternal(UPath.Root);
         RetargetSymlink(dnvmHome, sdkDirName);
     }
 
-    private static void CreateSymlinkIfMissing(DnvmFs dnvmFs, SdkDirName sdkDirName)
+    private static void CreateSymlinkIfMissing(DnvmEnv dnvmFs, SdkDirName sdkDirName)
     {
         var symlinkPath = dnvmFs.Vfs.ConvertPathToInternal(DotnetSymlinkName);
         if (!File.Exists(symlinkPath))

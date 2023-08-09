@@ -117,7 +117,7 @@ public static class Utilities
         return null;
     }
 
-    public static async Task<string?> ExtractArchiveToDir(string archivePath, DnvmFs dnvmFs, UPath dest)
+    public static async Task<string?> ExtractArchiveToDir(string archivePath, DnvmEnv dnvmFs, UPath dest)
     {
         dnvmFs.Vfs.CreateDirectory(dest);
         using var tempFs = dnvmFs.TempFs;

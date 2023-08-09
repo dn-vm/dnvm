@@ -9,7 +9,7 @@ public static class ListCommand
 {
     /// <summary>
     /// Prints a list of installed SDK versions and their locations.
-    public static Task<int> Run(Logger logger, DnvmFs home)
+    public static Task<int> Run(Logger logger, DnvmEnv home)
     {
         Manifest manifest;
         try

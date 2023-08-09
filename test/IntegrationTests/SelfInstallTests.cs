@@ -163,7 +163,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     {
         using var srcTmpDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();
-        using var dnvmFs = DnvmFs.CreatePhysical(dnvmHome.Path);
+        using var dnvmFs = DnvmEnv.CreatePhysical(dnvmHome.Path);
         var dnvmTmpPath = srcTmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
         // Create a dest dnvm home that looks like a previous install
@@ -196,15 +196,15 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             Assert.Equal(newFileHash, oldFileHash);
         }
         // Self-install update does not modify the manifest (or create one if it doesn't exist)
-        Assert.False(dnvmFs.Vfs.FileExists(DnvmFs.ManifestPath));
+        Assert.False(dnvmFs.Vfs.FileExists(DnvmEnv.ManifestPath));
         if (!OperatingSystem.IsWindows())
         {
             // Updated env file should be created
-            Assert.True(dnvmFs.Vfs.FileExists(DnvmFs.EnvPath));
+            Assert.True(dnvmFs.Vfs.FileExists(DnvmEnv.EnvPath));
             // source the sh script and confirm that dnvm and dotnet are on the path
             var src = $"""
 set -e
-. "{dnvmFs.Vfs.ConvertPathToInternal(DnvmFs.EnvPath)}"
+. "{dnvmFs.Vfs.ConvertPathToInternal(DnvmEnv.EnvPath)}"
 echo "dnvm: `which dnvm`"
 echo "dotnet: `which dotnet`"
 echo "DOTNET_ROOT: $DOTNET_ROOT"
