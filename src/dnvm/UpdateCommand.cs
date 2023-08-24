@@ -38,7 +38,7 @@ public sealed partial class UpdateCommand
         }
         _releasesUrl = _args.DnvmReleasesUrl ?? options.DnvmReleasesUrl;
         _manifestPath = options.ManifestPath;
-        _dnvmFs = options.DnvmFs;
+        _dnvmFs = options.DnvmEnv;
     }
 
     public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)

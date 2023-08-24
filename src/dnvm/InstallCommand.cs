@@ -89,7 +89,7 @@ public sealed class InstallCommand
         }
 
         return await InstallLatestFromChannel(
-            _globalOptions.DnvmFs,
+            _globalOptions.DnvmEnv,
             _logger,
             _installArgs.Channel,
             _installArgs.Force,

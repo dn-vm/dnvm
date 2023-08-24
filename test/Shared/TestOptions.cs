@@ -16,9 +16,11 @@ public sealed class TestOptions : IDisposable
         GlobalOptions = new GlobalOptions(
             userHome: _userHome.Path,
             dnvmHome: _dnvmHome.Path,
-            getUserEnvVar: s => _envVars[s],
-            setUserEnvVar: (name, val) => _envVars[name] = val,
-            dnvmFs: new DnvmEnv(new MemoryFileSystem()),
+            dnvmEnv: new DnvmEnv(
+                new MemoryFileSystem(),
+                getUserEnvVar: s => _envVars[s],
+                setUserEnvVar: (name, val) => _envVars[name] = val
+            ),
             dotnetFeedUrl,
             releasesUrl
         );
