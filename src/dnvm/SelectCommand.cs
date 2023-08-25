@@ -18,12 +18,13 @@ public static class SelectCommand
 
     public static async Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.SelectArguments args)
     {
+        var dnvmEnv = options.DnvmEnv;
         var newDir = new SdkDirName(args.SdkDirName);
-        var manifest = ManifestUtils.ReadOrCreateManifest(options.ManifestPath);
+        var manifest = dnvmEnv.ReadManifest();
         switch (await RunWithManifest(options.DnvmHome, newDir, manifest, logger))
         {
             case Result<Manifest, Result>.Ok(var newManifest):
-                File.WriteAllText(options.ManifestPath, JsonSerializer.Serialize(newManifest));
+                dnvmEnv.WriteManifest(newManifest);
                 return Result.Success;
             case Result<Manifest, Result>.Err(var error):
                 return error;

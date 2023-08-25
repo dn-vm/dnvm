@@ -21,7 +21,6 @@ public sealed partial class UpdateCommand
     private readonly CommandArguments.UpdateArguments _args;
     private readonly string _feedUrl;
     private readonly string _releasesUrl;
-    private readonly string _manifestPath;
 
     public UpdateCommand(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
     {
@@ -37,7 +36,6 @@ public sealed partial class UpdateCommand
             _feedUrl = _feedUrl[..^1];
         }
         _releasesUrl = _args.DnvmReleasesUrl ?? options.DnvmReleasesUrl;
-        _manifestPath = options.ManifestPath;
         _dnvmFs = options.DnvmEnv;
     }
 
@@ -73,7 +71,7 @@ public sealed partial class UpdateCommand
             return CouldntFetchIndex;
         }
 
-        var manifest = ManifestUtils.ReadOrCreateManifest(_manifestPath);
+        var manifest = _dnvmFs.ReadManifest();
         return await UpdateSdks(
             _dnvmFs,
             _logger,
@@ -82,7 +80,6 @@ public sealed partial class UpdateCommand
             _args.Yes,
             _feedUrl,
             _releasesUrl,
-            _manifestPath,
             cancellationToken: default);
     }
 
@@ -94,7 +91,6 @@ public sealed partial class UpdateCommand
         bool yes,
         string feedUrl,
         string releasesUrl,
-        string manifestPath,
         CancellationToken cancellationToken)
     {
         logger.Log("Looking for available updates");
@@ -150,9 +146,7 @@ public sealed partial class UpdateCommand
         }
 
         logger.Info("Writing manifest");
-        var tmpFile = Path.GetTempFileName();
-        File.WriteAllText(tmpFile, JsonSerializer.Serialize(manifest));
-        File.Move(tmpFile, manifestPath, overwrite: true);
+        dnvmFs.WriteManifest(manifest);
 
         logger.Log("Successfully installed");
         return Success;

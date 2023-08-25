@@ -29,7 +29,7 @@ public sealed class InstallTests
         Assert.True(File.Exists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
 
-        var manifest = File.ReadAllText(globalOptions.ManifestPath);
+        var manifest = globalOptions.DnvmEnv.ReadManifest();
         var installedVersion = server.ReleasesIndexJson.Releases[0].LatestSdk;
         var installedVersions = ImmutableArray.Create(new InstalledSdk { Version = installedVersion, SdkDirName = GlobalOptions.DefaultSdkDirName });
         Assert.Equal(new Manifest
@@ -40,7 +40,7 @@ public sealed class InstallTests
                 SdkDirName = GlobalOptions.DefaultSdkDirName,
                 InstalledSdkVersions = ImmutableArray.Create(installedVersion)
             }})
-        }, JsonSerializer.Deserialize<Manifest>(manifest));
+        }, manifest);
     });
 
     [Fact]

@@ -17,7 +17,6 @@ public sealed class InstallCommand
     private string _dnvmHome;
     private readonly SdkDirName _sdkDir;
     private string SdkInstallPath => Path.Combine(_dnvmHome, _sdkDir.Name);
-    private string ManifestPath => _globalOptions.ManifestPath;
 
     private readonly Logger _logger;
     private readonly CommandArguments.InstallArguments _installArgs;
