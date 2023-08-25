@@ -14,9 +14,7 @@ public sealed class InstallCommand
 {
     private readonly GlobalOptions _globalOptions;
     // Place to install dnvm
-    private string _dnvmHome;
     private readonly SdkDirName _sdkDir;
-    private string SdkInstallPath => Path.Combine(_dnvmHome, _sdkDir.Name);
 
     private readonly Logger _logger;
     private readonly CommandArguments.InstallArguments _installArgs;
@@ -45,7 +43,6 @@ public sealed class InstallCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _dnvmHome = options.DnvmInstallPath;
         _feedUrl = _installArgs.FeedUrl ?? options.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
@@ -74,12 +71,14 @@ public sealed class InstallCommand
 
     public async Task<Result> Run()
     {
-        _logger.Info("Install Directory: " + _dnvmHome);
-        _logger.Info("SDK install directory: " + SdkInstallPath);
+        var dnvmHome = _globalOptions.DnvmHome;
+        var sdkInstallPath = Path.Combine(dnvmHome, _sdkDir.Name);
+        _logger.Info("Install Directory: " + dnvmHome);
+        _logger.Info("SDK install directory: " + sdkInstallPath);
         try
         {
-            Directory.CreateDirectory(_dnvmHome);
-            Directory.CreateDirectory(SdkInstallPath);
+            Directory.CreateDirectory(dnvmHome);
+            Directory.CreateDirectory(sdkInstallPath);
         }
         catch (UnauthorizedAccessException)
         {

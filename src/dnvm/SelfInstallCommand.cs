@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using Zio;
+using Zio.FileSystems;
 using static System.Environment;
 
 namespace Dnvm;
@@ -16,9 +17,8 @@ namespace Dnvm;
 public class SelfInstallCommand
 {
     private readonly Logger _logger;
-    private readonly GlobalOptions _globalOptions;
+    private GlobalOptions _globalOptions;
     // Place to install dnvm
-    private string _dnvmHome;
     private readonly CommandArguments.SelfInstallArguments _installArgs;
     private readonly string _feedUrl;
 
@@ -31,7 +31,6 @@ public class SelfInstallCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _dnvmHome = options.DnvmInstallPath;
         _feedUrl = _installArgs.FeedUrl ?? options.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
@@ -54,6 +53,7 @@ public class SelfInstallCommand
     public async Task<Result> Run()
     {
         var dnvmEnv = _globalOptions.DnvmEnv;
+        using var physicalFs = new PhysicalFileSystem();
         if (!Utilities.IsSingleFile)
         {
             _logger.Log("Cannot self-install into target location: the current executable is not deployed as a single file.");
@@ -77,12 +77,21 @@ public class SelfInstallCommand
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
-                dnvmEnv = DnvmEnv.CreatePhysical(customInstallPath);
+                var newEnv = DnvmEnv.CreatePhysical(customInstallPath);
+                var newOptions = new GlobalOptions(
+                    _globalOptions.UserHome,
+                    _globalOptions.DnvmHome,
+                    newEnv,
+                    _globalOptions.DotnetFeedUrl,
+                    _globalOptions.DnvmReleasesUrl);
+                _globalOptions.Dispose();
+                _globalOptions = newOptions;
+                dnvmEnv = newEnv;
             }
         }
 
-        var targetPath = Path.Combine(_dnvmHome, Utilities.DnvmExeName);
-        if (!_installArgs.Force && File.Exists(targetPath))
+        var targetPath = DnvmEnv.DnvmExePath;
+        if (!_installArgs.Force && dnvmEnv.Vfs.FileExists(targetPath))
         {
             _logger.Log("dnvm is already installed at: " + targetPath);
             _logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
@@ -135,7 +144,11 @@ public class SelfInstallCommand
         try
         {
             _logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
-            File.Copy(procPath, targetPath, overwrite: _installArgs.Force);
+            physicalFs.CopyFileCross(
+                physicalFs.ConvertPathFromInternal(procPath),
+                dnvmEnv.Vfs,
+                targetPath,
+                overwrite: _installArgs.Force);
             _logger.Log("Dnvm installed successfully.");
         }
         catch (Exception e)
@@ -157,7 +170,7 @@ public class SelfInstallCommand
             return Result.InstallFailed;
         }
 
-        InstallCommand.RetargetSymlink(_dnvmHome, sdkDirName);
+        InstallCommand.RetargetSymlink(dnvmEnv, sdkDirName);
 
         // Set up path
         if (updateUserEnv)
@@ -298,9 +311,10 @@ public class SelfInstallCommand
 
     private bool MissingFromEnv(DnvmEnv dnvmEnv, SdkDirName sdkDirName)
     {
-        string SdkInstallPath = Path.Combine(_dnvmHome, sdkDirName.Name);
+        var dnvmHome = dnvmEnv.Vfs.ConvertPathToInternal(UPath.Root);
+        string SdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
         if (GetEnvVar(dnvmEnv, "DOTNET_ROOT") != SdkInstallPath ||
-            !PathContains(dnvmEnv, _dnvmHome))
+            !PathContains(dnvmEnv, dnvmHome))
         {
             return true;
         }
@@ -309,7 +323,8 @@ public class SelfInstallCommand
 
     private async Task<int> AddToPath(DnvmEnv dnvmEnv, SdkDirName sdkDir)
     {
-        string SdkInstallPath = Path.Combine(dnvmEnv.RealPath, sdkDir.Name);
+        string SdkInstallPath = Path.Combine(dnvmEnv.RealPath(UPath.Root), sdkDir.Name);
+        var dnvmHome = dnvmEnv.Vfs.ConvertPathToInternal(UPath.Root);
         if (OperatingSystem.IsWindows())
         {
             if (FindDotnetInSystemPath())
@@ -324,8 +339,8 @@ public class SelfInstallCommand
                     "It is strongly recommended to remove dotnet from your System PATH now.");
                 _logger.Log("");
             }
-            _logger.Log("Adding install directory to user path: " + _dnvmHome);
-            WindowsAddToPath(dnvmEnv, _dnvmHome);
+            _logger.Log("Adding install directory to user path: " + dnvmHome);
+            WindowsAddToPath(dnvmEnv, dnvmHome);
             _logger.Log("Setting DOTNET_ROOT: " + SdkInstallPath);
             SetEnvironmentVariable("DOTNET_ROOT", SdkInstallPath, EnvironmentVariableTarget.User);
 
@@ -336,7 +351,7 @@ public class SelfInstallCommand
         else
         {
             await WriteEnvFile(dnvmEnv, SdkInstallPath, _logger);
-            await AddToShellFiles(_dnvmHome, _globalOptions.UserHome);
+            await AddToShellFiles(dnvmHome, _globalOptions.UserHome);
         }
         return 0;
     }
