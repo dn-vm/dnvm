@@ -48,7 +48,7 @@ public sealed class UpdateTests
         var console = new TestConsole();
         var logger = new Logger(console);
         _ = await UpdateCommand.UpdateSdks(
-            globalOptions.DnvmFs,
+            globalOptions.DnvmEnv,
             logger,
             releasesIndex,
             manifest,

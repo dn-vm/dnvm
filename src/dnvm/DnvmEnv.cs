@@ -20,14 +20,22 @@ public sealed class DnvmEnv : IDisposable
     public static DnvmEnv CreatePhysical(string realPath)
     {
         var physicalFs = new PhysicalFileSystem();
-        return new DnvmEnv(new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)));
+        return new DnvmEnv(
+            new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)),
+            Environment.GetEnvironmentVariable,
+            Environment.SetEnvironmentVariable);
     }
 
     public readonly IFileSystem Vfs;
     public string RealPath => Vfs.ConvertPathToInternal(UPath.Root);
     public SubFileSystem TempFs { get; }
+    public Func<string, string?> GetUserEnvVar { get; }
+    public Action<string, string> SetUserEnvVar { get; }
 
-    public DnvmEnv(IFileSystem vfs)
+    public DnvmEnv(
+        IFileSystem vfs,
+        Func<string, string?> getUserEnvVar,
+        Action<string, string> setUserEnvVar)
     {
         Vfs = vfs;
         // TempFs must be a physical file system because we pass the path to external
@@ -37,6 +45,8 @@ public sealed class DnvmEnv : IDisposable
             physical,
             physical.ConvertPathFromInternal(Path.GetTempPath()),
             owned: true);
+        GetUserEnvVar = getUserEnvVar;
+        SetUserEnvVar = setUserEnvVar;
     }
 
     /// <summary>

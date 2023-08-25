@@ -28,7 +28,7 @@ public static class Program
         {
             CommandArguments.InstallArguments o => (int)await InstallCommand.Run(globalOptions, logger, o),
             CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(globalOptions, logger, o),
-            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, globalOptions.DnvmFs),
+            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, globalOptions.DnvmEnv),
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(globalOptions, logger, o),
             CommandArguments.SelfInstallArguments o => (int)await SelfInstallCommand.Run(globalOptions, logger, o),
             _ => throw ExceptionUtilities.Unreachable
@@ -50,9 +50,7 @@ public static class Program
         return new GlobalOptions(
             userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
             dnvmHome: dnvmHome,
-            getUserEnvVar: s => GetEnvironmentVariable(s, EnvironmentVariableTarget.User),
-            setUserEnvVar: (name, val) => Environment.SetEnvironmentVariable(name, val, EnvironmentVariableTarget.User),
-            dnvmFs: DnvmEnv.CreatePhysical(dnvmHome)
+            dnvmEnv: DnvmEnv.CreatePhysical(dnvmHome)
         );
     }
 }
