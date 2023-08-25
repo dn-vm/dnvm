@@ -49,9 +49,6 @@ public sealed class GlobalOptions : IDisposable
         DnvmReleasesUrl = releasesUrl;
     }
 
-    private readonly string? _dnvmInstallPath;
-    public string DnvmInstallPath { get => _dnvmInstallPath ?? DnvmHome; init => _dnvmInstallPath = value; }
-
     public void Dispose()
     {
         DnvmEnv.Dispose();

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using Xunit;
 using Xunit.Abstractions;
+using Zio;
 using static Dnvm.Test.TestUtils;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
@@ -85,8 +86,9 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         await proc.WaitForExitAsync();
         Assert.Equal(0, proc.ExitCode);
 
-        Assert.Equal(globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dnvm: ")));
-        Assert.Equal(globalOptions.DnvmInstallPath, Path.GetDirectoryName(await ReadLine("dotnet: ")));
+        var dnvmHome = globalOptions.DnvmEnv.RealPath(UPath.Root);
+        Assert.Equal(dnvmHome, Path.GetDirectoryName(await ReadLine("dnvm: ")));
+        Assert.Equal(dnvmHome, Path.GetDirectoryName(await ReadLine("dotnet: ")));
         var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
         Assert.Equal(sdkInstallDir, await ReadLine("DOTNET_ROOT: "));
 
@@ -123,7 +125,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             await proc!.WaitForExitAsync();
 
             var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
-            Assert.Contains($";{globalOptions.DnvmInstallPath};", pathMatch);
+            Assert.Contains($";{globalOptions.DnvmEnv.RealPath(UPath.Root)};", pathMatch);
             var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
             Assert.DoesNotContain($";{sdkInstallDir};", pathMatch);
             Assert.Equal(sdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User));

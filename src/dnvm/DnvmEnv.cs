@@ -16,6 +16,7 @@ public sealed class DnvmEnv : IDisposable
     public const string ManifestFileName = "dnvmManifest.json";
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
+    public static UPath DnvmExePath => UPath.Root / Utilities.DnvmExeName;
 
     public static DnvmEnv CreatePhysical(string realPath)
     {
@@ -27,7 +28,7 @@ public sealed class DnvmEnv : IDisposable
     }
 
     public readonly IFileSystem Vfs;
-    public string RealPath => Vfs.ConvertPathToInternal(UPath.Root);
+    public string RealPath(UPath path) => Vfs.ConvertPathToInternal(path);
     public SubFileSystem TempFs { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
