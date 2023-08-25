@@ -42,7 +42,7 @@ public sealed class SelectTests
         AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
 
         // Select the preview SDK
-        var manifest = ManifestUtils.ReadManifest(globalOptions.ManifestPath);
+        var manifest = globalOptions.DnvmEnv.ReadManifest();
         Assert.Equal(GlobalOptions.DefaultSdkDirName, manifest.CurrentSdkDir);
 
         var previewSdkDir = new SdkDirName("preview");

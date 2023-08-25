@@ -23,8 +23,6 @@ public sealed class GlobalOptions : IDisposable
         GetFolderPath(SpecialFolder.LocalApplicationData, SpecialFolderOption.DoNotVerify),
         "dnvm");
 
-    public const string ManifestFileName = "dnvmManifest.json";
-
     /// <summary>
     /// The location of the SDK install directory, relative to <see cref="DnvmHome" />
     /// </summary>
@@ -53,8 +51,6 @@ public sealed class GlobalOptions : IDisposable
 
     private readonly string? _dnvmInstallPath;
     public string DnvmInstallPath { get => _dnvmInstallPath ?? DnvmHome; init => _dnvmInstallPath = value; }
-
-    public string ManifestPath => Path.Combine(DnvmHome, ManifestFileName);
 
     public void Dispose()
     {

@@ -55,7 +55,6 @@ public sealed class UpdateTests
             yes: false,
             globalOptions.DotnetFeedUrl,
             globalOptions.DnvmReleasesUrl!,
-            globalOptions.ManifestPath,
             cancellationToken);
         Assert.Contains("dnvm is out of date", console.Output);
     });
@@ -127,7 +126,7 @@ public sealed class UpdateTests
                 InstalledSdkVersions = sdkVersions
             }})
         };
-        var actualManifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(globalOptions.ManifestPath));
+        var actualManifest = globalOptions.DnvmEnv.ReadManifest();
         Assert.Equal(expectedManifest, actualManifest);
     });
 
