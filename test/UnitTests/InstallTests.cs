@@ -3,6 +3,7 @@ using Serde.Json;
 using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
+using Zio;
 using static Dnvm.InstallCommand;
 using static Dnvm.Test.TestUtils;
 
@@ -24,10 +25,11 @@ public sealed class InstallTests
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
-        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
-        var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
-        Assert.True(File.Exists(dotnetFile));
-        Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
+        var env = globalOptions.DnvmEnv;
+        var sdkInstallDir = DnvmEnv.GetSdkPath(GlobalOptions.DefaultSdkDirName);
+        var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
+        Assert.True(globalOptions.DnvmEnv.Vfs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, globalOptions.DnvmEnv.Vfs.ReadAllText(dotnetFile));
 
         var manifest = globalOptions.DnvmEnv.ReadManifest();
         var installedVersion = server.ReleasesIndexJson.Releases[0].LatestSdk;
@@ -51,13 +53,14 @@ public sealed class InstallTests
             Channel = Channel.Lts,
             Verbose = true,
         };
-        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name);
-        Assert.False(Directory.Exists(sdkInstallDir));
-        Assert.True(Directory.Exists(globalOptions.DnvmHome));
+        var homeFs = globalOptions.DnvmEnv.Vfs;
+        var sdkInstallDir = DnvmEnv.GetSdkPath(GlobalOptions.DefaultSdkDirName);
+        Assert.False(homeFs.DirectoryExists(sdkInstallDir));
+        Assert.True(homeFs.DirectoryExists(UPath.Root));
         Assert.Equal(Result.Success, await InstallCommand.Run(globalOptions, _logger, args));
-        var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
-        Assert.True(File.Exists(dotnetFile));
-        Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
+        var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
+        Assert.True(homeFs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, homeFs.ReadAllText(dotnetFile));
     });
 
     [Fact]
@@ -72,13 +75,14 @@ public sealed class InstallTests
             Channel = Channel.Preview,
         };
         // Check that the preview install is isolated into a "preview" subdirectory
-        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, Channel.Preview.ToString().ToLowerInvariant());
-        Assert.False(Directory.Exists(sdkInstallDir));
-        Assert.True(Directory.Exists(globalOptions.DnvmHome));
+        var env = globalOptions.DnvmEnv;
+        var sdkInstallDir = DnvmEnv.GetSdkPath(new SdkDirName("preview"));
+        Assert.False(env.Vfs.DirectoryExists(sdkInstallDir));
+        Assert.True(env.Vfs.DirectoryExists(UPath.Root));
         Assert.Equal(Result.Success, await InstallCommand.Run(globalOptions, _logger, args));
-        var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
-        Assert.True(File.Exists(dotnetFile));
-        Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
+        var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
+        Assert.True(globalOptions.DnvmEnv.Vfs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
     });
 
     [Fact]
@@ -94,12 +98,13 @@ public sealed class InstallTests
             SdkDir = dirName
         };
         // Check that the SDK is installed is isolated into the "sts" subdirectory
-        var sdkInstallDir = Path.Combine(globalOptions.DnvmHome, dirName);
-        Assert.False(Directory.Exists(sdkInstallDir));
-        Assert.True(Directory.Exists(globalOptions.DnvmHome));
+        var env = globalOptions.DnvmEnv;
+        var sdkInstallDir = DnvmEnv.GetSdkPath(new SdkDirName(dirName));
+        Assert.False(env.Vfs.DirectoryExists(sdkInstallDir));
+        Assert.True(env.Vfs.DirectoryExists(UPath.Root));
         Assert.Equal(Result.Success, await InstallCommand.Run(globalOptions, _logger, args));
-        var dotnetFile = Path.Combine(sdkInstallDir, "dotnet" + Utilities.ExeSuffix);
-        Assert.True(File.Exists(dotnetFile));
-        Assert.Contains(Assets.ArchiveToken, File.ReadAllText(dotnetFile));
+        var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
+        Assert.True(globalOptions.DnvmEnv.Vfs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
     });
 }

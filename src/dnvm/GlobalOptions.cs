@@ -30,20 +30,17 @@ public sealed class GlobalOptions : IDisposable
 
 
     public string UserHome { get; }
-    public string DnvmHome { get; }
     public DnvmEnv DnvmEnv { get; }
     public string DotnetFeedUrl { get; init; }
     public string DnvmReleasesUrl { get; init; }
 
     public GlobalOptions(
         string userHome,
-        string dnvmHome,
         DnvmEnv dnvmEnv,
         string dotnetFeedUrl = DefaultDotnetFeedUrl,
         string releasesUrl = DefaultReleasesUrl)
     {
         UserHome = userHome;
-        DnvmHome = dnvmHome;
         DnvmEnv = dnvmEnv;
         DotnetFeedUrl = dotnetFeedUrl;
         DnvmReleasesUrl = releasesUrl;

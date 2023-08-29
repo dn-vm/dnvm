@@ -22,15 +22,20 @@ public static class Program
         Console.WriteLine();
         var options = CommandLineArguments.Parse(args);
         var logger = new Logger(AnsiConsole.Console);
+
+        // Self-install is special, since we don't know the DNVM_HOME yet.
+        if (options.Command is CommandArguments.SelfInstallArguments selfInstallArgs)
+        {
+            return (int)await SelfInstallCommand.Run(logger, selfInstallArgs);
+        }
+
         using var globalOptions = GetGlobalConfig();
-        Directory.CreateDirectory(globalOptions.DnvmHome);
         return options.Command switch
         {
             CommandArguments.InstallArguments o => (int)await InstallCommand.Run(globalOptions, logger, o),
             CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(globalOptions, logger, o),
             CommandArguments.ListArguments => (int)await ListCommand.Run(logger, globalOptions.DnvmEnv),
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(globalOptions, logger, o),
-            CommandArguments.SelfInstallArguments o => (int)await SelfInstallCommand.Run(globalOptions, logger, o),
             _ => throw ExceptionUtilities.Unreachable
         };
     }
@@ -40,17 +45,11 @@ public static class Program
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="DefaultConfig.DnvmHome" /> as the default.
     /// </summar>
-    private static GlobalOptions GetGlobalConfig()
+    internal static GlobalOptions GetGlobalConfig()
     {
-        var home = Environment.GetEnvironmentVariable("DNVM_HOME");
-
-        var dnvmHome = string.IsNullOrWhiteSpace(home)
-            ? GlobalOptions.DefaultDnvmHome
-            : home;
         return new GlobalOptions(
             userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
-            dnvmHome: dnvmHome,
-            dnvmEnv: DnvmEnv.CreatePhysical(dnvmHome)
+            dnvmEnv: DnvmEnv.CreateDefault()
         );
     }
 }
