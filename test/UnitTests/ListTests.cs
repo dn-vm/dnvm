@@ -1,6 +1,7 @@
 using Spectre.Console;
 using Spectre.Console.Testing;
 using Xunit;
+using Zio;
 using Zio.FileSystems;
 
 namespace Dnvm.Test;

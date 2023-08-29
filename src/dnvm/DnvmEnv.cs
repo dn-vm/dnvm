@@ -17,9 +17,26 @@ public sealed class DnvmEnv : IDisposable
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
     public static UPath DnvmExePath => UPath.Root / Utilities.DnvmExeName;
+    public static UPath SymlinkPath => UPath.Root / Utilities.DotnetSymlinkName;
+    public static UPath GetSdkPath(SdkDirName sdkDirName) => UPath.Root / sdkDirName.Name;
+
+    /// <summary>
+    /// Get the path to DNVM_HOME, which is the location of the dnvm manifest
+    /// and the installed SDKs. If the environment variable is not set, uses
+    /// <see cref="GlobalOptions.DefaultDnvmHome" /> as the default.
+    /// </summar>
+    public static DnvmEnv CreateDefault()
+    {
+        var home = Environment.GetEnvironmentVariable("DNVM_HOME");
+        var dnvmHome = string.IsNullOrWhiteSpace(home)
+            ? GlobalOptions.DefaultDnvmHome
+            : home;
+        return CreatePhysical(dnvmHome);
+    }
 
     public static DnvmEnv CreatePhysical(string realPath)
     {
+        Directory.CreateDirectory(realPath);
         var physicalFs = new PhysicalFileSystem();
         return new DnvmEnv(
             new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)),

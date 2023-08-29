@@ -15,7 +15,6 @@ public sealed class TestOptions : IDisposable
     {
         GlobalOptions = new GlobalOptions(
             userHome: _userHome.Path,
-            dnvmHome: _dnvmHome.Path,
             dnvmEnv: new DnvmEnv(
                 new MemoryFileSystem(),
                 getUserEnvVar: s => _envVars[s],

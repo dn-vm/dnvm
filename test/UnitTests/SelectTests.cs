@@ -26,19 +26,21 @@ public sealed class SelectTests
             Channel = Channel.Latest,
         });
         Assert.Equal(InstallCommand.Result.Success, result);
+        var env = globalOptions.DnvmEnv;
+        var homeFs = env.Vfs;
         var defaultSdkDir = GlobalOptions.DefaultSdkDirName;
-        var defaultDotnet = Path.Combine(globalOptions.DnvmHome, GlobalOptions.DefaultSdkDirName.Name, Utilities.DotnetExeName);
-        Assert.True(File.Exists(defaultDotnet));
+        var defaultDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
+        Assert.True(homeFs.FileExists(defaultDotnet));
         result = await InstallCommand.Run(globalOptions, _logger, new CommandArguments.InstallArguments
         {
             Channel = Channel.Preview,
         });
         Assert.Equal(InstallCommand.Result.Success, result);
-        var previewDotnet = Path.Combine(globalOptions.DnvmHome, "preview", Utilities.DotnetExeName);
-        Assert.True(File.Exists(previewDotnet));
+        var previewDotnet = DnvmEnv.GetSdkPath(new SdkDirName("preview")) / Utilities.DotnetExeName;
+        Assert.True(homeFs.FileExists(previewDotnet));
 
         // Check that the dotnet link/cmd points to the default SDK
-        var dotnetSymlink = Path.Combine(globalOptions.DnvmHome, Utilities.DotnetSymlinkName);
+        var dotnetSymlink = env.RealPath(DnvmEnv.SymlinkPath);
         AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
 
         // Select the preview SDK
@@ -46,7 +48,7 @@ public sealed class SelectTests
         Assert.Equal(GlobalOptions.DefaultSdkDirName, manifest.CurrentSdkDir);
 
         var previewSdkDir = new SdkDirName("preview");
-        manifest = (await SelectCommand.RunWithManifest(globalOptions.DnvmHome, previewSdkDir, manifest, _logger)).Unwrap();
+        manifest = (await SelectCommand.RunWithManifest(env, previewSdkDir, manifest, _logger)).Unwrap();
 
         Assert.Equal(previewSdkDir, manifest.CurrentSdkDir);
         AssertSymlinkTarget(dotnetSymlink, previewSdkDir);
@@ -65,7 +67,7 @@ public sealed class SelectTests
                 SdkDirName = dn
             })
         };
-        var result = await SelectCommand.RunWithManifest(globalOptions.DnvmHome, new SdkDirName("bad"), manifest, _logger);
+        var result = await SelectCommand.RunWithManifest(globalOptions.DnvmEnv, new SdkDirName("bad"), manifest, _logger);
         Assert.Equal(SelectCommand.Result.BadDirName, result);
 
         Assert.Equal("""
