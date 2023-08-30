@@ -19,9 +19,7 @@ public sealed class TestOptions : IDisposable
                 new MemoryFileSystem(),
                 getUserEnvVar: s => _envVars[s],
                 setUserEnvVar: (name, val) => _envVars[name] = val
-            ),
-            dotnetFeedUrl,
-            releasesUrl
+            )
         );
     }
 

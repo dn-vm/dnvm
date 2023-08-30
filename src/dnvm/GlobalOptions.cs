@@ -10,9 +10,6 @@ namespace Dnvm;
 /// </summary>
 public sealed class GlobalOptions : IDisposable
 {
-    public const string DefaultDotnetFeedUrl = "https://dotnetcli.azureedge.net/dotnet";
-    public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
-
     /// <summary>
     /// Default DNVM_HOME is
     ///  ~/.local/share/dnvm on Linux
@@ -31,19 +28,13 @@ public sealed class GlobalOptions : IDisposable
 
     public string UserHome { get; }
     public DnvmEnv DnvmEnv { get; }
-    public string DotnetFeedUrl { get; init; }
-    public string DnvmReleasesUrl { get; init; }
 
     public GlobalOptions(
         string userHome,
-        DnvmEnv dnvmEnv,
-        string dotnetFeedUrl = DefaultDotnetFeedUrl,
-        string releasesUrl = DefaultReleasesUrl)
+        DnvmEnv dnvmEnv)
     {
         UserHome = userHome;
         DnvmEnv = dnvmEnv;
-        DotnetFeedUrl = dotnetFeedUrl;
-        DnvmReleasesUrl = releasesUrl;
     }
 
     public void Dispose()

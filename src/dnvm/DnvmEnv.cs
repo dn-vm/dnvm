@@ -14,6 +14,8 @@ namespace Dnvm;
 public sealed class DnvmEnv : IDisposable
 {
     public const string ManifestFileName = "dnvmManifest.json";
+    public const string DefaultDotnetFeedUrl = "https://dotnetcli.azureedge.net/dotnet";
+    public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
     public static UPath DnvmExePath => UPath.Root / Utilities.DnvmExeName;
@@ -49,11 +51,15 @@ public sealed class DnvmEnv : IDisposable
     public SubFileSystem TempFs { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
+    public string DotnetFeedUrl { get; }
+    public string DnvmReleasesUrl { get; }
 
     public DnvmEnv(
         IFileSystem vfs,
         Func<string, string?> getUserEnvVar,
-        Action<string, string> setUserEnvVar)
+        Action<string, string> setUserEnvVar,
+        string dotnetFeedUrl = DnvmEnv.DefaultDotnetFeedUrl,
+        string releasesUrl = DnvmEnv.DefaultReleasesUrl)
     {
         Vfs = vfs;
         // TempFs must be a physical file system because we pass the path to external
@@ -65,6 +71,8 @@ public sealed class DnvmEnv : IDisposable
             owned: true);
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
+        DotnetFeedUrl = dotnetFeedUrl;
+        DnvmReleasesUrl = releasesUrl;
     }
 
     /// <summary>

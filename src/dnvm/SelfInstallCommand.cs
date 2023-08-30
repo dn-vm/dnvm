@@ -32,7 +32,7 @@ public class SelfInstallCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _installArgs.FeedUrl ?? options.DotnetFeedUrl;
+        _feedUrl = _installArgs.FeedUrl ?? options.DnvmEnv.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
             _feedUrl = _feedUrl[..^1];
