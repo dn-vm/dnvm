@@ -30,12 +30,12 @@ public sealed partial class UpdateCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _args.FeedUrl ?? options.DotnetFeedUrl;
+        _feedUrl = _args.FeedUrl ?? options.DnvmEnv.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
             _feedUrl = _feedUrl[..^1];
         }
-        _releasesUrl = _args.DnvmReleasesUrl ?? options.DnvmReleasesUrl;
+        _releasesUrl = _args.DnvmReleasesUrl ?? options.DnvmEnv.DnvmReleasesUrl;
         _dnvmFs = options.DnvmEnv;
     }
 
