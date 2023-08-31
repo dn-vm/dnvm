@@ -12,7 +12,7 @@ namespace Dnvm;
 
 public sealed class InstallCommand
 {
-    private readonly GlobalOptions _globalOptions;
+    private readonly DnvmEnv _env;
     // Place to install dnvm
     private readonly SdkDirName _sdkDir;
 
@@ -34,16 +34,16 @@ public sealed class InstallCommand
         CouldntFetchIndex
     }
 
-    public InstallCommand(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
+    public InstallCommand(DnvmEnv env, Logger logger, CommandArguments.InstallArguments args)
     {
-        _globalOptions = options;
+        _env = env;
         _logger = logger;
         _installArgs = args;
         if (_installArgs.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _installArgs.FeedUrl ?? options.DnvmEnv.DotnetFeedUrl;
+        _feedUrl = _installArgs.FeedUrl ?? env.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
             _feedUrl = _feedUrl[..^1];
@@ -60,18 +60,18 @@ public sealed class InstallCommand
     {
         return channel switch {
             Channel.Preview => new SdkDirName("preview"),
-            _ => GlobalOptions.DefaultSdkDirName
+            _ => DnvmEnv.DefaultSdkDirName
         };
     }
 
-    public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.InstallArguments args)
+    public static Task<Result> Run(DnvmEnv env, Logger logger, CommandArguments.InstallArguments args)
     {
-        return new InstallCommand(options, logger, args).Run();
+        return new InstallCommand(env, logger, args).Run();
     }
 
     public async Task<Result> Run()
     {
-        var dnvmHome = _globalOptions.DnvmEnv.RealPath(UPath.Root);
+        var dnvmHome = _env.RealPath(UPath.Root);
         var sdkInstallPath = Path.Combine(dnvmHome, _sdkDir.Name);
         _logger.Info("Install Directory: " + dnvmHome);
         _logger.Info("SDK install directory: " + sdkInstallPath);
@@ -87,7 +87,7 @@ public sealed class InstallCommand
         }
 
         return await InstallLatestFromChannel(
-            _globalOptions.DnvmEnv,
+            _env,
             _logger,
             _installArgs.Channel,
             _installArgs.Force,

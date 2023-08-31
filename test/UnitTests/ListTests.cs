@@ -46,7 +46,9 @@ Installed SDKs:
             .AddSdk(new InstalledSdk("42.42.42"), Channel.Latest);
 
         var env = new Dictionary<string, string>();
+        using var userHome = new TempDirectory();
         var home = new DnvmEnv(
+            userHome.Path,
             new MemoryFileSystem(),
             getUserEnvVar: s => env[s],
             setUserEnvVar: (name, val) => env[name] = val

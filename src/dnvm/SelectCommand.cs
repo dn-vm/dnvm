@@ -17,9 +17,8 @@ public static class SelectCommand
         BadDirName,
     }
 
-    public static async Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.SelectArguments args)
+    public static async Task<Result> Run(DnvmEnv dnvmEnv, Logger logger, CommandArguments.SelectArguments args)
     {
-        var dnvmEnv = options.DnvmEnv;
         var newDir = new SdkDirName(args.SdkDirName);
         var manifest = dnvmEnv.ReadManifest();
         switch (await RunWithManifest(dnvmEnv, newDir, manifest, logger))

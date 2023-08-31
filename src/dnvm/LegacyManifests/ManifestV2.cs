@@ -15,11 +15,11 @@ internal sealed partial record ManifestV2
             InstalledSdkVersions = InstalledSdkVersions.Select(v => new InstalledSdk() {
                 Version = v,
                 // Before V3, all SDKs were installed to the default dir
-                SdkDirName = GlobalOptions.DefaultSdkDirName
+                SdkDirName = DnvmEnv.DefaultSdkDirName
             }).ToImmutableArray(),
             TrackedChannels = TrackedChannels.Select(c => new TrackedChannel {
                 ChannelName = c.ChannelName,
-                SdkDirName = GlobalOptions.DefaultSdkDirName,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = c.InstalledSdkVersions
             }).ToImmutableArray(),
         };

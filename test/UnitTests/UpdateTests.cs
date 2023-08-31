@@ -22,18 +22,18 @@ public sealed class UpdateTests
         _logger = new Logger(new TestConsole());
     }
 
-    private static Task TestWithServer(Func<MockServer, GlobalOptions, CancellationToken, Task> test)
+    private static Task TestWithServer(Func<MockServer, DnvmEnv, CancellationToken, Task> test)
         => TaskScope.With(async taskScope =>
         {
             await using var mockServer = new MockServer(taskScope);
-            using var testOptions = new TestOptions(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
-            await test(mockServer, testOptions.GlobalOptions, taskScope.CancellationToken);
+            using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
+            await test(mockServer, testOptions.DnvmEnv, taskScope.CancellationToken);
         });
 
     [Fact]
-    public Task UpdateChecksForSelfUpdate() => TestWithServer(async (mockServer, globalOptions, cancellationToken) =>
+    public Task UpdateChecksForSelfUpdate() => TestWithServer(async (mockServer, env, cancellationToken) =>
     {
-        var sdkDir = GlobalOptions.DefaultSdkDirName;
+        var sdkDir = DnvmEnv.DefaultSdkDirName;
         var manifest = new Manifest
         {
             InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = "42.42.142", SdkDirName = sdkDir }),
@@ -48,13 +48,13 @@ public sealed class UpdateTests
         var console = new TestConsole();
         var logger = new Logger(console);
         _ = await UpdateCommand.UpdateSdks(
-            globalOptions.DnvmEnv,
+            env,
             logger,
             releasesIndex,
             manifest,
             yes: false,
-            globalOptions.DnvmEnv.DotnetFeedUrl,
-            globalOptions.DnvmEnv.DnvmReleasesUrl!,
+            env.DotnetFeedUrl,
+            env.DnvmReleasesUrl!,
             cancellationToken);
         Assert.Contains("dnvm is out of date", console.Output);
     });
@@ -66,10 +66,10 @@ public sealed class UpdateTests
         // and confirm that 42.42 is processed as newer
         var installedVersion = "41.0.0";
         var manifest = new Manifest {
-            InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = installedVersion, SdkDirName = GlobalOptions.DefaultSdkDirName }),
+            InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = installedVersion, SdkDirName = DnvmEnv.DefaultSdkDirName }),
             TrackedChannels = ImmutableArray.Create(new TrackedChannel {
                 ChannelName = Channel.Latest,
-                SdkDirName = GlobalOptions.DefaultSdkDirName,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = ImmutableArray.Create(installedVersion)
             })
         };
@@ -84,7 +84,7 @@ public sealed class UpdateTests
     });
 
     [Fact]
-    public async Task InstallAndUpdate() => await TestWithServer(async (mockServer, globalOptions, cancellationToken) =>
+    public async Task InstallAndUpdate() => await TestWithServer(async (mockServer, env, cancellationToken) =>
     {
         const Channel channel = Channel.Latest;
         mockServer.ReleasesIndexJson = new() {
@@ -98,7 +98,7 @@ public sealed class UpdateTests
                 }
             })
         };
-        var result = await InstallCommand.Run(globalOptions, _logger, new() {
+        var result = await InstallCommand.Run(env, _logger, new() {
             Channel = channel,
             Verbose = true
         });
@@ -115,18 +115,18 @@ public sealed class UpdateTests
                 }
             })
         };
-        var updateResult = await UpdateCommand.Run(globalOptions, _logger, updateArguments);
+        var updateResult = await UpdateCommand.Run(env, _logger, updateArguments);
         var sdkVersions = ImmutableArray.Create(new[] { "41.0.100", "41.0.101" });
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
         var expectedManifest = new Manifest {
-            InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk { Version = v, SdkDirName = GlobalOptions.DefaultSdkDirName }).ToImmutableArray(),
+            InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk { Version = v, SdkDirName = DnvmEnv.DefaultSdkDirName }).ToImmutableArray(),
             TrackedChannels = ImmutableArray.Create(new[] { new TrackedChannel() {
                 ChannelName = channel,
-                SdkDirName = GlobalOptions.DefaultSdkDirName,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = sdkVersions
             }})
         };
-        var actualManifest = globalOptions.DnvmEnv.ReadManifest();
+        var actualManifest = env.ReadManifest();
         Assert.Equal(expectedManifest, actualManifest);
     });
 

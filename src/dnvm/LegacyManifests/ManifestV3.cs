@@ -87,7 +87,7 @@ public readonly partial record struct TrackedChannelV3()
 [GenerateSerde]
 public readonly partial record struct InstalledSdkV3(string Version)
 {
-    public SdkDirName SdkDirName { get; init; } = GlobalOptions.DefaultSdkDirName;
+    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 
     internal InstalledSdk Convert() => new InstalledSdk(Version) { SdkDirName = SdkDirName };
 }
