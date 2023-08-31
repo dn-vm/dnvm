@@ -19,19 +19,18 @@ public sealed class SelectTests
     }
 
     [Fact]
-    public Task SelectPreview() => TestUtils.RunWithServer(async (mockServer, globalOptions) =>
+    public Task SelectPreview() => TestUtils.RunWithServer(async (mockServer, env) =>
     {
-        var result = await InstallCommand.Run(globalOptions, _logger, new CommandArguments.InstallArguments
+        var result = await InstallCommand.Run(env, _logger, new CommandArguments.InstallArguments
         {
             Channel = Channel.Latest,
         });
         Assert.Equal(InstallCommand.Result.Success, result);
-        var env = globalOptions.DnvmEnv;
         var homeFs = env.Vfs;
-        var defaultSdkDir = GlobalOptions.DefaultSdkDirName;
+        var defaultSdkDir = DnvmEnv.DefaultSdkDirName;
         var defaultDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
         Assert.True(homeFs.FileExists(defaultDotnet));
-        result = await InstallCommand.Run(globalOptions, _logger, new CommandArguments.InstallArguments
+        result = await InstallCommand.Run(env, _logger, new CommandArguments.InstallArguments
         {
             Channel = Channel.Preview,
         });
@@ -44,8 +43,8 @@ public sealed class SelectTests
         AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
 
         // Select the preview SDK
-        var manifest = globalOptions.DnvmEnv.ReadManifest();
-        Assert.Equal(GlobalOptions.DefaultSdkDirName, manifest.CurrentSdkDir);
+        var manifest = env.ReadManifest();
+        Assert.Equal(DnvmEnv.DefaultSdkDirName, manifest.CurrentSdkDir);
 
         var previewSdkDir = new SdkDirName("preview");
         manifest = (await SelectCommand.RunWithManifest(env, previewSdkDir, manifest, _logger)).Unwrap();
@@ -55,7 +54,7 @@ public sealed class SelectTests
     });
 
     [Fact]
-    public Task BadDirName() => TestUtils.RunWithServer(async (server, globalOptions) =>
+    public Task BadDirName() => TestUtils.RunWithServer(async (server, env) =>
     {
         var dn = new SdkDirName("dn");
         var manifest = new Manifest()
@@ -67,7 +66,7 @@ public sealed class SelectTests
                 SdkDirName = dn
             })
         };
-        var result = await SelectCommand.RunWithManifest(globalOptions.DnvmEnv, new SdkDirName("bad"), manifest, _logger);
+        var result = await SelectCommand.RunWithManifest(env, new SdkDirName("bad"), manifest, _logger);
         Assert.Equal(SelectCommand.Result.BadDirName, result);
 
         Assert.Equal("""

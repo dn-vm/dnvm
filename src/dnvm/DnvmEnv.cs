@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Serde.Json;
 using Zio;
 using Zio.FileSystems;
+using static System.Environment;
 
 namespace Dnvm;
 
@@ -23,6 +24,22 @@ public sealed class DnvmEnv : IDisposable
     public static UPath GetSdkPath(SdkDirName sdkDirName) => UPath.Root / sdkDirName.Name;
 
     /// <summary>
+    /// Default DNVM_HOME is
+    ///  ~/.local/share/dnvm on Linux
+    ///  %LocalAppData%/dnvm on Windows
+    ///  ~/Library/Application Support/dnvm on Mac
+    /// </summary>
+    public static readonly string DefaultDnvmHome = Path.Combine(
+        GetFolderPath(SpecialFolder.LocalApplicationData, SpecialFolderOption.DoNotVerify),
+        "dnvm");
+
+    /// <summary>
+    /// The location of the SDK install directory, relative to <see cref="DnvmHome" />
+    /// </summary>
+    public static readonly SdkDirName DefaultSdkDirName = new("dn");
+
+
+    /// <summary>
     /// Get the path to DNVM_HOME, which is the location of the dnvm manifest
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="GlobalOptions.DefaultDnvmHome" /> as the default.
@@ -31,7 +48,7 @@ public sealed class DnvmEnv : IDisposable
     {
         var home = Environment.GetEnvironmentVariable("DNVM_HOME");
         var dnvmHome = string.IsNullOrWhiteSpace(home)
-            ? GlobalOptions.DefaultDnvmHome
+            ? DefaultDnvmHome
             : home;
         return CreatePhysical(dnvmHome);
     }
@@ -41,6 +58,7 @@ public sealed class DnvmEnv : IDisposable
         Directory.CreateDirectory(realPath);
         var physicalFs = new PhysicalFileSystem();
         return new DnvmEnv(
+            userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
             new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)),
             Environment.GetEnvironmentVariable,
             Environment.SetEnvironmentVariable);
@@ -53,14 +71,18 @@ public sealed class DnvmEnv : IDisposable
     public Action<string, string> SetUserEnvVar { get; }
     public string DotnetFeedUrl { get; }
     public string DnvmReleasesUrl { get; }
+    public string UserHome { get; }
+
 
     public DnvmEnv(
+        string userHome,
         IFileSystem vfs,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
         string dotnetFeedUrl = DnvmEnv.DefaultDotnetFeedUrl,
         string releasesUrl = DnvmEnv.DefaultReleasesUrl)
     {
+        UserHome = userHome;
         Vfs = vfs;
         // TempFs must be a physical file system because we pass the path to external
         // commands that will not be able to write to shared memory

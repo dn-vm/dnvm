@@ -29,27 +29,14 @@ public static class Program
             return (int)await SelfInstallCommand.Run(logger, selfInstallArgs);
         }
 
-        using var globalOptions = GetGlobalConfig();
+        using var env = DnvmEnv.CreateDefault();
         return options.Command switch
         {
-            CommandArguments.InstallArguments o => (int)await InstallCommand.Run(globalOptions, logger, o),
-            CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(globalOptions, logger, o),
-            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, globalOptions.DnvmEnv),
-            CommandArguments.SelectArguments o => (int)await SelectCommand.Run(globalOptions, logger, o),
+            CommandArguments.InstallArguments o => (int)await InstallCommand.Run(env, logger, o),
+            CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(env, logger, o),
+            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, env),
+            CommandArguments.SelectArguments o => (int)await SelectCommand.Run(env, logger, o),
             _ => throw ExceptionUtilities.Unreachable
         };
-    }
-
-    /// <summary>
-    /// Get the path to DNVM_HOME, which is the location of the dnvm manifest
-    /// and the installed SDKs. If the environment variable is not set, uses
-    /// <see cref="DefaultConfig.DnvmHome" /> as the default.
-    /// </summar>
-    internal static GlobalOptions GetGlobalConfig()
-    {
-        return new GlobalOptions(
-            userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
-            dnvmEnv: DnvmEnv.CreateDefault()
-        );
     }
 }

@@ -58,7 +58,7 @@ public sealed partial record Manifest
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
 
-    public SdkDirName CurrentSdkDir { get; init; } = GlobalOptions.DefaultSdkDirName;
+    public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
     public ImmutableArray<InstalledSdk> InstalledSdkVersions { get; init; } = ImmutableArray<InstalledSdk>.Empty;
     public ImmutableArray<TrackedChannel> TrackedChannels { get; init; } = ImmutableArray<TrackedChannel>.Empty;
 
@@ -120,7 +120,7 @@ public readonly partial record struct TrackedChannel()
 [GenerateSerde]
 public readonly partial record struct InstalledSdk(string Version)
 {
-    public SdkDirName SdkDirName { get; init; } = GlobalOptions.DefaultSdkDirName;
+    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 }
 
 [GenerateSerde]

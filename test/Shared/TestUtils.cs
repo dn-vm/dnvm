@@ -26,11 +26,11 @@ public static class TestUtils
             await test(mockServer);
         });
 
-    public static Task RunWithServer(Func<MockServer, GlobalOptions, Task> test)
+    public static Task RunWithServer(Func<MockServer, DnvmEnv, Task> test)
         => TaskScope.With(async taskScope =>
         {
             await using var mockServer = new MockServer(taskScope);
-            using var testOptions = new TestOptions(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
-            await test(mockServer, testOptions.GlobalOptions);
+            using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
+            await test(mockServer, testOptions.DnvmEnv);
         });
 }

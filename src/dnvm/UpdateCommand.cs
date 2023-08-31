@@ -16,13 +16,13 @@ namespace Dnvm;
 
 public sealed partial class UpdateCommand
 {
-    private readonly DnvmEnv _dnvmFs;
+    private readonly DnvmEnv _env;
     private readonly Logger _logger;
     private readonly CommandArguments.UpdateArguments _args;
     private readonly string _feedUrl;
     private readonly string _releasesUrl;
 
-    public UpdateCommand(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
+    public UpdateCommand(DnvmEnv env, Logger logger, CommandArguments.UpdateArguments args)
     {
         _logger = logger;
         _args = args;
@@ -30,18 +30,18 @@ public sealed partial class UpdateCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _args.FeedUrl ?? options.DnvmEnv.DotnetFeedUrl;
+        _feedUrl = _args.FeedUrl ?? env.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
             _feedUrl = _feedUrl[..^1];
         }
-        _releasesUrl = _args.DnvmReleasesUrl ?? options.DnvmEnv.DnvmReleasesUrl;
-        _dnvmFs = options.DnvmEnv;
+        _releasesUrl = _args.DnvmReleasesUrl ?? env.DnvmReleasesUrl;
+        _env = env;
     }
 
-    public static Task<Result> Run(GlobalOptions options, Logger logger, CommandArguments.UpdateArguments args)
+    public static Task<Result> Run(DnvmEnv env, Logger logger, CommandArguments.UpdateArguments args)
     {
-        return new UpdateCommand(options, logger, args).Run();
+        return new UpdateCommand(env, logger, args).Run();
     }
 
     public enum Result
@@ -71,9 +71,9 @@ public sealed partial class UpdateCommand
             return CouldntFetchIndex;
         }
 
-        var manifest = _dnvmFs.ReadManifest();
+        var manifest = _env.ReadManifest();
         return await UpdateSdks(
-            _dnvmFs,
+            _env,
             _logger,
             releaseIndex,
             manifest,

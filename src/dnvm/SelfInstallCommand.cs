@@ -17,22 +17,22 @@ namespace Dnvm;
 
 public class SelfInstallCommand
 {
+    private readonly DnvmEnv _env;
     private readonly Logger _logger;
-    private GlobalOptions _globalOptions;
     // Place to install dnvm
     private readonly CommandArguments.SelfInstallArguments _installArgs;
     private readonly string _feedUrl;
 
-    public SelfInstallCommand(GlobalOptions options, Logger logger, CommandArguments.SelfInstallArguments args)
+    public SelfInstallCommand(DnvmEnv env, Logger logger, CommandArguments.SelfInstallArguments args)
     {
-        _globalOptions = options;
+        _env = env;
         _logger = logger;
         _installArgs = args;
         if (_installArgs.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _installArgs.FeedUrl ?? options.DnvmEnv.DotnetFeedUrl;
+        _feedUrl = _installArgs.FeedUrl ?? env.DotnetFeedUrl;
         if (_feedUrl[^1] == '/')
         {
             _feedUrl = _feedUrl[..^1];
@@ -59,7 +59,7 @@ public class SelfInstallCommand
 
         if (!args.Yes)
         {
-            Console.Write($"Please select install location [default: {GlobalOptions.DefaultDnvmHome}]: ");
+            Console.Write($"Please select install location [default: {DnvmEnv.DefaultDnvmHome}]: ");
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
@@ -119,11 +119,7 @@ public class SelfInstallCommand
 
         logger.Log("Proceeding with installation.");
 
-        var options = new GlobalOptions(
-            userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
-            dnvmEnv: env
-        );
-        return await new SelfInstallCommand(options, logger, args).Run(targetPath, channel, sdkDirName, updateUserEnv);
+        return await new SelfInstallCommand(env, logger, args).Run(targetPath, channel, sdkDirName, updateUserEnv);
     }
 
     public enum Result
@@ -135,7 +131,6 @@ public class SelfInstallCommand
 
     public async Task<Result> Run(UPath targetPath, Channel channel, SdkDirName sdkDirName, bool updateUserEnv)
     {
-        var dnvmEnv = _globalOptions.DnvmEnv;
         var procPath = Utilities.ProcessPath;
         _logger.Info("Location of running exe" + procPath);
 
@@ -145,7 +140,7 @@ public class SelfInstallCommand
             _logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
             physicalFs.CopyFileCross(
                 physicalFs.ConvertPathFromInternal(procPath),
-                dnvmEnv.Vfs,
+                _env.Vfs,
                 targetPath,
                 overwrite: _installArgs.Force);
             _logger.Log("Dnvm installed successfully.");
@@ -157,7 +152,7 @@ public class SelfInstallCommand
         }
 
         var result = await InstallCommand.InstallLatestFromChannel(
-            dnvmEnv,
+            _env,
             _logger,
             channel,
             _installArgs.Force,
@@ -169,12 +164,12 @@ public class SelfInstallCommand
             return Result.InstallFailed;
         }
 
-        InstallCommand.RetargetSymlink(dnvmEnv, sdkDirName);
+        InstallCommand.RetargetSymlink(_env, sdkDirName);
 
         // Set up path
         if (updateUserEnv)
         {
-            await AddToPath(dnvmEnv, sdkDirName);
+            await AddToPath(_env, sdkDirName);
         }
 
         return Result.Success;
@@ -193,7 +188,7 @@ public class SelfInstallCommand
         }
         catch
         {
-            sdkDirName = GlobalOptions.DefaultSdkDirName;
+            sdkDirName = DnvmEnv.DefaultSdkDirName;
         }
 
         var dnvmHome = dnvmEnv.Vfs.ConvertPathToInternal(UPath.Root);
@@ -349,7 +344,7 @@ public class SelfInstallCommand
         else
         {
             await WriteEnvFile(dnvmEnv, SdkInstallPath, _logger);
-            await AddToShellFiles(dnvmHome, _globalOptions.UserHome);
+            await AddToShellFiles(dnvmHome, dnvmEnv.UserHome);
         }
         return 0;
     }
@@ -404,7 +399,7 @@ fi
         var filesToUpdate = new List<string>();
         foreach (var shellFileName in ProfileShellFiles)
         {
-            var shellPath = Path.Combine(_globalOptions.UserHome, shellFileName);
+            var shellPath = Path.Combine(userHome, shellFileName);
             _logger.Info("Checking for file: " + shellPath);
             if (File.Exists(shellPath))
             {
