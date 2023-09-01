@@ -13,11 +13,15 @@ public sealed class TestEnv : IDisposable
 
     public TestEnv(string dotnetFeedUrl, string releasesUrl)
     {
+        var physicalFs = new PhysicalFileSystem();
         DnvmEnv = new DnvmEnv(
                 userHome: _userHome.Path,
-                new MemoryFileSystem(),
+                new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(_dnvmHome.Path)),
+                isPhysical: true,
                 getUserEnvVar: s => _envVars[s],
-                setUserEnvVar: (name, val) => _envVars[name] = val);
+                setUserEnvVar: (name, val) => _envVars[name] = val,
+                dotnetFeedUrl,
+                releasesUrl);
     }
 
     public void Dispose()

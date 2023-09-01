@@ -89,7 +89,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         var dnvmHome = env.RealPath(UPath.Root);
         Assert.Equal(dnvmHome, Path.GetDirectoryName(await ReadLine("dnvm: ")));
         Assert.Equal(dnvmHome, Path.GetDirectoryName(await ReadLine("dotnet: ")));
-        var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
+        var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName));
         Assert.Equal(sdkInstallDir, await ReadLine("DOTNET_ROOT: "));
 
         async Task<string> ReadLine(string expectedPrefix)
@@ -165,7 +165,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     {
         using var srcTmpDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();
-        using var dnvmFs = DnvmEnv.CreatePhysical(dnvmHome.Path);
+        using var dnvmFs = DnvmEnv.CreateDefault(dnvmHome.Path);
         var dnvmTmpPath = srcTmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
         // Create a dest dnvm home that looks like a previous install

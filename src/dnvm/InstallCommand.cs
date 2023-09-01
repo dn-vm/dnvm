@@ -106,7 +106,7 @@ public sealed class InstallCommand
         Manifest manifest;
         try
         {
-            manifest = dnvmFs.ReadManifest();
+            manifest = ManifestUtils.ReadOrCreateManifest(dnvmFs);
         }
         catch (InvalidDataException)
         {
@@ -308,14 +308,14 @@ public sealed class InstallCommand
             else
             {
                 // On Unix, we can create a symlink
-                File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetSymlinkName));
+                File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetExeName));
             }
         }
     }
 
     private static void CreateSymlinkIfMissing(DnvmEnv dnvmFs, SdkDirName sdkDirName)
     {
-        var symlinkPath = dnvmFs.Vfs.ConvertPathToInternal(DotnetSymlinkName);
+        var symlinkPath = dnvmFs.Vfs.ConvertPathToInternal(UPath.Root + DotnetSymlinkName);
         if (!File.Exists(symlinkPath))
         {
             RetargetSymlink(dnvmFs, sdkDirName);
