@@ -1,0 +1,51 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Dnvm;
+
+public sealed class UntrackCommand
+{
+    public abstract record Result
+    {
+        private Result() { }
+
+
+        public sealed record Success(Manifest Manifest) : Result;
+        public sealed record ChannelUntracked : Result;
+        public record ManifestReadError : Result;
+    }
+
+    public static int Run(DnvmEnv env, Logger logger, CommandArguments.UntrackArguments options)
+    {
+        Manifest manifest;
+        try
+        {
+            manifest = env.ReadManifest();
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            logger.Log("Failed to read manifest file");
+            return 1;
+        }
+        var result = RunHelper(options.Channel, manifest, logger);
+        if (result is Result.Success({} newManifest))
+        {
+            env.WriteManifest(newManifest);
+            return 0;
+        }
+        return 1;
+    }
+
+    public static Result RunHelper(Channel channel, Manifest manifest, Logger logger)
+    {
+        if (!manifest.TrackedChannels.Any(c => c.ChannelName == channel))
+        {
+            logger.Log("Channel '{channel}' is not tracked");
+            return new Result.ChannelUntracked();
+        }
+
+        return new Result.Success(manifest.Untrack(channel));
+    }
+}

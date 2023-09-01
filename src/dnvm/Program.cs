@@ -16,13 +16,13 @@ public static class Program
 
     internal static readonly HttpClient HttpClient = new();
 
-    static async Task<int> Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
-        Console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.Sha);
-        Console.WriteLine();
+        var console = AnsiConsole.Console;
+        console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.Sha);
+        console.WriteLine();
+        var logger = new Logger(console);
         var options = CommandLineArguments.Parse(args);
-        var logger = new Logger(AnsiConsole.Console);
-
         // Self-install is special, since we don't know the DNVM_HOME yet.
         if (options.Command is CommandArguments.SelfInstallArguments selfInstallArgs)
         {
@@ -30,12 +30,18 @@ public static class Program
         }
 
         using var env = DnvmEnv.CreateDefault();
+        return await Dnvm(env, logger, options);
+    }
+
+    internal static async Task<int> Dnvm(DnvmEnv env, Logger logger, CommandLineArguments options)
+    {
         return options.Command switch
         {
             CommandArguments.InstallArguments o => (int)await InstallCommand.Run(env, logger, o),
             CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(env, logger, o),
             CommandArguments.ListArguments => (int)await ListCommand.Run(logger, env),
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(env, logger, o),
+            CommandArguments.UntrackArguments o => UntrackCommand.Run(env, logger, o),
             _ => throw ExceptionUtilities.Unreachable
         };
     }

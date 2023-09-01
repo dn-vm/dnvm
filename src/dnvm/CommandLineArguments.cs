@@ -77,6 +77,11 @@ public abstract record CommandArguments
     {
         public required string SdkDirName { get; init; }
     }
+
+    public sealed record UntrackArguments : CommandArguments
+    {
+        public required Channel Channel { get; init; }
+    }
 }
 
 sealed record class CommandLineArguments(CommandArguments Command)
@@ -194,6 +199,29 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 command = new CommandArguments.SelectArguments
                 {
                     SdkDirName = sdkDirName,
+                };
+            }
+
+            var untrack = syntax.DefineCommand("untrack", ref commandName, "Remove a channel from the list of tracked channels");
+            if (untrack.IsActive)
+            {
+                Channel? channel = null;
+                syntax.DefineParameter("channel", ref channel, c =>
+                    {
+                        if (Enum.TryParse<Channel>(c, ignoreCase: true, out var result))
+                        {
+                            return result;
+                        }
+                        var sep = Environment.NewLine + "\t- ";
+                        throw new FormatException(
+                            "Channel must be one of:"
+                            + sep + string.Join(sep, Enum.GetNames<Channel>()));
+                    },
+                    $"Remove the given channel from the list of tracked channels.");
+
+                command = new CommandArguments.UntrackArguments
+                {
+                    Channel = channel!.Value,
                 };
             }
         });
