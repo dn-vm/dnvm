@@ -126,7 +126,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
 
             var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
             Assert.Contains($";{env.RealPath(UPath.Root)};", pathMatch);
-            var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
+            var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName));
             Assert.DoesNotContain($";{sdkInstallDir};", pathMatch);
             Assert.Equal(sdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User)!);
         }
