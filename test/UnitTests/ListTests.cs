@@ -50,6 +50,7 @@ Installed SDKs:
         var home = new DnvmEnv(
             userHome.Path,
             new MemoryFileSystem(),
+            isPhysical: false,
             getUserEnvVar: s => env[s],
             setUserEnvVar: (name, val) => env[name] = val
         );

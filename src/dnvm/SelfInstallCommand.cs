@@ -63,7 +63,7 @@ public class SelfInstallCommand
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
-                env = DnvmEnv.CreatePhysical(customInstallPath);
+                env = DnvmEnv.CreateDefault(customInstallPath);
             }
         }
         env ??= DnvmEnv.CreateDefault();
@@ -143,6 +143,10 @@ public class SelfInstallCommand
                 _env.Vfs,
                 targetPath,
                 overwrite: _installArgs.Force);
+            if (!OperatingSystem.IsWindows())
+            {
+                Utilities.ChmodExec(_env.Vfs, targetPath);
+            }
             _logger.Log("Dnvm installed successfully.");
         }
         catch (Exception e)

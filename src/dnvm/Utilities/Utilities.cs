@@ -120,19 +120,23 @@ public static class Utilities
     public static async Task<string?> ExtractArchiveToDir(string archivePath, DnvmEnv dnvmFs, UPath dest)
     {
         dnvmFs.Vfs.CreateDirectory(dest);
-        using var tempFs = dnvmFs.TempFs;
+        var tempFs = dnvmFs.TempFs;
         var tempExtractDir = UPath.Root / Path.GetRandomFileName();
-        var tempRealPath = tempFs.ConvertPathToInternal(tempExtractDir);
+        tempFs.CreateDirectory(tempExtractDir);
+        using var tempRealPath = new DirectoryResource(tempFs.ConvertPathToInternal(tempExtractDir));
         if (Utilities.CurrentRID.OS != OSPlatform.Windows)
         {
-            var procResult = await ProcUtil.RunWithOutput("tar", $"-xzf \"{archivePath}\" -C \"{tempRealPath}\"");
-            return procResult.ExitCode == 0 ? null : procResult.Error;
+            var procResult = await ProcUtil.RunWithOutput("tar", $"-xzf \"{archivePath}\" -C \"{tempRealPath.Path}\"");
+            if (procResult.ExitCode != 0)
+            {
+                return procResult.Error;
+            }
         }
         else
         {
             try
             {
-                ZipFile.ExtractToDirectory(archivePath, tempRealPath, overwriteFiles: true);
+                ZipFile.ExtractToDirectory(archivePath, tempRealPath.Path, overwriteFiles: true);
             }
             catch (Exception e)
             {

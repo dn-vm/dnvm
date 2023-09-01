@@ -1,6 +1,7 @@
 
 using System;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Serde.Json;
 using Zio;
@@ -44,26 +45,33 @@ public sealed class DnvmEnv : IDisposable
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="DnvmEnv.DefaultDnvmHome" /> as the default.
     /// </summar>
-    public static DnvmEnv CreateDefault()
+    public static DnvmEnv CreateDefault(string? home = null)
     {
-        var home = Environment.GetEnvironmentVariable("DNVM_HOME");
+        home ??= Environment.GetEnvironmentVariable("DNVM_HOME");
         var dnvmHome = string.IsNullOrWhiteSpace(home)
             ? DefaultDnvmHome
             : home;
-        return CreatePhysical(dnvmHome);
+        return CreatePhysical(dnvmHome,
+            n => Environment.GetEnvironmentVariable(n, EnvironmentVariableTarget.User),
+            (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User));
     }
 
-    public static DnvmEnv CreatePhysical(string realPath)
+    public static DnvmEnv CreatePhysical(
+        string realPath,
+        Func<string, string?> getUserEnvVar,
+        Action<string, string> setUserEnvVar)
     {
         Directory.CreateDirectory(realPath);
         var physicalFs = new PhysicalFileSystem();
         return new DnvmEnv(
             userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
             new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)),
-            Environment.GetEnvironmentVariable,
-            Environment.SetEnvironmentVariable);
+            isPhysical: true,
+            getUserEnvVar,
+            setUserEnvVar);
     }
 
+    public bool IsPhysicalDnvmHome { get; }
     public readonly IFileSystem Vfs;
     public string RealPath(UPath path) => Vfs.ConvertPathToInternal(path);
     public SubFileSystem TempFs { get; }
@@ -77,6 +85,7 @@ public sealed class DnvmEnv : IDisposable
     public DnvmEnv(
         string userHome,
         IFileSystem vfs,
+        bool isPhysical,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
         string dotnetFeedUrl = DnvmEnv.DefaultDotnetFeedUrl,
@@ -84,6 +93,7 @@ public sealed class DnvmEnv : IDisposable
     {
         UserHome = userHome;
         Vfs = vfs;
+        IsPhysicalDnvmHome = isPhysical;
         // TempFs must be a physical file system because we pass the path to external
         // commands that will not be able to write to shared memory
         var physical = new PhysicalFileSystem();
@@ -111,9 +121,7 @@ public sealed class DnvmEnv : IDisposable
     public void WriteManifest(Manifest manifest)
     {
         var text = JsonSerializer.Serialize(manifest);
-        var tmpPath = ManifestPath + ".tmp";
-        Vfs.WriteAllText(tmpPath, text);
-        Vfs.MoveFile(tmpPath, ManifestPath);
+        Vfs.WriteAllText(ManifestPath, text, Encoding.UTF8);
     }
 
     public void Dispose()
