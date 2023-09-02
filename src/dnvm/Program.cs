@@ -42,6 +42,7 @@ public static class Program
             CommandArguments.ListArguments => (int)await ListCommand.Run(logger, env),
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(env, logger, o),
             CommandArguments.UntrackArguments o => await UntrackCommand.Run(env, logger, o),
+            CommandArguments.UninstallArguments o => await UninstallCommand.Run(env, logger, o),
             _ => throw ExceptionUtilities.Unreachable
         };
     }

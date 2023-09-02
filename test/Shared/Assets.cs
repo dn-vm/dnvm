@@ -1,7 +1,9 @@
 
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using Semver;
 using static Dnvm.Test.TestUtils;
 
 namespace Dnvm.Test;
@@ -14,20 +16,35 @@ public sealed class Assets
     /// </summary>
     public const string ArchiveToken = "2c192c853403aa1725f8f99bbe72fe691226fa28";
 
-    private static Lazy<byte[]> s_sdkArchive = new Lazy<byte[]>(() =>
+    private static readonly ConcurrentDictionary<SemVersion, byte[]> _archiveCache = new();
+
+    public static Stream GetSdkArchive(
+        SemVersion sdkVersion,
+        SemVersion runtimeVersion,
+        SemVersion aspnetVersion)
     {
+        if (_archiveCache.TryGetValue(runtimeVersion, out var archive))
+        {
+            return new MemoryStream(archive);
+        }
+
         using var tempDir = TestUtils.CreateTempDirectory();
         var exePath = Path.Combine(tempDir.Path, Utilities.DotnetExeName);
         MakeFakeExe(exePath, ArchiveToken);
+
+        _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "sdk", sdkVersion.ToString()));
+        _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "shared", "Microsoft.NETCore.App", runtimeVersion.ToString()));
+        _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "host", "fxr", runtimeVersion.ToString()));
+        _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "packs", $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}", runtimeVersion.ToString()));
+        _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "shared", "Microsoft.AspNetCore.App", aspnetVersion.ToString()));
+        _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "templates", aspnetVersion.ToString()));
+
         using var zipDir = TestUtils.CreateTempDirectory();
         var archivePath = MakeZipOrTarball(tempDir.Path, Path.Combine(zipDir.Path, "dotnet"));
-        var archive = File.ReadAllBytes(archivePath);
+        archive = File.ReadAllBytes(archivePath);
         File.Delete(archivePath);
-        return archive;
-
-    },isThreadSafe: true);
-
-    public static Stream SdkArchive => new MemoryStream(s_sdkArchive.Value);
+        return new MemoryStream(_archiveCache.GetOrAdd(runtimeVersion, archive));
+    }
 
     public static void MakeFakeExe(string destPath, string outputString)
     {

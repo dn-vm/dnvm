@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using Internal.CommandLine;
+using Semver;
 
 namespace Dnvm;
 
@@ -81,6 +82,11 @@ public abstract record CommandArguments
     public sealed record UntrackArguments : CommandArguments
     {
         public required Channel Channel { get; init; }
+    }
+
+    public sealed record UninstallArguments : CommandArguments
+    {
+        public required SemVersion SdkVersion { get; init; }
     }
 }
 
@@ -222,6 +228,25 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 command = new CommandArguments.UntrackArguments
                 {
                     Channel = channel!.Value,
+                };
+            }
+
+            var uninstall = syntax.DefineCommand("uninstall", ref commandName, "Uninstall an SDK");
+            if (uninstall.IsActive)
+            {
+                SemVersion? sdkVersion = null;
+                syntax.DefineParameter("sdkVersion", ref sdkVersion, v =>
+                {
+                    if (SemVersion.TryParse(v, SemVersionStyles.Strict, out var result))
+                    {
+                        return result;
+                    }
+                    throw new FormatException($"Invalid version: {v}");
+                }, "The version of the SDK to uninstall.");
+
+                command = new CommandArguments.UninstallArguments
+                {
+                    SdkVersion = sdkVersion!,
                 };
             }
         });
