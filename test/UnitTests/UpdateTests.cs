@@ -192,11 +192,11 @@ public sealed class UpdateTests
     {
         var previewRelease = new DotnetReleasesIndex.Release
         {
-            LatestRelease = "42.42.42",
-            LatestSdk = "42.42.42",
-            MajorMinorVersion = "42.42",
-            ReleaseType = "go-live",
-            SupportPhase = "active"
+            LatestRelease = "100.100.100-preview.1",
+            LatestSdk = "100.100.100-preview.1",
+            MajorMinorVersion = "100.100",
+            ReleaseType = "lts",
+            SupportPhase = "go-live"
         };
 
         var releasesIndex = new DotnetReleasesIndex {
