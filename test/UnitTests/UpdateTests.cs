@@ -186,4 +186,24 @@ public sealed class UpdateTests
         // LTS preview is newest
         Assert.Equal(ltsPreview, actual);
     }
+
+    [Fact]
+    public void GoLiveAcceptedAsPreview()
+    {
+        var previewRelease = new DotnetReleasesIndex.Release
+        {
+            LatestRelease = "100.100.100-preview.1",
+            LatestSdk = "100.100.100-preview.1",
+            MajorMinorVersion = "100.100",
+            ReleaseType = "lts",
+            SupportPhase = "go-live"
+        };
+
+        var releasesIndex = new DotnetReleasesIndex {
+            Releases = ImmutableArray.Create(previewRelease)
+        };
+
+        var actual = releasesIndex.GetLatestReleaseForChannel(Channel.Preview);
+        Assert.Equal(previewRelease, actual);
+    }
 }

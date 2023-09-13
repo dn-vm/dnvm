@@ -35,6 +35,7 @@ public partial record DotnetReleasesIndex
                 (Channel.Latest, "active", _)
                 or (Channel.Lts, "active", "lts")
                 or (Channel.Sts, "active", "sts")
+                or (Channel.Preview, "go-live", _)
                 or (Channel.Preview, "preview", _) => true,
                 _ => false
             };
