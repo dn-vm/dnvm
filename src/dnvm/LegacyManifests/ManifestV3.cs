@@ -8,12 +8,6 @@ using Serde;
 [GenerateSerde]
 public sealed partial record ManifestV3
 {
-    internal Manifest Convert() => new Manifest
-    {
-        InstalledSdkVersions = InstalledSdkVersions.SelectAsArray(v => v.Convert()),
-        TrackedChannels = TrackedChannels.SelectAsArray(c => c.Convert()),
-    };
-
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
     public const int VersionField = 3;
 
@@ -90,4 +84,25 @@ public readonly partial record struct InstalledSdkV3(string Version)
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 
     internal InstalledSdk Convert() => new InstalledSdk(Version) { SdkDirName = SdkDirName };
+}
+
+static class ManifestConvertV3
+{
+    internal static ManifestV3 Convert(this ManifestV2 v2)
+    {
+        return new ManifestV3 {
+            InstalledSdkVersions = v2.InstalledSdkVersions.Select(v => new InstalledSdkV3() {
+                Version = v,
+                // Before V3, all SDKs were installed to the default dir
+                SdkDirName = DnvmEnv.DefaultSdkDirName
+            }).ToImmutableArray(),
+            TrackedChannels = v2.TrackedChannels.Select(c => new TrackedChannelV3 {
+                ChannelName = c.ChannelName,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
+                InstalledSdkVersions = c.InstalledSdkVersions
+            }).ToImmutableArray(),
+        };
+    }
+
+
 }

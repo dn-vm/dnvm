@@ -9,22 +9,6 @@ namespace Dnvm;
 [GenerateSerde]
 internal sealed partial record ManifestV2
 {
-    public Manifest Convert()
-    {
-        return new Manifest {
-            InstalledSdkVersions = InstalledSdkVersions.Select(v => new InstalledSdk() {
-                Version = v,
-                // Before V3, all SDKs were installed to the default dir
-                SdkDirName = DnvmEnv.DefaultSdkDirName
-            }).ToImmutableArray(),
-            TrackedChannels = TrackedChannels.Select(c => new TrackedChannel {
-                ChannelName = c.ChannelName,
-                SdkDirName = DnvmEnv.DefaultSdkDirName,
-                InstalledSdkVersions = c.InstalledSdkVersions
-            }).ToImmutableArray(),
-        };
-    }
-
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
     public const int VersionField = 2;
 
@@ -81,5 +65,16 @@ internal partial record struct TrackedChannelV2
             code = HashCode.Combine(code, item);
         }
         return code;
+    }
+}
+
+static partial class ManifestV2Convert
+{
+    public static ManifestV2 Convert(this ManifestV1 v1)
+    {
+        return new ManifestV2 {
+            InstalledSdkVersions = v1.Workloads.Select(w => w.Version).ToImmutableArray(),
+            TrackedChannels = ImmutableArray<TrackedChannelV2>.Empty
+        };
     }
 }
