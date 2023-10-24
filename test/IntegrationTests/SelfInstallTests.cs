@@ -185,6 +185,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             $"selfinstall -v --update",
             new() { ["DNVM_HOME"] = dnvmHome.Path });
 
+        _testOutput.WriteLine(result.Out);
         Assert.Equal(0, result.ExitCode);
 
         // The old exe should have been moved to the new location

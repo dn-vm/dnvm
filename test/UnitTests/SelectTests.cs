@@ -60,11 +60,15 @@ public sealed class SelectTests
         var manifest = new Manifest()
         {
             CurrentSdkDir = dn,
-            TrackedChannels = ImmutableArray.Create<TrackedChannel>(new TrackedChannel
-            {
-                ChannelName = Channel.Latest,
-                SdkDirName = dn
-            })
+            TrackedChannels =
+
+            [
+                new TrackedChannel
+                    {
+                        ChannelName = Channel.Latest,
+                        SdkDirName = dn
+                    },
+            ]
         };
         var result = await SelectCommand.RunWithManifest(env, new SdkDirName("bad"), manifest, _logger);
         Assert.Equal(SelectCommand.Result.BadDirName, result);

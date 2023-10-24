@@ -130,7 +130,7 @@ public sealed class InstallCommand
             TrackedChannels = manifest.TrackedChannels.Add(new TrackedChannel {
                 ChannelName = channel,
                 SdkDirName = sdkDir,
-                InstalledSdkVersions = ImmutableArray<string>.Empty
+                InstalledSdkVersions = EqArray<string>.Empty
             })
         };
 

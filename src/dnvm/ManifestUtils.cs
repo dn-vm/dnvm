@@ -5,9 +5,56 @@ using System.IO;
 using System.Linq;
 using Serde;
 using Serde.Json;
+using StaticCs;
 using StaticCs.Collections;
 
 namespace Dnvm;
+
+[GenerateSerde]
+/// <summary>
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
+/// </summary>
+public readonly partial record struct SdkDirName(string Name);
+
+[Closed]
+[GenerateSerde]
+public enum Channel
+{
+    /// <summary>
+    /// Latest supported version from either the LTS or STS support channels.
+    /// </summary>
+    Latest,
+    /// <summary>
+    /// Newest Long Term Support release.
+    /// </summary>
+    Lts,
+    /// <summary>
+    /// Newest Short Term Support release.
+    /// </summary>
+    Sts,
+
+    /// </summary>
+    /// <summary>
+    /// Newest "preview" release, not including nightly builds.
+    /// </summary>
+    Preview,
+}
+
+public static class Channels
+{
+    public static string GetDesc(this Channel c) => c switch
+    {
+        Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
+        Channel.Lts => "The latest version in Long-Term support",
+        Channel.Sts => "The latest version in Short-Term support",
+        Channel.Preview => "The latest preview version",
+        _ => throw new NotImplementedException(),
+    };
+
+    public static string GetLowerName(this Channel c) => c.ToString().ToLowerInvariant();
+}
+
 
 public static partial class ManifestUtils
 {
@@ -50,8 +97,8 @@ public static partial class ManifestUtils
 
         return new Manifest()
         {
-            InstalledSdkVersions = ImmutableArray<InstalledSdk>.Empty,
-            TrackedChannels = ImmutableArray<TrackedChannel>.Empty
+            InstalledSdkVersions = [],
+            TrackedChannels = []
         };
     }
 
@@ -68,7 +115,7 @@ public static partial class ManifestUtils
             {
                 TrackedChannels = manifest.TrackedChannels.Select(x => x.ChannelName == c
                     ? x with { InstalledSdkVersions = x.InstalledSdkVersions.Add(sdk.Version) }
-                    : x).ToImmutableArray(),
+                    : x).ToEq(),
                 InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
             };
         }
@@ -80,7 +127,7 @@ public static partial class ManifestUtils
                 {
                     ChannelName = c,
                     SdkDirName = sdk.SdkDirName,
-                    InstalledSdkVersions = ImmutableArray.Create(sdk.Version)
+                    InstalledSdkVersions = ImmutableArray.Create(sdk.Version).ToEq()
                 }),
                 InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
             };

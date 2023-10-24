@@ -36,13 +36,16 @@ public sealed class UpdateTests
         var sdkDir = DnvmEnv.DefaultSdkDirName;
         var manifest = new Manifest
         {
-            InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = "42.42.142", SdkDirName = sdkDir }),
-            TrackedChannels = ImmutableArray.Create(new TrackedChannel
-            {
-                ChannelName = Channel.Latest,
-                SdkDirName = sdkDir,
-                InstalledSdkVersions = ImmutableArray.Create("42.42.142")
-            })
+            InstalledSdkVersions = [ new InstalledSdk { Version = "42.42.142", SdkDirName = sdkDir } ],
+            TrackedChannels =
+            [
+                new TrackedChannel
+                    {
+                        ChannelName = Channel.Latest,
+                        SdkDirName = sdkDir,
+                        InstalledSdkVersions = [ "42.42.142" ]
+                    },
+            ]
         };
         var releasesIndex = mockServer.ReleasesIndexJson;
         var console = new TestConsole();
@@ -66,12 +69,12 @@ public sealed class UpdateTests
         // and confirm that 42.42 is processed as newer
         var installedVersion = "41.0.0";
         var manifest = new Manifest {
-            InstalledSdkVersions = ImmutableArray.Create(new InstalledSdk { Version = installedVersion, SdkDirName = DnvmEnv.DefaultSdkDirName }),
-            TrackedChannels = ImmutableArray.Create(new TrackedChannel {
+            InstalledSdkVersions = [ new InstalledSdk { Version = installedVersion, SdkDirName = DnvmEnv.DefaultSdkDirName }] ,
+            TrackedChannels = [ new TrackedChannel {
                 ChannelName = Channel.Latest,
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
-                InstalledSdkVersions = ImmutableArray.Create(installedVersion)
-            })
+                InstalledSdkVersions = [ installedVersion ]
+            } ]
         };
         var releasesIndex = mockServer.ReleasesIndexJson;
         var results = UpdateCommand.FindPotentialUpdates(manifest, releasesIndex);
@@ -116,15 +119,15 @@ public sealed class UpdateTests
             })
         };
         var updateResult = await UpdateCommand.Run(env, _logger, updateArguments);
-        var sdkVersions = ImmutableArray.Create(new[] { "41.0.100", "41.0.101" });
+        EqArray<string> sdkVersions = [ "41.0.100", "41.0.101" ];
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
         var expectedManifest = new Manifest {
-            InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk { Version = v, SdkDirName = DnvmEnv.DefaultSdkDirName }).ToImmutableArray(),
-            TrackedChannels = ImmutableArray.Create(new[] { new TrackedChannel() {
+            InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk { Version = v, SdkDirName = DnvmEnv.DefaultSdkDirName }).ToEq(),
+            TrackedChannels = [ new TrackedChannel() {
                 ChannelName = channel,
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = sdkVersions
-            }})
+            } ]
         };
         var actualManifest = env.ReadManifest();
         Assert.Equal(expectedManifest, actualManifest);
@@ -169,7 +172,7 @@ public sealed class UpdateTests
             SupportPhase = "preview"
         };
         var releasesIndex = new DotnetReleasesIndex {
-            Releases = ImmutableArray.Create(new[] { ltsRelease, stsRelease, ltsPreview, stsPreview })
+            Releases = [ltsRelease, stsRelease, ltsPreview, stsPreview]
         };
 
         var actual = releasesIndex.GetLatestReleaseForChannel(Channel.Latest);
@@ -200,7 +203,7 @@ public sealed class UpdateTests
         };
 
         var releasesIndex = new DotnetReleasesIndex {
-            Releases = ImmutableArray.Create(previewRelease)
+            Releases = [previewRelease]
         };
 
         var actual = releasesIndex.GetLatestReleaseForChannel(Channel.Preview);
