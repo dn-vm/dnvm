@@ -70,12 +70,6 @@ public readonly partial record struct TrackedChannelV3()
         }
         return code;
     }
-
-    public TrackedChannel Convert() => new TrackedChannel {
-        ChannelName = this.ChannelName,
-        SdkDirName = this.SdkDirName,
-        InstalledSdkVersions = this.InstalledSdkVersions,
-    };
 }
 
 [GenerateSerde]

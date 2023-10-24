@@ -18,6 +18,7 @@ namespace Dnvm;
 public readonly partial record struct SdkDirName(string Name);
 
 [Closed]
+[GenerateSerde]
 public enum Channel
 {
     /// <summary>
@@ -126,7 +127,7 @@ public static partial class ManifestUtils
                 {
                     ChannelName = c,
                     SdkDirName = sdk.SdkDirName,
-                    InstalledSdkVersions = ImmutableArray.Create(sdk.Version)
+                    InstalledSdkVersions = ImmutableArray.Create(sdk.Version).ToEq()
                 }),
                 InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
             };

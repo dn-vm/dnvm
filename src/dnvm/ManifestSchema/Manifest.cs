@@ -67,7 +67,7 @@ public readonly partial record struct TrackedChannel()
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
-    public ImmutableArray<string> InstalledSdkVersions { get; init; } = ImmutableArray<string>.Empty;
+    public EqArray<string> InstalledSdkVersions { get; init; } = EqArray<string>.Empty;
 
     public bool Equals(TrackedChannel other)
     {
@@ -101,5 +101,11 @@ internal static partial class ManifestConvert
     {
         InstalledSdkVersions = v3.InstalledSdkVersions.SelectAsArray(v => v.Convert()),
         TrackedChannels = v3.TrackedChannels.SelectAsArray(c => c.Convert()),
+    };
+
+    public static TrackedChannel Convert(this TrackedChannelV3 v3) => new TrackedChannel {
+        ChannelName = v3.ChannelName,
+        SdkDirName = v3.SdkDirName,
+        InstalledSdkVersions = v3.InstalledSdkVersions.ToEq(),
     };
 }

@@ -30,7 +30,7 @@ public sealed class UntrackTests
     {
         var manifest = new Manifest
         {
-            TrackedChannels = ImmutableArray.Create(new TrackedChannel { ChannelName = Channel.Latest, SdkDirName = DnvmEnv.DefaultSdkDirName })
+            TrackedChannels = [new TrackedChannel { ChannelName = Channel.Latest, SdkDirName = DnvmEnv.DefaultSdkDirName }]
         };
         var logger = new Logger(new TestConsole());
         var result = UntrackCommand.RunHelper(Channel.Latest, manifest, logger);

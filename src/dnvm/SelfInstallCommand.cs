@@ -184,6 +184,7 @@ public class SelfInstallCommand
     /// </summary>
     internal static async Task<Result> SelfUpdate(Logger logger, DnvmEnv dnvmEnv)
     {
+        logger.Log("SDK install directory: ");
         SdkDirName sdkDirName;
         try
         {

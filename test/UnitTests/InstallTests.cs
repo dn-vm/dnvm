@@ -36,11 +36,13 @@ public sealed class InstallTests
         Assert.Equal(new Manifest
         {
             InstalledSdkVersions = installedVersions,
-            TrackedChannels = ImmutableArray.Create(new[] { new TrackedChannel {
-                ChannelName = channel,
-                SdkDirName = DnvmEnv.DefaultSdkDirName,
-                InstalledSdkVersions = ImmutableArray.Create(installedVersion)
-            }})
+            TrackedChannels = [
+                new TrackedChannel {
+                        ChannelName = channel,
+                        SdkDirName = DnvmEnv.DefaultSdkDirName,
+                        InstalledSdkVersions = [ installedVersion ]
+                    },
+            ]
         }, manifest);
     });
 
