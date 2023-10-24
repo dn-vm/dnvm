@@ -103,6 +103,4 @@ static class ManifestConvertV3
             }).ToImmutableArray(),
         };
     }
-
-
 }
