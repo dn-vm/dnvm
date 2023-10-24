@@ -97,8 +97,8 @@ public static partial class ManifestUtils
 
         return new Manifest()
         {
-            InstalledSdkVersions = ImmutableArray<InstalledSdk>.Empty,
-            TrackedChannels = ImmutableArray<TrackedChannel>.Empty
+            InstalledSdkVersions = [],
+            TrackedChannels = []
         };
     }
 
@@ -115,7 +115,7 @@ public static partial class ManifestUtils
             {
                 TrackedChannels = manifest.TrackedChannels.Select(x => x.ChannelName == c
                     ? x with { InstalledSdkVersions = x.InstalledSdkVersions.Add(sdk.Version) }
-                    : x).ToImmutableArray(),
+                    : x).ToEq(),
                 InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
             };
         }

@@ -51,6 +51,8 @@ public readonly struct EqArray<T>(ImmutableArray<T> value) : IReadOnlyCollection
     }
 
     public EqArray<T> Add(T item) => new(value.Add(item));
+
+    public EqArray<T> Replace(T oldItem, T newItem) => new(value.Replace(oldItem, newItem));
 }
 
 public static class EqArraySerdeWrap

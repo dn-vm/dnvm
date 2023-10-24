@@ -32,7 +32,7 @@ public sealed class InstallTests
 
         var manifest = env.ReadManifest();
         var installedVersion = server.ReleasesIndexJson.Releases[0].LatestSdk;
-        var installedVersions = ImmutableArray.Create(new InstalledSdk { Version = installedVersion, SdkDirName = DnvmEnv.DefaultSdkDirName });
+        EqArray<InstalledSdk> installedVersions = [ new InstalledSdk { Version = installedVersion, SdkDirName = DnvmEnv.DefaultSdkDirName } ];
         Assert.Equal(new Manifest
         {
             InstalledSdkVersions = installedVersions,
