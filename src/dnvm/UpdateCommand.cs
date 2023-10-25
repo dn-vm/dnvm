@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Semver;
 using Serde.Json;
+using Spectre.Console;
 using static Dnvm.UpdateCommand.Result;
 
 namespace Dnvm;
@@ -103,12 +104,15 @@ public sealed partial class UpdateCommand
         if (updateResults.Count > 0)
         {
             logger.Log("Found versions available for update");
-            logger.Log("Channel\tInstalled\tAvailable");
-            logger.Log("-------------------------------------------------");
+            var table = new Table();
+            table.AddColumn("Channel");
+            table.AddColumn("Installed");
+            table.AddColumn("Available");
             foreach (var (c, newestInstalled, newestAvailable) in updateResults)
             {
-                logger.Log($"{c}\t{newestInstalled}\t{newestAvailable.LatestSdk}");
+                table.AddRow(c.ToString(), newestInstalled.ToString(), newestAvailable.LatestSdk);
             }
+            logger.Console.Write(table);
             logger.Log("Install updates? [y/N]: ");
             var response = yes ? "y" : Console.ReadLine();
             if (response?.Trim().ToLowerInvariant() == "y")
@@ -116,16 +120,16 @@ public sealed partial class UpdateCommand
                 foreach (var (c, _, newestAvailable) in updateResults)
                 {
                     var sdkDir = manifest.TrackedChannels.First(tc => tc.ChannelName == c).SdkDirName;
+                    var latestVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
                     _ = await InstallCommand.InstallSdkVersionFromChannel(
                         dnvmFs,
                         logger,
-                        newestAvailable.LatestSdk,
+                        latestVersion,
                         Utilities.CurrentRID,
                         feedUrl,
                         manifest,
                         sdkDir);
 
-                    var latestVersion = newestAvailable.LatestSdk;
                     logger.Info($"Adding installed version '{latestVersion}' to manifest.");
                     manifest = manifest with
                     {
@@ -160,7 +164,6 @@ public sealed partial class UpdateCommand
         foreach (var tracked in manifest.TrackedChannels)
         {
             var newestInstalled = tracked.InstalledSdkVersions
-                .Select(v => SemVersion.Parse(v, SemVersionStyles.Strict))
                 .Max(SemVersion.PrecedenceComparer)!;
             var release = releaseIndex.GetLatestReleaseForChannel(tracked.ChannelName);
             if (release is { LatestSdk: var sdkVersion} &&

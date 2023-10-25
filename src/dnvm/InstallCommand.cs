@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Semver;
 using Serde.Json;
 using Zio;
 using static Dnvm.Utilities;
@@ -130,7 +131,7 @@ public sealed class InstallCommand
             TrackedChannels = manifest.TrackedChannels.Add(new TrackedChannel {
                 ChannelName = channel,
                 SdkDirName = sdkDir,
-                InstalledSdkVersions = EqArray<string>.Empty
+                InstalledSdkVersions = EqArray<SemVersion>.Empty
             })
         };
 
@@ -148,12 +149,13 @@ public sealed class InstallCommand
 
         RID rid = Utilities.CurrentRID;
 
-        string? latestVersion = versionIndex.GetLatestReleaseForChannel(channel)?.LatestSdk;
-        if (latestVersion is null)
+        string? latestVersionString = versionIndex.GetLatestReleaseForChannel(channel)?.LatestSdk;
+        if (latestVersionString is null)
         {
             logger.Error("Could not fetch the latest package version");
             return Result.CouldntFetchLatestVersion;
         }
+        var latestVersion = SemVersion.Parse(latestVersionString, SemVersionStyles.Strict);
         logger.Log("Found latest version: " + latestVersion);
 
         if (!force && manifest.InstalledSdkVersions.Any(s => s.Version == latestVersion))
@@ -199,19 +201,20 @@ public sealed class InstallCommand
     public static async Task<Result> InstallSdkVersionFromChannel(
         DnvmEnv dnvmFs,
         Logger logger,
-        string latestVersion,
+        SemVersion latestVersion,
         RID rid,
         string feedUrl,
         Manifest manifest,
         SdkDirName sdkDirName)
     {
         var sdkInstallPath = UPath.Root / sdkDirName.Name;
-        string archiveName = ConstructArchiveName(latestVersion, rid, Utilities.ZipSuffix);
+        var latestVersionString = latestVersion.ToString();
+        string archiveName = ConstructArchiveName(latestVersionString, rid, Utilities.ZipSuffix);
         using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
         string archivePath = Path.Combine(tempDir.Path, archiveName);
         logger.Info("Archive path: " + archivePath);
 
-        var link = ConstructDownloadLink(feedUrl, latestVersion, archiveName);
+        var link = ConstructDownloadLink(feedUrl, latestVersionString, archiveName);
         logger.Info("Download link: " + link);
 
         var result = JsonSerializer.Serialize(manifest);

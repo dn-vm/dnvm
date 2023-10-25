@@ -1,3 +1,4 @@
+using Semver;
 using Spectre.Console;
 using Spectre.Console.Testing;
 using Xunit;
@@ -20,8 +21,10 @@ public sealed class ListTests
     public void BasicList()
     {
         var manifest = Manifest.Empty
-            .AddSdk(new InstalledSdk("1.0.0"), Channel.Latest)
-            .AddSdk(new InstalledSdk("4.0.0-preview1") { SdkDirName = new("preview") }, Channel.Preview);
+            .AddSdk(new InstalledSdk(new(1,0,0)), Channel.Latest)
+            .AddSdk(new InstalledSdk(SemVersion.Parse("4.0.0-preview1", SemVersionStyles.Strict))
+                    { SdkDirName = new("preview") },
+                    Channel.Preview);
 
         var newline = Text.NewLine;
         ListCommand.PrintSdks(_logger, manifest);
@@ -43,7 +46,7 @@ Installed SDKs:
     public async Task ListFromFile()
     {
         var manifest = Manifest.Empty
-            .AddSdk(new InstalledSdk("42.42.42"), Channel.Latest);
+            .AddSdk(new InstalledSdk(new(42, 42, 42)), Channel.Latest);
 
         var env = new Dictionary<string, string>();
         using var userHome = new TempDirectory();
