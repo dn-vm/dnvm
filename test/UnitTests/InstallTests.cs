@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Semver;
 using Serde.Json;
 using Spectre.Console.Testing;
 using Xunit;
@@ -31,8 +32,11 @@ public sealed class InstallTests
         Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
 
         var manifest = env.ReadManifest();
-        var installedVersion = server.ReleasesIndexJson.Releases[0].LatestSdk;
-        EqArray<InstalledSdk> installedVersions = [ new InstalledSdk { Version = installedVersion, SdkDirName = DnvmEnv.DefaultSdkDirName } ];
+        var installedVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[0].LatestSdk, SemVersionStyles.Strict);
+        EqArray<InstalledSdk> installedVersions = [ new InstalledSdk {
+            Version = installedVersion,
+            SdkDirName = DnvmEnv.DefaultSdkDirName
+        } ];
         Assert.Equal(new Manifest
         {
             InstalledSdkVersions = installedVersions,

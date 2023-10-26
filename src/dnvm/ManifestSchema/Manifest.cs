@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Semver;
 using Serde;
 using Serde.Json;
 using StaticCs;
@@ -40,11 +41,16 @@ public readonly partial record struct TrackedChannel()
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
-    public EqArray<string> InstalledSdkVersions { get; init; } = EqArray<string>.Empty;
+    [SerdeMemberOptions(
+        WrapperSerialize = typeof(EqArraySerdeWrap.SerializeImpl<SemVersion, SemVersionSerdeWrap>),
+        WrapperDeserialize = typeof(EqArraySerdeWrap.DeserializeImpl<SemVersion, SemVersionSerdeWrap>))]
+    public EqArray<SemVersion> InstalledSdkVersions { get; init; } = EqArray<SemVersion>.Empty;
 }
 
 [GenerateSerde]
-public readonly partial record struct InstalledSdk(string Version)
+public readonly partial record struct InstalledSdk(
+    [property: SerdeWrap(typeof(SemVersionSerdeWrap))]
+    SemVersion Version)
 {
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 }
@@ -57,9 +63,14 @@ internal static partial class ManifestConvert
         TrackedChannels = v3.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
     };
 
+    internal static InstalledSdk Convert(this InstalledSdkV3 v3)
+        => new InstalledSdk(SemVersion.Parse(v3.Version, SemVersionStyles.Strict)) {
+            SdkDirName = v3.SdkDirName
+        };
+
     public static TrackedChannel Convert(this TrackedChannelV3 v3) => new TrackedChannel {
         ChannelName = v3.ChannelName,
         SdkDirName = v3.SdkDirName,
-        InstalledSdkVersions = v3.InstalledSdkVersions.ToEq(),
+        InstalledSdkVersions = v3.InstalledSdkVersions.Select(v => SemVersion.Parse(v, SemVersionStyles.Strict)).ToEq(),
     };
 }

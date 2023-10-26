@@ -36,14 +36,14 @@ public sealed class UpdateTests
         var sdkDir = DnvmEnv.DefaultSdkDirName;
         var manifest = new Manifest
         {
-            InstalledSdkVersions = [ new InstalledSdk { Version = "42.42.142", SdkDirName = sdkDir } ],
+            InstalledSdkVersions = [ new InstalledSdk { Version = new(42, 42, 142), SdkDirName = sdkDir } ],
             TrackedChannels =
             [
                 new TrackedChannel
                     {
                         ChannelName = Channel.Latest,
                         SdkDirName = sdkDir,
-                        InstalledSdkVersions = [ "42.42.142" ]
+                        InstalledSdkVersions = [ new(42, 42, 142) ]
                     },
             ]
         };
@@ -67,7 +67,7 @@ public sealed class UpdateTests
     {
         // Construct a manifest with an installed version "41.0.0" in the Latest channel
         // and confirm that 42.42 is processed as newer
-        var installedVersion = "41.0.0";
+        var installedVersion = new SemVersion(41, 0, 0);
         var manifest = new Manifest {
             InstalledSdkVersions = [ new InstalledSdk { Version = installedVersion, SdkDirName = DnvmEnv.DefaultSdkDirName }] ,
             TrackedChannels = [ new TrackedChannel {
@@ -119,7 +119,7 @@ public sealed class UpdateTests
             })
         };
         var updateResult = await UpdateCommand.Run(env, _logger, updateArguments);
-        EqArray<string> sdkVersions = [ "41.0.100", "41.0.101" ];
+        EqArray<SemVersion> sdkVersions = [ new(41, 0, 100), new(41, 0, 101) ];
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
         var expectedManifest = new Manifest {
             InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk { Version = v, SdkDirName = DnvmEnv.DefaultSdkDirName }).ToEq(),

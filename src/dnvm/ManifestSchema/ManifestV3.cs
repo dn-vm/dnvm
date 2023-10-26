@@ -52,7 +52,7 @@ public readonly partial record struct TrackedChannelV3()
     public required SdkDirName SdkDirName { get; init; }
     public ImmutableArray<string> InstalledSdkVersions { get; init; } = ImmutableArray<string>.Empty;
 
-    public bool Equals(TrackedChannel other)
+    public bool Equals(TrackedChannelV3 other)
     {
         return ChannelName == other.ChannelName &&
             SdkDirName == other.SdkDirName &&
@@ -76,8 +76,6 @@ public readonly partial record struct TrackedChannelV3()
 public readonly partial record struct InstalledSdkV3(string Version)
 {
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
-
-    internal InstalledSdk Convert() => new InstalledSdk(Version) { SdkDirName = SdkDirName };
 }
 
 static class ManifestConvertV3

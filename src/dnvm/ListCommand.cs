@@ -41,7 +41,7 @@ public static class ListCommand
             string selected = manifest.CurrentSdkDir == channel.SdkDirName ? "*" : " ";
             foreach (var version in channel.InstalledSdkVersions)
             {
-                table.AddRow(selected, channel.ChannelName.GetLowerName(), version, channel.SdkDirName.Name);
+                table.AddRow(selected, channel.ChannelName.GetLowerName(), version.ToString(), channel.SdkDirName.Name);
             }
         }
         logger.Console.Write(table);
