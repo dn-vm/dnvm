@@ -50,6 +50,8 @@ public readonly struct EqArray<T>(ImmutableArray<T> value) : IReadOnlyCollection
         return ((IEnumerable)value).GetEnumerator();
     }
 
+    public T this[int index] => value[index];
+
     public EqArray<T> Add(T item) => new(value.Add(item));
 
     public EqArray<T> Replace(T oldItem, T newItem) => new(value.Replace(oldItem, newItem));

@@ -66,6 +66,24 @@ public static class Utilities
         return builder.MoveToImmutable();
     }
 
+    public static T? SingleOrNull<T>(this ImmutableArray<T> e, Func<T, bool> func)
+        where T : struct
+    {
+        T? result = null;
+        foreach (var elem in e)
+        {
+            if (func(elem))
+            {
+                if (result is not null)
+                {
+                    return null;
+                }
+                result = elem;
+            }
+        }
+        return result;
+    }
+
     public static readonly RID CurrentRID = new RID(
         GetCurrentOSPlatform(),
         RuntimeInformation.OSArchitecture,

@@ -33,16 +33,14 @@ public static class ListCommand
         logger.Log();
         var table = new Table();
         table.AddColumn(new TableColumn(" "));
-        table.AddColumn("Channel");
         table.AddColumn("Version");
+        table.AddColumn("Channel");
         table.AddColumn("Location");
-        foreach (var channel in manifest.TrackedChannels)
+        foreach (var sdk in manifest.InstalledSdkVersions)
         {
-            string selected = manifest.CurrentSdkDir == channel.SdkDirName ? "*" : " ";
-            foreach (var version in channel.InstalledSdkVersions)
-            {
-                table.AddRow(selected, channel.ChannelName.GetLowerName(), version.ToString(), channel.SdkDirName.Name);
-            }
+            string selected = manifest.CurrentSdkDir == sdk.SdkDirName ? "*" : " ";
+            var channel = sdk.Channel?.GetLowerName() ?? "";
+            table.AddRow(selected, sdk.Version.ToString(), channel, sdk.SdkDirName.Name);
         }
         logger.Console.Write(table);
     }

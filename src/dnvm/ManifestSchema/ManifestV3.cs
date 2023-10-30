@@ -1,13 +1,18 @@
 
 using System;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using Dnvm;
 using Serde;
+using Serde.Json;
+using StaticCs.Collections;
 
 [GenerateSerde]
 public sealed partial record ManifestV3
 {
+    public static readonly ManifestV3 Empty = new();
+
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
     public const int VersionField = 3;
 
@@ -94,5 +99,41 @@ static class ManifestConvertV3
                 InstalledSdkVersions = c.InstalledSdkVersions
             }).ToImmutableArray(),
         };
+    }
+}
+
+public static partial class ManifestUtilsV3
+{
+    public static ManifestV3 AddSdk(this ManifestV3 manifest, InstalledSdkV3 sdk, Channel c)
+    {
+        ManifestV3 newManifest;
+        if (manifest.TrackedChannels.FirstOrNull(x => x.ChannelName == c) is { } trackedChannel)
+        {
+            if (trackedChannel.InstalledSdkVersions.Contains(sdk.Version))
+            {
+                return manifest;
+            }
+            newManifest = manifest with
+            {
+                TrackedChannels = manifest.TrackedChannels.Select(x => x.ChannelName == c
+                    ? x with { InstalledSdkVersions = x.InstalledSdkVersions.Add(sdk.Version) }
+                    : x).ToImmutableArray(),
+                InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
+            };
+        }
+        else
+        {
+            newManifest = manifest with
+            {
+                TrackedChannels = manifest.TrackedChannels.Add(new TrackedChannelV3()
+                {
+                    ChannelName = c,
+                    SdkDirName = sdk.SdkDirName,
+                    InstalledSdkVersions = ImmutableArray.Create(sdk.Version).ToImmutableArray()
+                }),
+                InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
+            };
+        }
+        return newManifest;
     }
 }

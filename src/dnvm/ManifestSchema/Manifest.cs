@@ -53,20 +53,31 @@ public readonly partial record struct InstalledSdk(
     SemVersion Version)
 {
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
+
+    /// <summary>
+    /// Indicates which channel this SDK was installed from, if any.
+    /// </summary>
+    public Channel? Channel { get; init; } = null;
 }
 
-internal static partial class ManifestConvert
+public static partial class ManifestConvert
 {
-    internal static Manifest Convert(this ManifestV3 v3) => new Manifest
+    public static Manifest Convert(this ManifestV3 v3) => new Manifest
     {
-        InstalledSdkVersions = v3.InstalledSdkVersions.SelectAsArray(v => v.Convert()).ToEq(),
+        InstalledSdkVersions = v3.InstalledSdkVersions.SelectAsArray(v => v.Convert(v3)).ToEq(),
         TrackedChannels = v3.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
     };
 
-    internal static InstalledSdk Convert(this InstalledSdkV3 v3)
-        => new InstalledSdk(SemVersion.Parse(v3.Version, SemVersionStyles.Strict)) {
-            SdkDirName = v3.SdkDirName
+    public static InstalledSdk Convert(this InstalledSdkV3 v3, ManifestV3 manifestV3)
+    {
+        Channel? channel = null;
+        channel = manifestV3.TrackedChannels
+            .SingleOrNull(c => c.SdkDirName == v3.SdkDirName)?.ChannelName;
+
+        return new InstalledSdk(SemVersion.Parse(v3.Version, SemVersionStyles.Strict)) {
+            SdkDirName = v3.SdkDirName, Channel = channel
         };
+    }
 
     public static TrackedChannel Convert(this TrackedChannelV3 v3) => new TrackedChannel {
         ChannelName = v3.ChannelName,
