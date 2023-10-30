@@ -68,7 +68,7 @@ public static class EqArraySerdeWrap
         }
     }
     public readonly record struct DeserializeImpl<T, TWrap> : IDeserialize<EqArray<T>>
-        where TWrap : struct, IDeserialize<T>
+        where TWrap : IDeserialize<T>
     {
         static EqArray<T> IDeserialize<EqArray<T>>.Deserialize<D>(ref D deserializer)
         {

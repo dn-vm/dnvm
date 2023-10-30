@@ -72,7 +72,7 @@ public sealed partial class UpdateCommand
             return CouldntFetchIndex;
         }
 
-        var manifest = _env.ReadManifest();
+        var manifest = await _env.ReadManifest();
         return await UpdateSdks(
             _env,
             _logger,
@@ -120,29 +120,38 @@ public sealed partial class UpdateCommand
                 foreach (var (c, _, newestAvailable) in updateResults)
                 {
                     var sdkDir = manifest.TrackedChannels.First(tc => tc.ChannelName == c).SdkDirName;
-                    var latestVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
+                    var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
+
+                    var release = JsonSerializer.Deserialize<ChannelReleaseIndex>(
+                        await Program.HttpClient.GetStringAsync(newestAvailable.ChannelReleaseIndexUrl))
+                        .Releases.Single(r => r.Sdk.Version == latestSdkVersion);
+
                     _ = await InstallCommand.InstallSdkVersionFromChannel(
                         dnvmFs,
                         logger,
-                        latestVersion,
+                        latestSdkVersion,
                         Utilities.CurrentRID,
                         feedUrl,
                         manifest,
                         sdkDir);
 
-                    logger.Info($"Adding installed version '{latestVersion}' to manifest.");
+                    logger.Info($"Adding installed version '{latestSdkVersion}' to manifest.");
                     manifest = manifest with
                     {
                         InstalledSdkVersions = manifest.InstalledSdkVersions.Add(new InstalledSdk
                         {
-                            Version = latestVersion,
+                            ReleaseVersion = release.ReleaseVersion,
+                            SdkVersion = latestSdkVersion,
+                            RuntimeVersion = release.Runtime.Version,
+                            AspNetVersion = release.AspNetCore.Version,
+                            Channel = c,
                             SdkDirName = sdkDir,
                         })
                     };
                     var oldTracked = manifest.TrackedChannels.First(t => t.ChannelName == c);
                     var newTracked = oldTracked with
                     {
-                        InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestVersion)
+                        InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
                     };
                     manifest = manifest with { TrackedChannels = manifest.TrackedChannels.Replace(oldTracked, newTracked) };
                 }
@@ -156,16 +165,16 @@ public sealed partial class UpdateCommand
         return Success;
     }
 
-    public static List<(Channel TrackedChannel, SemVersion NewestInstalled, DotnetReleasesIndex.Release NewestAvailable)> FindPotentialUpdates(
+    public static List<(Channel TrackedChannel, SemVersion NewestInstalled, DotnetReleasesIndex.ChannelIndex NewestAvailable)> FindPotentialUpdates(
         Manifest manifest,
         DotnetReleasesIndex releaseIndex)
     {
-        var list = new List<(Channel, SemVersion, DotnetReleasesIndex.Release)>();
+        var list = new List<(Channel, SemVersion, DotnetReleasesIndex.ChannelIndex)>();
         foreach (var tracked in manifest.TrackedChannels)
         {
             var newestInstalled = tracked.InstalledSdkVersions
                 .Max(SemVersion.PrecedenceComparer)!;
-            var release = releaseIndex.GetLatestReleaseForChannel(tracked.ChannelName);
+            var release = releaseIndex.GetChannelIndex(tracked.ChannelName);
             if (release is { LatestSdk: var sdkVersion} &&
                 SemVersion.TryParse(sdkVersion, SemVersionStyles.Strict, out var newestAvailable) &&
                 SemVersion.ComparePrecedence(newestInstalled, newestAvailable) < 0)

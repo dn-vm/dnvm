@@ -20,7 +20,7 @@ public static class SelectCommand
     public static async Task<Result> Run(DnvmEnv dnvmEnv, Logger logger, CommandArguments.SelectArguments args)
     {
         var newDir = new SdkDirName(args.SdkDirName);
-        var manifest = dnvmEnv.ReadManifest();
+        var manifest = await dnvmEnv.ReadManifest();
         switch (await RunWithManifest(dnvmEnv, newDir, manifest, logger))
         {
             case Result<Manifest, Result>.Ok(var newManifest):

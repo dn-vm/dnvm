@@ -41,7 +41,7 @@ public static class Program
             CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(env, logger, o),
             CommandArguments.ListArguments => (int)await ListCommand.Run(logger, env),
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(env, logger, o),
-            CommandArguments.UntrackArguments o => UntrackCommand.Run(env, logger, o),
+            CommandArguments.UntrackArguments o => await UntrackCommand.Run(env, logger, o),
             _ => throw ExceptionUtilities.Unreachable
         };
     }

@@ -19,9 +19,9 @@ public partial record DotnetReleasesIndex
         return JsonSerializer.Deserialize<DotnetReleasesIndex>(response);
     }
 
-    public Release? GetLatestReleaseForChannel(Channel c)
+    public ChannelIndex? GetChannelIndex(Channel c)
     {
-        (Release Release, SemVersion Version)? latestRelease = null;
+        (ChannelIndex Release, SemVersion Version)? latestRelease = null;
         foreach (var release in this.Releases)
         {
             var supportPhase = release.SupportPhase.ToLowerInvariant();
@@ -54,11 +54,11 @@ public partial record DotnetReleasesIndex
 public partial record DotnetReleasesIndex
 {
     [SerdeMemberOptions(Rename = "releases-index")]
-    public required ImmutableArray<Release> Releases { get; init; }
+    public required ImmutableArray<ChannelIndex> Releases { get; init; }
 
     [GenerateSerde]
     [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]
-    public partial record Release
+    public partial record ChannelIndex
     {
         /// <summary>
         /// The major and minor version of the release, e.g. '42.42'.
@@ -81,5 +81,50 @@ public partial record DotnetReleasesIndex
         /// The support phase the release is in, e.g. 'active' or 'eol'.
         /// </summary>
         public required string SupportPhase { get; init; }
+        /// <summary>
+        /// The URL to the releases index for this channel.
+        /// </summary>
+        [SerdeMemberOptions(Rename = "releases.json")]
+        public required string ChannelReleaseIndexUrl { get; init; }
+    }
+}
+
+[GenerateSerde]
+public partial record ChannelReleaseIndex
+{
+    public static Release CreateRelease(SemVersion universalVersion)
+    {
+        var component = new Component { Version = universalVersion };
+        return new() {
+            ReleaseVersion = universalVersion,
+            Runtime = component,
+            Sdk = component,
+            AspNetCore = component,
+            WindowsDesktop = component
+        };
+    }
+
+    public EqArray<Release> Releases { get; init; }
+
+    [GenerateSerde]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]
+    public partial record Release()
+    {
+        [SerdeWrap(typeof(SemVersionSerdeWrap))]
+        public required SemVersion ReleaseVersion { get; init; }
+        public required Component Runtime { get; init; }
+        public required Component Sdk { get; init; }
+        [SerdeMemberOptions(Rename = "aspnetcore-runtime")]
+        public required Component AspNetCore { get; init; }
+        [SerdeMemberOptions(Rename = "windowsdesktop")]
+        public required Component WindowsDesktop { get; init; }
+    }
+
+    [GenerateSerde]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]
+    public partial record Component
+    {
+        [SerdeWrap(typeof(SemVersionSerdeWrap))]
+        public required SemVersion Version { get; init; }
     }
 }

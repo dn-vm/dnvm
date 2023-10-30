@@ -112,10 +112,10 @@ public sealed class DnvmEnv : IDisposable
     /// an up-to-date <see cref="Manifest" /> (latest version).
     /// Throws <see cref="InvalidDataException" /> if the manifest is invalid.
     /// </summary>
-    public Manifest ReadManifest()
+    public async Task<Manifest> ReadManifest()
     {
         var text = Vfs.ReadAllText(ManifestPath);
-        return ManifestUtils.DeserializeNewOrOldManifest(text) ?? throw new InvalidDataException();
+        return (await ManifestUtils.DeserializeNewOrOldManifest(text, DnvmReleasesUrl)) ?? throw new InvalidDataException();
     }
 
     public void WriteManifest(Manifest manifest)

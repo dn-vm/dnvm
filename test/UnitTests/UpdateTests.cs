@@ -36,7 +36,14 @@ public sealed class UpdateTests
         var sdkDir = DnvmEnv.DefaultSdkDirName;
         var manifest = new Manifest
         {
-            InstalledSdkVersions = [ new InstalledSdk { Version = new(42, 42, 142), SdkDirName = sdkDir } ],
+            InstalledSdkVersions = [ new InstalledSdk {
+                SdkVersion = new(42, 42, 142),
+                AspNetVersion = new(42, 42, 142),
+                RuntimeVersion = new(42, 42, 142),
+                ReleaseVersion = new(42, 42, 142),
+                Channel = Channel.Latest,
+                SdkDirName = sdkDir
+            } ],
             TrackedChannels =
             [
                 new TrackedChannel
@@ -69,7 +76,14 @@ public sealed class UpdateTests
         // and confirm that 42.42 is processed as newer
         var installedVersion = new SemVersion(41, 0, 0);
         var manifest = new Manifest {
-            InstalledSdkVersions = [ new InstalledSdk { Version = installedVersion, SdkDirName = DnvmEnv.DefaultSdkDirName }] ,
+            InstalledSdkVersions = [ new InstalledSdk {
+                SdkVersion = installedVersion,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
+                AspNetVersion = installedVersion,
+                RuntimeVersion = installedVersion,
+                ReleaseVersion = installedVersion,
+                Channel = Channel.Latest
+            }] ,
             TrackedChannels = [ new TrackedChannel {
                 ChannelName = Channel.Latest,
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
@@ -89,48 +103,58 @@ public sealed class UpdateTests
     [Fact]
     public async Task InstallAndUpdate() => await TestWithServer(async (mockServer, env, cancellationToken) =>
     {
+        var baseVersion = new SemVersion(41, 0, 0);
+        var upgradeVersion = new SemVersion(41, 0, 1);
         const Channel channel = Channel.Latest;
-        mockServer.ReleasesIndexJson = new() {
-            Releases = ImmutableArray.Create(new DotnetReleasesIndex.Release[] {
-                new() {
-                    LatestRelease = "41.0.0",
-                    LatestSdk = "41.0.100",
-                    MajorMinorVersion = "41.0",
-                    ReleaseType = "lts",
-                    SupportPhase = "active"
-                }
-            })
-        };
+        Setup(mockServer, baseVersion);
         var result = await InstallCommand.Run(env, _logger, new() {
             Channel = channel,
             Verbose = true
         });
         Assert.Equal(InstallCommand.Result.Success, result);
         // Update with a newer version
-        mockServer.ReleasesIndexJson = new() {
-            Releases = ImmutableArray.Create(new DotnetReleasesIndex.Release[] {
-                new() {
-                    LatestRelease = "41.0.1",
-                    LatestSdk = "41.0.101",
-                    MajorMinorVersion = "41.0",
-                    ReleaseType = "lts",
-                    SupportPhase = "active"
-                }
-            })
-        };
+        Setup(mockServer, upgradeVersion);
         var updateResult = await UpdateCommand.Run(env, _logger, updateArguments);
-        EqArray<SemVersion> sdkVersions = [ new(41, 0, 100), new(41, 0, 101) ];
+        EqArray<SemVersion> sdkVersions = [ baseVersion, upgradeVersion ];
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
         var expectedManifest = new Manifest {
-            InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk { Version = v, SdkDirName = DnvmEnv.DefaultSdkDirName }).ToEq(),
+            InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk
+            {
+                SdkVersion = v,
+                AspNetVersion = v,
+                RuntimeVersion = v,
+                ReleaseVersion = v,
+                Channel = channel,
+                SdkDirName = DnvmEnv.DefaultSdkDirName }).ToEq(),
             TrackedChannels = [ new TrackedChannel() {
                 ChannelName = channel,
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = sdkVersions
             } ]
         };
-        var actualManifest = env.ReadManifest();
+        var actualManifest = await env.ReadManifest();
         Assert.Equal(expectedManifest, actualManifest);
+
+        static void Setup(MockServer mockServer, SemVersion version)
+        {
+            mockServer.ReleasesIndexJson = new()
+            {
+                Releases = [ new() {
+                        LatestRelease = version.ToString(),
+                        LatestSdk = version.ToString(),
+                        MajorMinorVersion = version.ToMajorMinor(),
+                        ReleaseType = "lts",
+                        SupportPhase = "active",
+                        ChannelReleaseIndexUrl = mockServer.GetChannelIndexUrl(version.ToMajorMinor())
+                    }
+                ]
+            };
+            mockServer.ChannelIndexMap.Clear();
+            mockServer.ChannelIndexMap.Add(version.ToMajorMinor(), new()
+            {
+                Releases = [ChannelReleaseIndex.CreateRelease(version)]
+            });
+        }
     });
 
     [Fact]
@@ -142,50 +166,54 @@ public sealed class UpdateTests
     [Fact]
     public void LatestLtsStsDoNotAcceptPreview()
     {
-        var ltsRelease = new DotnetReleasesIndex.Release
+        var ltsRelease = new DotnetReleasesIndex.ChannelIndex
         {
             LatestRelease = "42.42.42",
             LatestSdk = "42.42.42",
             MajorMinorVersion = "42.42",
             ReleaseType = "lts",
-            SupportPhase = "active"
+            SupportPhase = "active",
+            ChannelReleaseIndexUrl = null!
         };
-        var stsRelease = new DotnetReleasesIndex.Release {
+        var stsRelease = new DotnetReleasesIndex.ChannelIndex {
             LatestRelease = "50.50.50",
             LatestSdk = "50.50.50",
             MajorMinorVersion = "50.50",
             ReleaseType = "sts",
-            SupportPhase = "active"
+            SupportPhase = "active",
+            ChannelReleaseIndexUrl = null!
         };
-        var ltsPreview = new DotnetReleasesIndex.Release {
+        var ltsPreview = new DotnetReleasesIndex.ChannelIndex {
             LatestRelease = "100.100.100-preview.1",
             LatestSdk = "100.100.100-preview.1",
             MajorMinorVersion = "100.100",
             ReleaseType = "lts",
-            SupportPhase = "preview"
+            SupportPhase = "preview",
+            ChannelReleaseIndexUrl = null!
         };
-        var stsPreview = new DotnetReleasesIndex.Release {
+        var stsPreview = new DotnetReleasesIndex.ChannelIndex {
             LatestRelease = "99.99.99-preview.1",
             LatestSdk = "99.99.99-preview.1",
             MajorMinorVersion = "99.99",
             ReleaseType = "sts",
-            SupportPhase = "preview"
+            SupportPhase = "preview",
+            ChannelReleaseIndexUrl = null!
         };
         var releasesIndex = new DotnetReleasesIndex {
             Releases = [ltsRelease, stsRelease, ltsPreview, stsPreview]
         };
 
-        var actual = releasesIndex.GetLatestReleaseForChannel(Channel.Latest);
+        var actual = releasesIndex.GetChannelIndex(Channel.Latest);
         // STS is newest
         Assert.Equal(stsRelease, actual);
 
-        actual = releasesIndex.GetLatestReleaseForChannel(Channel.Lts);
+        actual = releasesIndex.GetChannelIndex(Channel.Lts);
         Assert.Equal(ltsRelease, actual);
 
-        actual = releasesIndex.GetLatestReleaseForChannel(Channel.Sts);
+        actual = releasesIndex.GetChannelIndex(Channel.Sts);
         Assert.Equal(stsRelease, actual);
 
-        actual = releasesIndex.GetLatestReleaseForChannel(Channel.Preview);
+        actual = releasesIndex.GetChannelIndex(Channel.Preview);
         // LTS preview is newest
         Assert.Equal(ltsPreview, actual);
     }
@@ -193,20 +221,21 @@ public sealed class UpdateTests
     [Fact]
     public void GoLiveAcceptedAsPreview()
     {
-        var previewRelease = new DotnetReleasesIndex.Release
+        var previewRelease = new DotnetReleasesIndex.ChannelIndex
         {
             LatestRelease = "100.100.100-preview.1",
             LatestSdk = "100.100.100-preview.1",
             MajorMinorVersion = "100.100",
             ReleaseType = "lts",
-            SupportPhase = "go-live"
+            SupportPhase = "go-live",
+            ChannelReleaseIndexUrl = null!
         };
 
         var releasesIndex = new DotnetReleasesIndex {
             Releases = [previewRelease]
         };
 
-        var actual = releasesIndex.GetLatestReleaseForChannel(Channel.Preview);
+        var actual = releasesIndex.GetChannelIndex(Channel.Preview);
         Assert.Equal(previewRelease, actual);
     }
 }

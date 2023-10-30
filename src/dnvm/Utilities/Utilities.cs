@@ -13,6 +13,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
+using Semver;
 using StaticCs;
 using Zio;
 using Zio.FileSystems;
@@ -51,6 +52,8 @@ public static class Utilities
         File.SetUnixFileMode(realPath, mod | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
     }
 
+    public static string ToMajorMinor(this SemVersion version) => $"{version.Major}.{version.Minor}";
+
     public static string SeqToString<T>(this IEnumerable<T> e)
     {
         return "[ " + string.Join(", ", e.ToString()) + " ]";
@@ -62,6 +65,16 @@ public static class Utilities
         foreach (var item in e)
         {
             builder.Add(f(item));
+        }
+        return builder.MoveToImmutable();
+    }
+
+    public static async Task<ImmutableArray<U>> SelectAsArray<T, U>(this ImmutableArray<T> e, Func<T, Task<U>> f)
+    {
+        var builder = ImmutableArray.CreateBuilder<U>(e.Length);
+        foreach (var item in e)
+        {
+            builder.Add(await f(item));
         }
         return builder.MoveToImmutable();
     }

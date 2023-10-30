@@ -9,22 +9,22 @@ public static class ListCommand
 {
     /// <summary>
     /// Prints a list of installed SDK versions and their locations.
-    public static Task<int> Run(Logger logger, DnvmEnv home)
+    public static async Task<int> Run(Logger logger, DnvmEnv home)
     {
         Manifest manifest;
         try
         {
-            manifest = home.ReadManifest();
+            manifest = await home.ReadManifest();
         }
         catch (Exception e)
         {
             logger.Error("Error reading manifest: " + e.Message);
-            return Task.FromResult(1);
+            return 1;
         }
 
         PrintSdks(logger, manifest);
 
-        return Task.FromResult(0);
+        return 0;
     }
 
     public static void PrintSdks(Logger logger, Manifest manifest)
@@ -40,7 +40,7 @@ public static class ListCommand
         {
             string selected = manifest.CurrentSdkDir == sdk.SdkDirName ? "*" : " ";
             var channel = sdk.Channel?.GetLowerName() ?? "";
-            table.AddRow(selected, sdk.Version.ToString(), channel, sdk.SdkDirName.Name);
+            table.AddRow(selected, sdk.SdkVersion.ToString(), channel, sdk.SdkDirName.Name);
         }
         logger.Console.Write(table);
     }

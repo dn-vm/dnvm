@@ -20,11 +20,21 @@ public sealed class ListTests
     [Fact]
     public void BasicList()
     {
+        var previewVersion = SemVersion.Parse("4.0.0-preview1", SemVersionStyles.Strict);
         var manifest = Manifest.Empty
-            .AddSdk(new InstalledSdk(new(1,0,0)) { Channel = Channel.Latest }, Channel.Latest)
-            .AddSdk(new InstalledSdk(SemVersion.Parse("4.0.0-preview1", SemVersionStyles.Strict))
-                    { SdkDirName = new("preview"), Channel = Channel.Preview },
-                    Channel.Preview);
+            .AddSdk(new InstalledSdk() {
+                SdkVersion = new(1,0,0),
+                RuntimeVersion = new(1,0,0),
+                AspNetVersion = new(1,0,0),
+                ReleaseVersion = new(1,0,0),
+                Channel = Channel.Latest }, Channel.Latest)
+            .AddSdk(new InstalledSdk() {
+                SdkVersion = previewVersion,
+                RuntimeVersion = previewVersion,
+                AspNetVersion = previewVersion,
+                ReleaseVersion = previewVersion,
+                SdkDirName = new("preview"),
+                Channel = Channel.Preview }, Channel.Preview);
 
         ListCommand.PrintSdks(_logger, manifest);
         var output = """
@@ -45,7 +55,13 @@ Installed SDKs:
     public async Task ListFromFile()
     {
         var manifest = Manifest.Empty
-            .AddSdk(new InstalledSdk(new(42, 42, 42)) { Channel = Channel.Latest }, Channel.Latest);
+            .AddSdk(new InstalledSdk() {
+                SdkVersion = new(42, 42, 42),
+                RuntimeVersion = new(42, 42, 42),
+                AspNetVersion = new(42, 42, 42),
+                ReleaseVersion = new(42, 42, 42),
+                Channel = Channel.Latest
+            }, Channel.Latest);
 
         var env = new Dictionary<string, string>();
         using var userHome = new TempDirectory();

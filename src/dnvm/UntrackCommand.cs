@@ -17,12 +17,12 @@ public sealed class UntrackCommand
         public record ManifestReadError : Result;
     }
 
-    public static int Run(DnvmEnv env, Logger logger, CommandArguments.UntrackArguments options)
+    public static async Task<int> Run(DnvmEnv env, Logger logger, CommandArguments.UntrackArguments options)
     {
         Manifest manifest;
         try
         {
-            manifest = env.ReadManifest();
+            manifest = await env.ReadManifest();
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
