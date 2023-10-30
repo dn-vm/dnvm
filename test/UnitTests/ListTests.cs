@@ -21,22 +21,21 @@ public sealed class ListTests
     public void BasicList()
     {
         var manifest = Manifest.Empty
-            .AddSdk(new InstalledSdk(new(1,0,0)), Channel.Latest)
+            .AddSdk(new InstalledSdk(new(1,0,0)) { Channel = Channel.Latest }, Channel.Latest)
             .AddSdk(new InstalledSdk(SemVersion.Parse("4.0.0-preview1", SemVersionStyles.Strict))
-                    { SdkDirName = new("preview") },
+                    { SdkDirName = new("preview"), Channel = Channel.Preview },
                     Channel.Preview);
 
-        var newline = Text.NewLine;
         ListCommand.PrintSdks(_logger, manifest);
         var output = """
 Installed SDKs:
 
-┌───┬─────────┬────────────────┬──────────┐
-│   │ Channel │ Version        │ Location │
-├───┼─────────┼────────────────┼──────────┤
-│ * │ latest  │ 1.0.0          │ dn       │
-│   │ preview │ 4.0.0-preview1 │ preview  │
-└───┴─────────┴────────────────┴──────────┘
+┌───┬────────────────┬─────────┬──────────┐
+│   │ Version        │ Channel │ Location │
+├───┼────────────────┼─────────┼──────────┤
+│ * │ 1.0.0          │ latest  │ dn       │
+│   │ 4.0.0-preview1 │ preview │ preview  │
+└───┴────────────────┴─────────┴──────────┘
 """;
 
         Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
@@ -46,7 +45,7 @@ Installed SDKs:
     public async Task ListFromFile()
     {
         var manifest = Manifest.Empty
-            .AddSdk(new InstalledSdk(new(42, 42, 42)), Channel.Latest);
+            .AddSdk(new InstalledSdk(new(42, 42, 42)) { Channel = Channel.Latest }, Channel.Latest);
 
         var env = new Dictionary<string, string>();
         using var userHome = new TempDirectory();
@@ -64,11 +63,11 @@ Installed SDKs:
         var output = """
 Installed SDKs:
 
-┌───┬─────────┬──────────┬──────────┐
-│   │ Channel │ Version  │ Location │
-├───┼─────────┼──────────┼──────────┤
-│ * │ latest  │ 42.42.42 │ dn       │
-└───┴─────────┴──────────┴──────────┘
+┌───┬──────────┬─────────┬──────────┐
+│   │ Version  │ Channel │ Location │
+├───┼──────────┼─────────┼──────────┤
+│ * │ 42.42.42 │ latest  │ dn       │
+└───┴──────────┴─────────┴──────────┘
 """;
 
         Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
