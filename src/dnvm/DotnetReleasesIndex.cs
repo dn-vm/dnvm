@@ -15,7 +15,7 @@ public partial record DotnetReleasesIndex
     public const string ReleasesUrlSuffix = "/release-metadata/releases-index.json";
     public async static Task<DotnetReleasesIndex> FetchLatestIndex(string feed, string urlSuffix = ReleasesUrlSuffix)
     {
-        var response = await Program.HttpClient.GetStringAsync(feed + urlSuffix);
+        var response = await Program.HttpClient.GetStringAsync(feed.TrimEnd('/') + urlSuffix);
         return JsonSerializer.Deserialize<DotnetReleasesIndex>(response);
     }
 
@@ -104,7 +104,7 @@ public partial record ChannelReleaseIndex
         };
     }
 
-    public EqArray<Release> Releases { get; init; }
+    public required EqArray<Release> Releases { get; init; }
 
     [GenerateSerde]
     [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]

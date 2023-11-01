@@ -1,5 +1,6 @@
 
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
 using Semver;
@@ -63,6 +64,7 @@ public sealed class MockServer : IAsyncDisposable
         };
     }
 
+    [MemberNotNull(nameof(ReleasesIndexJson))]
     private void RegisterReleaseVersion(SemVersion ltsVersion, string releaseType, string supportPhase)
     {
         var majorMinor = ltsVersion.ToMajorMinor();

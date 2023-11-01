@@ -115,7 +115,7 @@ public sealed class DnvmEnv : IDisposable
     public async Task<Manifest> ReadManifest()
     {
         var text = Vfs.ReadAllText(ManifestPath);
-        return (await ManifestUtils.DeserializeNewOrOldManifest(text, DnvmReleasesUrl)) ?? throw new InvalidDataException();
+        return (await ManifestUtils.DeserializeNewOrOldManifest(text, DotnetFeedUrl)) ?? throw new InvalidDataException();
     }
 
     public void WriteManifest(Manifest manifest)
