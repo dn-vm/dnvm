@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Semver;
 using Serde;
@@ -70,7 +71,7 @@ public partial record InstalledSdk
 
 public static partial class ManifestConvert
 {
-    public static async Task<Manifest> Convert(this ManifestV4 v3, DotnetReleasesIndex releasesIndex)
+    public static async Task<Manifest> Convert(this ManifestV4 v4, DotnetReleasesIndex releasesIndex)
     {
         var channelMemo = new SortedDictionary<SemVersion, ChannelReleaseIndex>(SemVersion.SortOrderComparer);
 
@@ -90,37 +91,43 @@ public static partial class ManifestConvert
 
         return new Manifest
         {
-            InstalledSdkVersions = (await v3.InstalledSdkVersions.SelectAsArray(v => v.Convert(v3, getChannelIndex))).ToEq(),
-            TrackedChannels = v3.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
+            InstalledSdkVersions = (await v4.InstalledSdkVersions.SelectAsArray(v => v.Convert(v4, getChannelIndex))).ToEq(),
+            TrackedChannels = v4.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
         };
     }
 
     public static async Task<InstalledSdk> Convert(
-        this InstalledSdkV4 v3,
-        ManifestV4 manifestV3,
+        this InstalledSdkV4 v4,
+        ManifestV4 manifestV4,
         Func<SemVersion, Task<ChannelReleaseIndex>> getChannelIndex)
     {
         // Take the major and minor version from the installed SDK and use it to find the corresponding
         // version in the releases index. Then grab the component versions from that release and fill
         // in the remaining sections in the InstalledSdk
-        var v3Version = SemVersion.Parse(v3.Version, SemVersionStyles.Strict);
-        var majorMinorVersion = new SemVersion(v3Version.Major, v3Version.Minor);
+        var v4Version = SemVersion.Parse(v4.Version, SemVersionStyles.Strict);
+        var majorMinorVersion = new SemVersion(v4Version.Major, v4Version.Minor);
 
         var channelReleaseIndex = await getChannelIndex(majorMinorVersion);
         var exactRelease = channelReleaseIndex.Releases
-            .Where(r => r.Sdks.Contains(new() { Version = v3Version}))
+            .Where(r => r.Sdks.Contains(new() { Version = v4Version}))
             .Single();
 
-        Channel? channel = manifestV3.TrackedChannels
-            .SingleOrNull(c => c.SdkDirName == v3.SdkDirName)?.ChannelName;
+
+        Channel? channel = (v4Version.Major, v4Version.Minor) switch {
+            (6, 0) => Channel.Lts,
+            (7, 0) => Channel.Latest,
+            (8, 0) => Channel.Preview,
+            _ => manifestV4.TrackedChannels
+                 .SingleOrNull(c => c.SdkDirName == v4.SdkDirName)?.ChannelName
+        } ;
 
         return new InstalledSdk()
         {
             ReleaseVersion = exactRelease.ReleaseVersion,
-            SdkVersion = v3Version,
+            SdkVersion = v4Version,
             RuntimeVersion = exactRelease.Runtime.Version,
             AspNetVersion = exactRelease.AspNetCore.Version,
-            SdkDirName = v3.SdkDirName,
+            SdkDirName = v4.SdkDirName,
             Channel = channel
         };
     }
