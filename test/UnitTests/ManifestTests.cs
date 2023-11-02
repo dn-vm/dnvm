@@ -1,4 +1,6 @@
 
+using System.Net.Security;
+using Serde.Json;
 using Dnvm;
 using Dnvm.Test;
 using Semver;
@@ -23,15 +25,83 @@ public sealed class ManifestTests
     });
 
     [Fact]
-    public void ManifestV3Convert() => TestUtils.RunWithServer(async server =>
+    public Task V5CopiesChannel() => TestUtils.RunWithServer(async (server, env) =>
+    {
+        var manifest = """
+{
+    "version":3,"currentSdkDir":{"name":"dn"},
+    "installedSdkVersions":[{"version":"7.0.203","sdkDirName":{"name":"dn"}},{"version":"8.0.100-preview.3.23178.7","sdkDirName":{"name":"preview"}}],
+    "trackedChannels":[
+        {"channelName":"latest","sdkDirName":{"name":"dn"},"installedSdkVersions":["7.0.203"]},
+        {"channelName":"preview","sdkDirName":{"name":"dn"},"installedSdkVersions":["8.0.100-rc.1.23455.8"]}
+    ]
+}
+""";
+        server.ReleasesIndexJson = new() {
+            Releases = [
+                new DotnetReleasesIndex.ChannelIndex {
+                    ReleaseType = "lts",
+                    SupportPhase = "active",
+                    MajorMinorVersion = "7.0",
+                    LatestRelease = "7.0.2",
+                    LatestSdk = "7.0.203",
+                    ChannelReleaseIndexUrl = server.GetChannelIndexUrl("7.0")
+                },
+                new DotnetReleasesIndex.ChannelIndex {
+                    ReleaseType = "preview",
+                    SupportPhase = "active",
+                    MajorMinorVersion = "8.0",
+                    LatestRelease = "8.0.0-preview.3.23178.7",
+                    LatestSdk = "8.0.100-preview.3.23178.7",
+                    ChannelReleaseIndexUrl = server.GetChannelIndexUrl("8.0")
+                }
+            ]
+        };
+        server.ChannelIndexMap.Clear();
+        var runtimeVersion = new SemVersion(7, 0, 2);
+        var sdkVersion = SemVersion.Parse("7.0.203", SemVersionStyles.Strict);
+        server.ChannelIndexMap.Add("7.0", new() {
+            Releases = [
+                new ChannelReleaseIndex.Release {
+                    AspNetCore = new() { Version = runtimeVersion },
+                    ReleaseVersion = runtimeVersion,
+                    Runtime = new() { Version = runtimeVersion },
+                    Sdk = new() { Version = sdkVersion },
+                    Sdks = [ new() { Version = sdkVersion }  ],
+                    WindowsDesktop = new() { Version = runtimeVersion },
+                }
+            ]
+        });
+        runtimeVersion = SemVersion.Parse("8.0.0-preview.3.23178.7", SemVersionStyles.Strict);
+        sdkVersion = SemVersion.Parse("8.0.100-preview.3.23178.7", SemVersionStyles.Strict);
+        server.ChannelIndexMap.Add("8.0", new() {
+            Releases = [
+                new ChannelReleaseIndex.Release {
+                    AspNetCore = new() { Version = runtimeVersion },
+                    ReleaseVersion = runtimeVersion,
+                    Runtime = new() { Version = runtimeVersion },
+                    Sdk = new() { Version = sdkVersion },
+                    Sdks = [ new() { Version = sdkVersion }  ],
+                    WindowsDesktop = new() { Version = runtimeVersion },
+                }
+            ]
+        });
+
+        var v5 = (await ManifestUtils.DeserializeNewOrOldManifest(manifest, env.DotnetFeedUrl))!;
+        Assert.Equal(Channel.Latest, v5.InstalledSdkVersions[0].Channel);
+        Assert.Equal(Channel.Preview, v5.InstalledSdkVersions[1].Channel);
+    });
+
+    [Fact]
+    public Task ManifestV3Convert() => TestUtils.RunWithServer(async server =>
     {
         var v3 = ManifestV3.Empty
-            .AddSdk(new InstalledSdkV3("1.0.0"), Channel.Latest)
-            .AddSdk(new InstalledSdkV3("4.0.0-preview1")
+            .AddSdk(new InstalledSdkV3("42.42.42"), Channel.Latest)
+            .AddSdk(new InstalledSdkV3("99.99.99-preview")
                     { SdkDirName = new("preview") },
                     Channel.Preview);
-        var v4 = await v3.Convert().Convert(server.ReleasesIndexJson);
-        Assert.Equal(Channel.Latest, v4.InstalledSdkVersions[0].Channel);
-        Assert.Equal(Channel.Preview, v4.InstalledSdkVersions[1].Channel);
+        var v5 = await v3.Convert().Convert(server.ReleasesIndexJson);
+        Assert.Equal(Channel.Latest, v5.InstalledSdkVersions[0].Channel);
+        Assert.Equal(Channel.Preview, v5.InstalledSdkVersions[1].Channel);
     });
 }

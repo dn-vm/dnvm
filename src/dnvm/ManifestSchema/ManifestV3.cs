@@ -102,7 +102,7 @@ static class ManifestConvertV3
     }
 }
 
-public static partial class ManifestUtilsV3
+public static partial class ManifestV3Utils
 {
     public static ManifestV3 AddSdk(this ManifestV3 manifest, InstalledSdkV3 sdk, Channel c)
     {
@@ -129,7 +129,7 @@ public static partial class ManifestUtilsV3
                 {
                     ChannelName = c,
                     SdkDirName = sdk.SdkDirName,
-                    InstalledSdkVersions = ImmutableArray.Create(sdk.Version).ToImmutableArray()
+                    InstalledSdkVersions = ImmutableArray.Create(sdk.Version)
                 }),
                 InstalledSdkVersions = manifest.InstalledSdkVersions.Add(sdk)
             };
