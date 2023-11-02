@@ -188,7 +188,7 @@ public class SelfInstallCommand
         SdkDirName sdkDirName;
         try
         {
-            var manifest = dnvmEnv.ReadManifest();
+            var manifest = await dnvmEnv.ReadManifest();
             sdkDirName = manifest.CurrentSdkDir;
         }
         catch

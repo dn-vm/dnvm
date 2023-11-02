@@ -1,5 +1,6 @@
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -18,7 +19,7 @@ public sealed partial record Manifest
     public static readonly Manifest Empty = new();
 
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
-    public const int VersionField = 4;
+    public const int VersionField = 5;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
@@ -37,7 +38,7 @@ public sealed partial record Manifest
 }
 
 [GenerateSerde]
-public readonly partial record struct TrackedChannel()
+public partial record TrackedChannel
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
@@ -48,10 +49,17 @@ public readonly partial record struct TrackedChannel()
 }
 
 [GenerateSerde]
-public readonly partial record struct InstalledSdk(
-    [property: SerdeWrap(typeof(SemVersionSerdeWrap))]
-    SemVersion Version)
+public partial record InstalledSdk
 {
+    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    public required SemVersion ReleaseVersion { get; init; }
+    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    public required SemVersion SdkVersion { get; init; }
+    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    public required SemVersion RuntimeVersion { get; init; }
+    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    public required SemVersion AspNetVersion { get; init; }
+
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 
     /// <summary>
@@ -62,24 +70,62 @@ public readonly partial record struct InstalledSdk(
 
 public static partial class ManifestConvert
 {
-    public static Manifest Convert(this ManifestV3 v3) => new Manifest
+    public static async Task<Manifest> Convert(this ManifestV4 v3, DotnetReleasesIndex releasesIndex)
     {
-        InstalledSdkVersions = v3.InstalledSdkVersions.SelectAsArray(v => v.Convert(v3)).ToEq(),
-        TrackedChannels = v3.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
-    };
+        var channelMemo = new SortedDictionary<SemVersion, ChannelReleaseIndex>(SemVersion.SortOrderComparer);
 
-    public static InstalledSdk Convert(this InstalledSdkV3 v3, ManifestV3 manifestV3)
-    {
-        Channel? channel = null;
-        channel = manifestV3.TrackedChannels
-            .SingleOrNull(c => c.SdkDirName == v3.SdkDirName)?.ChannelName;
+        var getChannelIndex = async (SemVersion majorMinor) =>
+        {
+            if (channelMemo.TryGetValue(majorMinor, out var channelReleaseIndex))
+            {
+                return channelReleaseIndex;
+            }
 
-        return new InstalledSdk(SemVersion.Parse(v3.Version, SemVersionStyles.Strict)) {
-            SdkDirName = v3.SdkDirName, Channel = channel
+            var channelRelease = releasesIndex.Releases.Single(r => r.MajorMinorVersion == majorMinor.ToMajorMinor());
+            channelReleaseIndex = JsonSerializer.Deserialize<ChannelReleaseIndex>(
+                await Program.HttpClient.GetStringAsync(channelRelease.ChannelReleaseIndexUrl));
+            channelMemo[majorMinor] = channelReleaseIndex;
+            return channelReleaseIndex;
+        };
+
+        return new Manifest
+        {
+            InstalledSdkVersions = (await v3.InstalledSdkVersions.SelectAsArray(v => v.Convert(v3, getChannelIndex))).ToEq(),
+            TrackedChannels = v3.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
         };
     }
 
-    public static TrackedChannel Convert(this TrackedChannelV3 v3) => new TrackedChannel {
+    public static async Task<InstalledSdk> Convert(
+        this InstalledSdkV4 v3,
+        ManifestV4 manifestV3,
+        Func<SemVersion, Task<ChannelReleaseIndex>> getChannelIndex)
+    {
+        // Take the major and minor version from the installed SDK and use it to find the corresponding
+        // version in the releases index. Then grab the component versions from that release and fill
+        // in the remaining sections in the InstalledSdk
+        var v3Version = SemVersion.Parse(v3.Version, SemVersionStyles.Strict);
+        var majorMinorVersion = new SemVersion(v3Version.Major, v3Version.Minor);
+
+        var channelReleaseIndex = await getChannelIndex(majorMinorVersion);
+        var exactRelease = channelReleaseIndex.Releases
+            .Where(r => r.Sdks.Contains(new() { Version = v3Version}))
+            .Single();
+
+        Channel? channel = manifestV3.TrackedChannels
+            .SingleOrNull(c => c.SdkDirName == v3.SdkDirName)?.ChannelName;
+
+        return new InstalledSdk()
+        {
+            ReleaseVersion = exactRelease.ReleaseVersion,
+            SdkVersion = v3Version,
+            RuntimeVersion = exactRelease.Runtime.Version,
+            AspNetVersion = exactRelease.AspNetCore.Version,
+            SdkDirName = v3.SdkDirName,
+            Channel = channel
+        };
+    }
+
+    public static TrackedChannel Convert(this TrackedChannelV4 v3) => new TrackedChannel {
         ChannelName = v3.ChannelName,
         SdkDirName = v3.SdkDirName,
         InstalledSdkVersions = v3.InstalledSdkVersions.Select(v => SemVersion.Parse(v, SemVersionStyles.Strict)).ToEq(),

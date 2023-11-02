@@ -107,7 +107,7 @@ public sealed class InstallCommand
         Manifest manifest;
         try
         {
-            manifest = ManifestUtils.ReadOrCreateManifest(dnvmFs);
+            manifest = await ManifestUtils.ReadOrCreateManifest(dnvmFs);
         }
         catch (InvalidDataException)
         {
@@ -149,26 +149,30 @@ public sealed class InstallCommand
 
         RID rid = Utilities.CurrentRID;
 
-        string? latestVersionString = versionIndex.GetLatestReleaseForChannel(channel)?.LatestSdk;
-        if (latestVersionString is null)
+        var latestChannelIndex = versionIndex.GetChannelIndex(channel);
+        if (latestChannelIndex is null)
         {
             logger.Error("Could not fetch the latest package version");
             return Result.CouldntFetchLatestVersion;
         }
-        var latestVersion = SemVersion.Parse(latestVersionString, SemVersionStyles.Strict);
-        logger.Log("Found latest version: " + latestVersion);
+        var latestSdkVersion = SemVersion.Parse(latestChannelIndex.LatestSdk, SemVersionStyles.Strict);
+        logger.Log("Found latest version: " + latestSdkVersion);
 
-        if (!force && manifest.InstalledSdkVersions.Any(s => s.Version == latestVersion))
+        if (!force && manifest.InstalledSdkVersions.Any(s => s.SdkVersion == latestSdkVersion))
         {
-            logger.Log($"Version {latestVersion} is already installed." +
+            logger.Log($"Version {latestSdkVersion} is already installed." +
                 " Skipping installation. To install anyway, pass --force.");
             return Result.Success;
         }
 
+        var release = JsonSerializer.Deserialize<ChannelReleaseIndex>(
+            await Program.HttpClient.GetStringAsync(latestChannelIndex.ChannelReleaseIndexUrl))
+            .Releases.Single(r => r.Sdk.Version == latestSdkVersion);
+
         var installResult = await InstallSdkVersionFromChannel(
             dnvmFs,
             logger,
-            latestVersion,
+            latestSdkVersion,
             rid,
             feedUrl,
             manifest,
@@ -179,14 +183,18 @@ public sealed class InstallCommand
             return installResult;
         }
 
-        logger.Info($"Adding installed version '{latestVersion}' to manifest.");
+        logger.Info($"Adding installed version '{latestSdkVersion}' to manifest.");
         manifest = manifest with { InstalledSdkVersions = manifest.InstalledSdkVersions.Add(new InstalledSdk {
-            Version = latestVersion,
+            ReleaseVersion = release.ReleaseVersion,
+            RuntimeVersion = release.Runtime.Version,
+            AspNetVersion = release.AspNetCore.Version,
+            Channel = channel,
+            SdkVersion = latestSdkVersion,
             SdkDirName = sdkDir,
         }) };
         var oldTracked = manifest.TrackedChannels.First(t => t.ChannelName == channel);
         var newTracked = oldTracked with {
-            InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestVersion)
+            InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
         };
         manifest = manifest with { TrackedChannels = manifest.TrackedChannels.Replace(oldTracked, newTracked) };
 

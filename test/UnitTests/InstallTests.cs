@@ -31,10 +31,14 @@ public sealed class InstallTests
         Assert.True(env.Vfs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
 
-        var manifest = env.ReadManifest();
+        var manifest = await env.ReadManifest();
         var installedVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[0].LatestSdk, SemVersionStyles.Strict);
         EqArray<InstalledSdk> installedVersions = [ new InstalledSdk {
-            Version = installedVersion,
+            SdkVersion = installedVersion,
+            AspNetVersion = installedVersion,
+            RuntimeVersion = installedVersion,
+            ReleaseVersion = installedVersion,
+            Channel = channel,
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ];
         Assert.Equal(new Manifest
@@ -42,10 +46,10 @@ public sealed class InstallTests
             InstalledSdkVersions = installedVersions,
             TrackedChannels = [
                 new TrackedChannel {
-                        ChannelName = channel,
-                        SdkDirName = DnvmEnv.DefaultSdkDirName,
-                        InstalledSdkVersions = [ installedVersion ]
-                    },
+                    ChannelName = channel,
+                    SdkDirName = DnvmEnv.DefaultSdkDirName,
+                    InstalledSdkVersions = [ installedVersion ]
+                },
             ]
         }, manifest);
     });

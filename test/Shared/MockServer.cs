@@ -1,7 +1,9 @@
 
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
+using Semver;
 using Serde.Json;
 using static Dnvm.Utilities;
 
@@ -18,27 +20,14 @@ public sealed class MockServer : IAsyncDisposable
     public string DnvmReleasesUrl => PrefixString + "releases.json";
     public string? DnvmPath { get; set; } = null;
 
-    public DotnetReleasesIndex ReleasesIndexJson { get; set; } = new DotnetReleasesIndex
-    {
-        Releases = ImmutableArray.Create(new DotnetReleasesIndex.Release[] {
-            new() {
-                LatestRelease = "42.42.42",
-                LatestSdk = "42.42.142",
-                MajorMinorVersion = "42.42",
-                ReleaseType = "lts",
-                SupportPhase = "active"
-            },
-            new() {
-                LatestRelease = "99.99.99-preview",
-                LatestSdk = "99.99.99-preview",
-                MajorMinorVersion = "99.99",
-                ReleaseType = "sts",
-                SupportPhase = "preview"
-            }
-        })
-    };
+    public DotnetReleasesIndex ReleasesIndexJson { get; set; }
 
     public DnvmReleases DnvmReleases { get; set; }
+
+    public Dictionary<string, ChannelReleaseIndex> ChannelIndexMap { get; } = new();
+
+    private string GetChannelIndexPath(string majorMinor) => $"release-metadata/{majorMinor}/index.json";
+    public string GetChannelIndexUrl(string majorMinor) => PrefixString + GetChannelIndexPath(majorMinor);
 
     public MockServer(TaskScope scope)
     {
@@ -59,6 +48,8 @@ public sealed class MockServer : IAsyncDisposable
             {
             }
         }
+        RegisterReleaseVersion(new SemVersion(42, 42, 42), "lts", "active");
+        RegisterReleaseVersion(SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict), "sts", "preview");
         DnvmReleases = new()
         {
             LatestVersion = new()
@@ -71,6 +62,31 @@ public sealed class MockServer : IAsyncDisposable
                 }
             }
         };
+    }
+
+    [MemberNotNull(nameof(ReleasesIndexJson))]
+    private void RegisterReleaseVersion(SemVersion ltsVersion, string releaseType, string supportPhase)
+    {
+        var majorMinor = ltsVersion.ToMajorMinor();
+        ReleasesIndexJson ??= new DotnetReleasesIndex{ Releases = [ ] };
+        ReleasesIndexJson = ReleasesIndexJson with {
+            Releases = ReleasesIndexJson.Releases.Add(new() {
+                LatestRelease = ltsVersion.ToString(),
+                LatestSdk = ltsVersion.ToString(),
+                MajorMinorVersion = majorMinor,
+                ReleaseType = releaseType,
+                SupportPhase = supportPhase,
+                ChannelReleaseIndexUrl = GetChannelIndexUrl(majorMinor)
+            })
+        };
+        if (!ChannelIndexMap.TryGetValue(majorMinor, out var index))
+        {
+            index = new() { Releases = [] };
+        }
+        index = index with {
+            Releases = index.Releases.Add(ChannelReleaseIndex.CreateRelease(ltsVersion))
+        };
+        ChannelIndexMap[majorMinor] = index;
     }
 
     private async Task WaitForConnection()
@@ -108,6 +124,10 @@ public sealed class MockServer : IAsyncDisposable
                 ["/releases.json"] = GetReleasesJson,
                 [$"/dnvm/dnvm{ZipSuffix}"] = GetDnvm,
             };
+            foreach (var (version, index) in ChannelIndexMap)
+            {
+                routes["/" + GetChannelIndexPath(version)] = GetChannelIndexJson(index);
+            }
             foreach (var r in ReleasesIndexJson.Releases)
             {
                 routes[$"/sdk/{r.LatestSdk}/dotnet-sdk-{r.LatestSdk}-{CurrentRID}{ZipSuffix}"] = GetSdk;
@@ -126,6 +146,19 @@ public sealed class MockServer : IAsyncDisposable
         output.Write(buffer, 0, buffer.Length);
         // You must close the output stream.
         output.Close();
+    }
+
+    private Action<HttpListenerResponse> GetChannelIndexJson(ChannelReleaseIndex index)
+    {
+        var buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(index));
+        return (response) =>
+        {
+            response.StatusCode = (int)HttpStatusCode.OK;
+            response.ContentLength64 = buffer.Length;
+            var output = response.OutputStream;
+            output.Write(buffer, 0, buffer.Length);
+            output.Close();
+        };
     }
 
     private static void GetSdk(HttpListenerResponse response)
