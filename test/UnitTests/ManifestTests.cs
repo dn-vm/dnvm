@@ -30,7 +30,7 @@ public sealed class ManifestTests
             .AddSdk(new InstalledSdkV3("4.0.0-preview1")
                     { SdkDirName = new("preview") },
                     Channel.Preview);
-        var v4 = await v3.Convert(server.ReleasesIndexJson);
+        var v4 = await v3.Convert().Convert(server.ReleasesIndexJson);
         Assert.Equal(Channel.Latest, v4.InstalledSdkVersions[0].Channel);
         Assert.Equal(Channel.Preview, v4.InstalledSdkVersions[1].Channel);
     });

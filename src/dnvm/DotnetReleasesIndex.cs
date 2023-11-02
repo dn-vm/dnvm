@@ -99,6 +99,7 @@ public partial record ChannelReleaseIndex
             ReleaseVersion = universalVersion,
             Runtime = component,
             Sdk = component,
+            Sdks = [ component ],
             AspNetCore = component,
             WindowsDesktop = component
         };
@@ -114,6 +115,7 @@ public partial record ChannelReleaseIndex
         public required SemVersion ReleaseVersion { get; init; }
         public required Component Runtime { get; init; }
         public required Component Sdk { get; init; }
+        public required EqArray<Component> Sdks { get; init; }
         [SerdeMemberOptions(Rename = "aspnetcore-runtime")]
         public required Component AspNetCore { get; init; }
         [SerdeMemberOptions(Rename = "windowsdesktop")]

@@ -18,7 +18,8 @@ public static class ListCommand
         }
         catch (Exception e)
         {
-            logger.Error("Error reading manifest: " + e.Message);
+            Environment.FailFast("Error reading manifest: ", e);
+            // unreachable
             return 1;
         }
 

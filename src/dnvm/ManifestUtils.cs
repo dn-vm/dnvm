@@ -121,9 +121,10 @@ public static partial class ManifestUtils
             return version switch
             {
                 // The first version didn't have a version field
-                null => await JsonSerializer.Deserialize<ManifestV1>(manifestSrc).Convert().Convert().Convert(releasesIndex),
-                ManifestV2.VersionField => await JsonSerializer.Deserialize<ManifestV2>(manifestSrc).Convert().Convert(releasesIndex),
-                ManifestV3.VersionField => await JsonSerializer.Deserialize<ManifestV3>(manifestSrc).Convert(releasesIndex),
+                null => await JsonSerializer.Deserialize<ManifestV1>(manifestSrc).Convert().Convert().Convert().Convert(releasesIndex),
+                ManifestV2.VersionField => await JsonSerializer.Deserialize<ManifestV2>(manifestSrc).Convert().Convert().Convert(releasesIndex),
+                ManifestV3.VersionField => await JsonSerializer.Deserialize<ManifestV3>(manifestSrc).Convert().Convert(releasesIndex),
+                ManifestV4.VersionField => await JsonSerializer.Deserialize<ManifestV4>(manifestSrc).Convert(releasesIndex),
                 _ => null,
             };
         }

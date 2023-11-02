@@ -19,7 +19,7 @@ public sealed partial record Manifest
     public static readonly Manifest Empty = new();
 
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
-    public const int VersionField = 4;
+    public const int VersionField = 5;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
@@ -70,7 +70,7 @@ public partial record InstalledSdk
 
 public static partial class ManifestConvert
 {
-    public static async Task<Manifest> Convert(this ManifestV3 v3, DotnetReleasesIndex releasesIndex)
+    public static async Task<Manifest> Convert(this ManifestV4 v3, DotnetReleasesIndex releasesIndex)
     {
         var channelMemo = new SortedDictionary<SemVersion, ChannelReleaseIndex>(SemVersion.SortOrderComparer);
 
@@ -96,8 +96,8 @@ public static partial class ManifestConvert
     }
 
     public static async Task<InstalledSdk> Convert(
-        this InstalledSdkV3 v3,
-        ManifestV3 manifestV3,
+        this InstalledSdkV4 v3,
+        ManifestV4 manifestV3,
         Func<SemVersion, Task<ChannelReleaseIndex>> getChannelIndex)
     {
         // Take the major and minor version from the installed SDK and use it to find the corresponding
@@ -107,7 +107,9 @@ public static partial class ManifestConvert
         var majorMinorVersion = new SemVersion(v3Version.Major, v3Version.Minor);
 
         var channelReleaseIndex = await getChannelIndex(majorMinorVersion);
-        var exactRelease = channelReleaseIndex.Releases.Single(r => r.Sdk.Version == v3Version);
+        var exactRelease = channelReleaseIndex.Releases
+            .Where(r => r.Sdks.Contains(new() { Version = v3Version}))
+            .Single();
 
         Channel? channel = manifestV3.TrackedChannels
             .SingleOrNull(c => c.SdkDirName == v3.SdkDirName)?.ChannelName;
@@ -115,7 +117,7 @@ public static partial class ManifestConvert
         return new InstalledSdk()
         {
             ReleaseVersion = exactRelease.ReleaseVersion,
-            SdkVersion = exactRelease.Sdk.Version,
+            SdkVersion = v3Version,
             RuntimeVersion = exactRelease.Runtime.Version,
             AspNetVersion = exactRelease.AspNetCore.Version,
             SdkDirName = v3.SdkDirName,
@@ -123,7 +125,7 @@ public static partial class ManifestConvert
         };
     }
 
-    public static TrackedChannel Convert(this TrackedChannelV3 v3) => new TrackedChannel {
+    public static TrackedChannel Convert(this TrackedChannelV4 v3) => new TrackedChannel {
         ChannelName = v3.ChannelName,
         SdkDirName = v3.SdkDirName,
         InstalledSdkVersions = v3.InstalledSdkVersions.Select(v => SemVersion.Parse(v, SemVersionStyles.Strict)).ToEq(),
