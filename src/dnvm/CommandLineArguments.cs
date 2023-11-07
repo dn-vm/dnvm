@@ -9,7 +9,7 @@ public abstract record CommandArguments
 {
     private CommandArguments() {}
 
-    public sealed record InstallArguments : CommandArguments
+    public sealed record TrackArguments : CommandArguments
     {
         public required Channel Channel { get; init; }
         /// <summary>
@@ -94,8 +94,8 @@ sealed record class CommandLineArguments(CommandArguments Command)
         {
             string? commandName = null;
 
-            var install = syntax.DefineCommand("install", ref commandName, "Install a new SDK");
-            if (install.IsActive)
+            var track = syntax.DefineCommand("track", ref commandName, "Start tracking a new channel");
+            if (track.IsActive)
             {
                 Channel channel = Channel.Latest;
                 bool verbose = default;
@@ -105,11 +105,11 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 string? feedUrl = default;
                 string? sdkDir = null;
                 syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
-                syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
+                syntax.DefineOption("f|force", ref force, "Force tracking the given channel, even if already tracked.");
                 syntax.DefineOption("y", ref yes, "Answer yes to every question (or accept default).");
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from.");
-                syntax.DefineOption("s|sdkDir", ref sdkDir, "Install the SDK into a separate directory with the given name.");
+                syntax.DefineOption("s|sdkDir", ref sdkDir, "Track the channel in a separate directory with the given name.");
                 syntax.DefineParameter("channel", ref channel, c =>
                     {
                         if (Enum.TryParse<Channel>(c, ignoreCase: true, out var result))
@@ -121,9 +121,9 @@ sealed record class CommandLineArguments(CommandArguments Command)
                             "Channel must be one of:"
                             + sep + string.Join(sep, Enum.GetNames<Channel>()));
                     },
-                    $"Download from the channel specified. Defaults to '{channel.ToString().ToLowerInvariant()}'.");
+                    $"Track the channel specified. Defaults to '{channel.ToString().ToLowerInvariant()}'.");
 
-                command = new CommandArguments.InstallArguments
+                command = new CommandArguments.TrackArguments
                 {
                     Channel = channel,
                     Verbose = verbose,

@@ -21,20 +21,20 @@ public sealed class SelectTests
     [Fact]
     public Task SelectPreview() => TestUtils.RunWithServer(async (mockServer, env) =>
     {
-        var result = await InstallCommand.Run(env, _logger, new CommandArguments.InstallArguments
+        var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
             Channel = Channel.Latest,
         });
-        Assert.Equal(InstallCommand.Result.Success, result);
+        Assert.Equal(TrackCommand.Result.Success, result);
         var homeFs = env.Vfs;
         var defaultSdkDir = DnvmEnv.DefaultSdkDirName;
         var defaultDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
         Assert.True(homeFs.FileExists(defaultDotnet));
-        result = await InstallCommand.Run(env, _logger, new CommandArguments.InstallArguments
+        result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
             Channel = Channel.Preview,
         });
-        Assert.Equal(InstallCommand.Result.Success, result);
+        Assert.Equal(TrackCommand.Result.Success, result);
         var previewDotnet = DnvmEnv.GetSdkPath(new SdkDirName("preview")) / Utilities.DotnetExeName;
         Assert.True(homeFs.FileExists(previewDotnet));
 

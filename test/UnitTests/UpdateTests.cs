@@ -107,11 +107,11 @@ public sealed class UpdateTests
         var upgradeVersion = new SemVersion(41, 0, 1);
         const Channel channel = Channel.Latest;
         Setup(mockServer, baseVersion);
-        var result = await InstallCommand.Run(env, _logger, new() {
+        var result = await TrackCommand.Run(env, _logger, new() {
             Channel = channel,
             Verbose = true
         });
-        Assert.Equal(InstallCommand.Result.Success, result);
+        Assert.Equal(TrackCommand.Result.Success, result);
         // Update with a newer version
         Setup(mockServer, upgradeVersion);
         var updateResult = await UpdateCommand.Run(env, _logger, updateArguments);

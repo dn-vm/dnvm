@@ -11,14 +11,14 @@ using static Dnvm.Utilities;
 
 namespace Dnvm;
 
-public sealed class InstallCommand
+public sealed class TrackCommand
 {
     private readonly DnvmEnv _env;
     // Place to install dnvm
     private readonly SdkDirName _sdkDir;
 
     private readonly Logger _logger;
-    private readonly CommandArguments.InstallArguments _installArgs;
+    private readonly CommandArguments.TrackArguments _installArgs;
     private readonly string _feedUrl;
 
     public enum Result
@@ -35,7 +35,7 @@ public sealed class InstallCommand
         CouldntFetchIndex
     }
 
-    public InstallCommand(DnvmEnv env, Logger logger, CommandArguments.InstallArguments args)
+    public TrackCommand(DnvmEnv env, Logger logger, CommandArguments.TrackArguments args)
     {
         _env = env;
         _logger = logger;
@@ -65,9 +65,9 @@ public sealed class InstallCommand
         };
     }
 
-    public static Task<Result> Run(DnvmEnv env, Logger logger, CommandArguments.InstallArguments args)
+    public static Task<Result> Run(DnvmEnv env, Logger logger, CommandArguments.TrackArguments args)
     {
-        return new InstallCommand(env, logger, args).Run();
+        return new TrackCommand(env, logger, args).Run();
     }
 
     public async Task<Result> Run()

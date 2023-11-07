@@ -49,11 +49,11 @@ public sealed class UntrackTests
     {
         using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
         var logger = new Logger(new TestConsole());
-        var result = await InstallCommand.Run(testOptions.DnvmEnv, logger, new CommandArguments.InstallArguments
+        var result = await TrackCommand.Run(testOptions.DnvmEnv, logger, new CommandArguments.TrackArguments
         {
             Channel = Channel.Latest,
             FeedUrl = mockServer.PrefixString
         });
-        Assert.Equal(InstallCommand.Result.Success, result);
+        Assert.Equal(TrackCommand.Result.Success, result);
     });
 }
