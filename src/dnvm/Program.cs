@@ -37,7 +37,7 @@ public static class Program
     {
         return options.Command switch
         {
-            CommandArguments.InstallArguments o => (int)await InstallCommand.Run(env, logger, o),
+            CommandArguments.TrackArguments o => (int)await TrackCommand.Run(env, logger, o),
             CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(env, logger, o),
             CommandArguments.ListArguments => (int)await ListCommand.Run(logger, env),
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(env, logger, o),

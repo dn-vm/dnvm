@@ -126,7 +126,7 @@ public sealed partial class UpdateCommand
                         await Program.HttpClient.GetStringAsync(newestAvailable.ChannelReleaseIndexUrl))
                         .Releases.Single(r => r.Sdk.Version == latestSdkVersion);
 
-                    _ = await InstallCommand.InstallSdkVersionFromChannel(
+                    _ = await TrackCommand.InstallSdkVersionFromChannel(
                         dnvmFs,
                         logger,
                         latestSdkVersion,

@@ -5,7 +5,7 @@ using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
 using Zio;
-using static Dnvm.InstallCommand;
+using static Dnvm.TrackCommand;
 using static Dnvm.Test.TestUtils;
 
 namespace Dnvm.Test;
@@ -18,11 +18,11 @@ public sealed class InstallTests
     public Task LtsInstall() => RunWithServer(async (server, env) =>
     {
         const Channel channel = Channel.Lts;
-        var options = new CommandArguments.InstallArguments()
+        var options = new CommandArguments.TrackArguments()
         {
             Channel = channel,
         };
-        var installCmd = new InstallCommand(env, _logger, options);
+        var installCmd = new TrackCommand(env, _logger, options);
         var task = installCmd.Run();
         Result retVal = await task;
         Assert.Equal(Result.Success, retVal);
@@ -57,7 +57,7 @@ public sealed class InstallTests
     [Fact]
     public Task SdkInstallDirMissing() => RunWithServer(async (server, env) =>
     {
-        var args = new CommandArguments.InstallArguments()
+        var args = new CommandArguments.TrackArguments()
         {
             Channel = Channel.Lts,
             Verbose = true,
@@ -66,7 +66,7 @@ public sealed class InstallTests
         var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
         Assert.False(homeFs.DirectoryExists(sdkInstallDir));
         Assert.True(homeFs.DirectoryExists(UPath.Root));
-        Assert.Equal(Result.Success, await InstallCommand.Run(env, _logger, args));
+        Assert.Equal(Result.Success, await TrackCommand.Run(env, _logger, args));
         var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
         Assert.True(homeFs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, homeFs.ReadAllText(dotnetFile));
@@ -79,7 +79,7 @@ public sealed class InstallTests
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { SupportPhase = "preview" }).ToImmutableArray()
         };
 
-        var args = new CommandArguments.InstallArguments()
+        var args = new CommandArguments.TrackArguments()
         {
             Channel = Channel.Preview,
         };
@@ -87,7 +87,7 @@ public sealed class InstallTests
         var sdkInstallDir = DnvmEnv.GetSdkPath(new SdkDirName("preview"));
         Assert.False(env.Vfs.DirectoryExists(sdkInstallDir));
         Assert.True(env.Vfs.DirectoryExists(UPath.Root));
-        Assert.Equal(Result.Success, await InstallCommand.Run(env, _logger, args));
+        Assert.Equal(Result.Success, await TrackCommand.Run(env, _logger, args));
         var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
         Assert.True(env.Vfs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
@@ -100,7 +100,7 @@ public sealed class InstallTests
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { ReleaseType = "sts" }).ToImmutableArray()
         };
         const string dirName = "sts";
-        var args = new CommandArguments.InstallArguments()
+        var args = new CommandArguments.TrackArguments()
         {
             Channel = Channel.Sts,
             SdkDir = dirName
@@ -109,7 +109,7 @@ public sealed class InstallTests
         var sdkInstallDir = DnvmEnv.GetSdkPath(new SdkDirName(dirName));
         Assert.False(env.Vfs.DirectoryExists(sdkInstallDir));
         Assert.True(env.Vfs.DirectoryExists(UPath.Root));
-        Assert.Equal(Result.Success, await InstallCommand.Run(env, _logger, args));
+        Assert.Equal(Result.Success, await TrackCommand.Run(env, _logger, args));
         var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
         Assert.True(env.Vfs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
