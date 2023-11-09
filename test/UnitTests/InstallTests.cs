@@ -73,7 +73,7 @@ public sealed class InstallTests
     });
 
     [Fact]
-    public Task PreviewIsolated() => RunWithServer(async (server, env) =>
+    public Task PreviewNotIsolated() => RunWithServer(async (server, env) =>
     {
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
             Releases = server.ReleasesIndexJson.Releases.Select(r => r with { SupportPhase = "preview" }).ToImmutableArray()
@@ -83,12 +83,12 @@ public sealed class InstallTests
         {
             Channel = Channel.Preview,
         };
-        // Check that the preview install is isolated into a "preview" subdirectory
-        var sdkInstallDir = DnvmEnv.GetSdkPath(new SdkDirName("preview"));
+        // Preview used to be isolated, but it shouldn't be anymore
+        var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
         Assert.False(env.Vfs.DirectoryExists(sdkInstallDir));
         Assert.True(env.Vfs.DirectoryExists(UPath.Root));
         Assert.Equal(Result.Success, await TrackCommand.Run(env, _logger, args));
-        var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
+        var dotnetFile = sdkInstallDir / Utilities.DotnetExeName;
         Assert.True(env.Vfs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
     });

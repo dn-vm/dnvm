@@ -52,15 +52,7 @@ public sealed class TrackCommand
         // Use an explicit SdkDir if specified, otherwise, only the preview channel is isolated by
         // default.
         _sdkDir = args.SdkDir switch {
-            {} sdkDir => new SdkDirName(sdkDir.ToLowerInvariant()),
-            _ => GetSdkDirNameFromChannel(args.Channel)
-        };
-    }
-
-    internal static SdkDirName GetSdkDirNameFromChannel(Channel channel)
-    {
-        return channel switch {
-            Channel.Preview => new SdkDirName("preview"),
+            {} sdkDir => new SdkDirName(sdkDir),
             _ => DnvmEnv.DefaultSdkDirName
         };
     }

@@ -35,7 +35,7 @@ public sealed class SelectTests
             Channel = Channel.Preview,
         });
         Assert.Equal(TrackCommand.Result.Success, result);
-        var previewDotnet = DnvmEnv.GetSdkPath(new SdkDirName("preview")) / Utilities.DotnetExeName;
+        var previewDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
         Assert.True(homeFs.FileExists(previewDotnet));
 
         // Check that the dotnet link/cmd points to the default SDK
@@ -44,13 +44,12 @@ public sealed class SelectTests
 
         // Select the preview SDK
         var manifest = await env.ReadManifest();
-        Assert.Equal(DnvmEnv.DefaultSdkDirName, manifest.CurrentSdkDir);
+        Assert.Equal(defaultSdkDir, manifest.CurrentSdkDir);
 
-        var previewSdkDir = new SdkDirName("preview");
-        manifest = (await SelectCommand.RunWithManifest(env, previewSdkDir, manifest, _logger)).Unwrap();
+        manifest = (await SelectCommand.RunWithManifest(env, defaultSdkDir, manifest, _logger)).Unwrap();
 
-        Assert.Equal(previewSdkDir, manifest.CurrentSdkDir);
-        AssertSymlinkTarget(dotnetSymlink, previewSdkDir);
+        Assert.Equal(defaultSdkDir, manifest.CurrentSdkDir);
+        AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
     });
 
     [Fact]
