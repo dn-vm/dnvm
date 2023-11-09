@@ -107,7 +107,7 @@ public class SelfInstallCommand
         }
 
         var updateUserEnv = args.UpdateUserEnvironment;
-        var sdkDirName = TrackCommand.GetSdkDirNameFromChannel(channel);
+        var sdkDirName = DnvmEnv.DefaultSdkDirName;
         if (!args.Yes && MissingFromEnv(env, sdkDirName))
         {
             Console.Write("One or more paths are missing from the user environment. Attempt to update the user environment? [Y/n] ");
