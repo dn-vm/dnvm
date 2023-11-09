@@ -130,7 +130,9 @@ public sealed class MockServer : IAsyncDisposable
             }
             foreach (var r in ReleasesIndexJson.Releases)
             {
-                routes[$"/sdk/{r.LatestSdk}/dotnet-sdk-{r.LatestSdk}-{CurrentRID}{ZipSuffix}"] = GetSdk;
+                var sdkVersion = SemVersion.Parse(r.LatestSdk, SemVersionStyles.Strict);
+                var route = $"/sdk/{sdkVersion}/dotnet-sdk-{sdkVersion}-{CurrentRID}{ZipSuffix}";
+                routes[route] = GetSdk(sdkVersion, sdkVersion, sdkVersion, sdkVersion);
             }
             return routes;
         }
@@ -161,14 +163,18 @@ public sealed class MockServer : IAsyncDisposable
         };
     }
 
-    private static void GetSdk(HttpListenerResponse response)
+    private static Action<HttpListenerResponse> GetSdk(
+        SemVersion sdkVersion,
+        SemVersion runtimeVersion,
+        SemVersion aspnetVersion,
+        SemVersion winVersion) => response =>
     {
-        var f = Assets.SdkArchive;
+        var f = Assets.GetSdkArchive(sdkVersion, runtimeVersion, aspnetVersion);
         var streamLength = f.Length;
         response.ContentLength64 = streamLength;
         f.CopyTo(response.OutputStream);
         response.OutputStream.Close();
-    }
+    };
 
     private void GetDnvm(HttpListenerResponse response)
     {

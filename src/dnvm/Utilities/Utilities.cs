@@ -56,7 +56,7 @@ public static class Utilities
 
     public static string SeqToString<T>(this IEnumerable<T> e)
     {
-        return "[ " + string.Join(", ", e.ToString()) + " ]";
+        return "[ " + string.Join(", ", e) + " ]";
     }
 
     public static ImmutableArray<U> SelectAsArray<T, U>(this ImmutableArray<T> e, Func<T, U> f)

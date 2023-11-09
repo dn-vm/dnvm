@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Semver;
 using Serde;
 using Serde.Json;
 using StaticCs;
@@ -72,6 +73,19 @@ public static partial class ManifestUtils
         catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) { }
 
         return Manifest.Empty;
+    }
+
+    public static Manifest AddSdk(this Manifest manifest, SemVersion semVersion, Channel c, SdkDirName sdkDirName)
+    {
+        var installedSdk = new InstalledSdk() {
+            Channel = c,
+            SdkDirName = sdkDirName,
+            SdkVersion = semVersion,
+            RuntimeVersion = semVersion,
+            AspNetVersion = semVersion,
+            ReleaseVersion = semVersion,
+        };
+        return manifest.AddSdk(installedSdk, c);
     }
 
     public static Manifest AddSdk(this Manifest manifest, InstalledSdk sdk, Channel c)
