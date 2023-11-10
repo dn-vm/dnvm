@@ -7,4 +7,12 @@ case ":${PATH}:" in
         export PATH="{install_loc}:$PATH"
         ;;
 esac
+# Prepend global tools location
+case ":${PATH}:" in
+    *:"$HOME/.dotnet/tools":*)
+        ;;
+    *)
+        export PATH="$HOME/.dotnet/tools:$PATH"
+        ;;
+esac
 export DOTNET_ROOT="{sdk_install_loc}"
