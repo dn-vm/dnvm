@@ -34,7 +34,7 @@ public sealed class UninstallCommand
 
         foreach (var installed in manifest.InstalledSdkVersions)
         {
-            if (installed.SdkVersion == args.SdkVersion)
+            if (installed.SdkVersion == args.SdkVersion && (args.Dir is null || installed.SdkDirName == args.Dir))
             {
                 sdksToRemove.Add((installed.SdkVersion, installed.SdkDirName));
                 runtimesToRemove.Add((installed.RuntimeVersion, installed.SdkDirName));

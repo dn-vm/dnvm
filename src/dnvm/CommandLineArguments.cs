@@ -87,6 +87,13 @@ public abstract record CommandArguments
     public sealed record UninstallArguments : CommandArguments
     {
         public required SemVersion SdkVersion { get; init; }
+        public SdkDirName? Dir { get; init; } = null;
+    }
+
+    public sealed record PruneArguments : CommandArguments
+    {
+        public bool Verbose { get; init; } = false;
+        public bool DryRun { get; init; } = false;
     }
 }
 
