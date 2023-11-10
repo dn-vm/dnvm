@@ -1,4 +1,5 @@
 
+using System.Net.Security;
 using Semver;
 using Spectre.Console.Testing;
 using Xunit;
@@ -55,5 +56,33 @@ public sealed class UninstallTests
         Assert.True(env.Vfs.DirectoryExists(UPath.Root / "preview" / "host" / "fxr" / previewVersion.ToString()));
         Assert.True(env.Vfs.DirectoryExists(UPath.Root / "preview" / "packs" / $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}" / previewVersion.ToString()));
         Assert.True(env.Vfs.DirectoryExists(UPath.Root / "preview" / "templates" / previewVersion.ToString()));
+    });
+
+    [Fact]
+    public Task UninstallMessage() => RunWithServer(async (server, env) =>
+    {
+        var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        {
+            Channel = Channel.Latest,
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+        result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        {
+            Channel = Channel.Preview,
+            SdkDir = "preview"
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+
+        var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[0].LatestSdk, SemVersionStyles.Strict);
+        var previewVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[1].LatestSdk, SemVersionStyles.Strict);
+
+        var uninstallConsole = new TestConsole();
+        var unResult = await UninstallCommand.Run(env, new Logger(uninstallConsole), new CommandArguments.UninstallArguments
+        {
+            SdkVersion = previewVersion
+        });
+        Assert.Equal(0, unResult);
+        Assert.DoesNotContain("SdkDirName", uninstallConsole.Output);
+        Assert.DoesNotContain(ltsVersion.ToString(), uninstallConsole.Output);
     });
 }

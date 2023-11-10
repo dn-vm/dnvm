@@ -108,7 +108,7 @@ public sealed class UninstallCommand
             var aspnetDir = DnvmEnv.GetSdkPath(dir) / "shared" / "Microsoft.AspNetCore.App" / verString;
             var templatesDir = DnvmEnv.GetSdkPath(dir) / "templates" / verString;
 
-            logger.Log($"Deleting ASP.NET pack {verString} from {dir}");
+            logger.Log($"Deleting ASP.NET pack {verString} from {dir.Name}");
 
             env.Vfs.DeleteDirectory(aspnetDir, isRecursive: true);
             env.Vfs.DeleteDirectory(templatesDir, isRecursive: true);
@@ -124,7 +124,7 @@ public sealed class UninstallCommand
 
             if (env.Vfs.DirectoryExists(winDir))
             {
-                logger.Log($"Deleting Windows Desktop pack {verString} from {dir}");
+                logger.Log($"Deleting Windows Desktop pack {verString} from {dir.Name}");
 
                 env.Vfs.DeleteDirectory(winDir, isRecursive: true);
             }
