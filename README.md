@@ -5,8 +5,11 @@ dnvm is the "dotnet version manager." This is a rethinking of the original dnvm 
 ```
 usage: dnvm <command> [<args>]
 
-    install    Install a new SDK
-    update     Update the installed SDKs or dnvm itself
-    list       List installed SDKs
-    select     Select the active SDK directory
+    track          Start tracking a new channel
+    selfinstall    Install dnvm to the local machine
+    update         Update the installed SDKs or dnvm itself
+    list           List installed SDKs
+    select         Select the active SDK directory
+    untrack        Remove a channel from the list of tracked channels
+    uninstall      Uninstall an SDK
 ```
