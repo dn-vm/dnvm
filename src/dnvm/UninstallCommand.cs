@@ -49,14 +49,20 @@ public sealed class UninstallCommand
             }
         }
 
+        if (sdksToRemove.Count == 0)
+        {
+            logger.Error($"SDK version {args.SdkVersion} is not installed.");
+            return 1;
+        }
+
         runtimesToRemove.ExceptWith(runtimesToKeep);
         aspnetToRemove.ExceptWith(aspnetToKeep);
         winToRemove.ExceptWith(winToKeep);
 
-        DeleteSdks(env, sdksToRemove);
-        DeleteRuntimes(env, runtimesToRemove);
-        DeleteAspnets(env, aspnetToRemove);
-        DeleteWins(env, winToRemove);
+        DeleteSdks(env, sdksToRemove, logger);
+        DeleteRuntimes(env, runtimesToRemove, logger);
+        DeleteAspnets(env, aspnetToRemove, logger);
+        DeleteWins(env, winToRemove, logger);
 
         manifest = UninstallSdk(manifest, args.SdkVersion);
         env.WriteManifest(manifest);
@@ -64,18 +70,20 @@ public sealed class UninstallCommand
         return 0;
     }
 
-    private static void DeleteSdks(DnvmEnv env, IEnumerable<(SemVersion, SdkDirName)> sdks)
+    private static void DeleteSdks(DnvmEnv env, IEnumerable<(SemVersion, SdkDirName)> sdks, Logger logger)
     {
         foreach (var (version, dir) in sdks)
         {
             var verString = version.ToString();
             var sdkDir = DnvmEnv.GetSdkPath(dir) / "sdk" / verString;
 
+            logger.Log($"Deleting SDK {verString} from {dir.Name}");
+
             env.Vfs.DeleteDirectory(sdkDir, isRecursive: true);
         }
     }
 
-    private static void DeleteRuntimes(DnvmEnv env, IEnumerable<(SemVersion, SdkDirName)> runtimes)
+    private static void DeleteRuntimes(DnvmEnv env, IEnumerable<(SemVersion, SdkDirName)> runtimes, Logger logger)
     {
         foreach (var (version, dir) in runtimes)
         {
@@ -84,13 +92,15 @@ public sealed class UninstallCommand
             var hostfxrDir = DnvmEnv.GetSdkPath(dir) / "host" / "fxr" / verString;
             var packsHostDir = DnvmEnv.GetSdkPath(dir) / "packs" / $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}" / verString;
 
+            logger.Log($"Deleting Runtime {verString} from {dir.Name}");
+
             env.Vfs.DeleteDirectory(netcoreappDir, isRecursive: true);
             env.Vfs.DeleteDirectory(hostfxrDir, isRecursive: true);
             env.Vfs.DeleteDirectory(packsHostDir, isRecursive: true);
         }
     }
 
-    private static void DeleteAspnets(DnvmEnv env, IEnumerable<(SemVersion, SdkDirName)> aspnets)
+    private static void DeleteAspnets(DnvmEnv env, IEnumerable<(SemVersion, SdkDirName)> aspnets, Logger logger)
     {
         foreach (var (version, dir) in aspnets)
         {
@@ -98,12 +108,14 @@ public sealed class UninstallCommand
             var aspnetDir = DnvmEnv.GetSdkPath(dir) / "shared" / "Microsoft.AspNetCore.App" / verString;
             var templatesDir = DnvmEnv.GetSdkPath(dir) / "templates" / verString;
 
+            logger.Log($"Deleting ASP.NET pack {verString} from {dir}");
+
             env.Vfs.DeleteDirectory(aspnetDir, isRecursive: true);
             env.Vfs.DeleteDirectory(templatesDir, isRecursive: true);
         }
     }
 
-    private static void DeleteWins(DnvmEnv env, IEnumerable<(SemVersion, SdkDirName)> wins)
+    private static void DeleteWins(DnvmEnv env, IEnumerable<(SemVersion, SdkDirName)> wins, Logger logger)
     {
         foreach (var (version, dir) in wins)
         {
@@ -112,6 +124,8 @@ public sealed class UninstallCommand
 
             if (env.Vfs.DirectoryExists(winDir))
             {
+                logger.Log($"Deleting Windows Desktop pack {verString} from {dir}");
+
                 env.Vfs.DeleteDirectory(winDir, isRecursive: true);
             }
         }
