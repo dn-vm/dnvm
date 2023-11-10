@@ -22,6 +22,7 @@ public sealed class UninstallTests
         result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
             Channel = Channel.Preview,
+            SdkDir = "preview"
         });
         Assert.Equal(TrackCommand.Result.Success, result);
         var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[0].LatestSdk, SemVersionStyles.Strict);
