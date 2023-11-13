@@ -43,6 +43,7 @@ public static class Program
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(env, logger, o),
             CommandArguments.UntrackArguments o => await UntrackCommand.Run(env, logger, o),
             CommandArguments.UninstallArguments o => await UninstallCommand.Run(env, logger, o),
+            CommandArguments.PruneArguments args => await PruneCommand.Run(env, logger, args),
             _ => throw ExceptionUtilities.Unreachable
         };
     }
