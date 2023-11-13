@@ -256,6 +256,20 @@ sealed record class CommandLineArguments(CommandArguments Command)
                     SdkVersion = sdkVersion!,
                 };
             }
+
+            var prune = syntax.DefineCommand("prune", ref commandName, "Remove all SDKs with older patch versions.");
+            if (prune.IsActive)
+            {
+                bool dryRun = false;
+                bool verbose = false;
+                syntax.DefineOption("dry-run", ref dryRun, "Print the list of the SDKs to be uninstalled, but don't uninstall.");
+                syntax.DefineOption("v|verbose", ref verbose, "Print extra debugging info to the console");
+                command = new CommandArguments.PruneArguments
+                {
+                    DryRun = dryRun,
+                    Verbose = verbose
+                };
+            }
         });
 
         if (command is null)
