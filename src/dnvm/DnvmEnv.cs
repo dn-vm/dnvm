@@ -108,14 +108,13 @@ public sealed class DnvmEnv : IDisposable
     }
 
     /// <summary>
-    /// Reads a manifest (any version) from the given path and returns
-    /// an up-to-date <see cref="Manifest" /> (latest version).
-    /// Throws <see cref="InvalidDataException" /> if the manifest is invalid.
+    /// Reads a manifest (any version) from the given path and returns an up-to-date <see
+    /// cref="Manifest" /> (latest version).  Throws if the manifest is invalid.
     /// </summary>
     public async Task<Manifest> ReadManifest()
     {
         var text = Vfs.ReadAllText(ManifestPath);
-        return (await ManifestUtils.DeserializeNewOrOldManifest(text, DotnetFeedUrl)) ?? throw new InvalidDataException();
+        return await ManifestUtils.DeserializeNewOrOldManifest(text, DotnetFeedUrl);
     }
 
     public void WriteManifest(Manifest manifest)
