@@ -150,41 +150,42 @@ public sealed class TrackCommand
         var latestSdkVersion = SemVersion.Parse(latestChannelIndex.LatestSdk, SemVersionStyles.Strict);
         logger.Log("Found latest version: " + latestSdkVersion);
 
-        if (!force && manifest.InstalledSdkVersions.Any(s => s.SdkVersion == latestSdkVersion))
-        {
-            logger.Log($"Version {latestSdkVersion} is already installed." +
-                " Skipping installation. To install anyway, pass --force.");
-            return Result.Success;
-        }
-
         var release = JsonSerializer.Deserialize<ChannelReleaseIndex>(
             await Program.HttpClient.GetStringAsync(latestChannelIndex.ChannelReleaseIndexUrl))
             .Releases.Single(r => r.Sdk.Version == latestSdkVersion);
 
-        var installResult = await InstallSdkVersionFromChannel(
-            dnvmFs,
-            logger,
-            latestSdkVersion,
-            rid,
-            feedUrl,
-            manifest,
-            sdkDir);
-
-        if (installResult != Result.Success)
+        if (!force && manifest.InstalledSdks.Any(s => s.SdkVersion == latestSdkVersion && s.SdkDirName == sdkDir))
         {
-            return installResult;
+            logger.Log($"Version {latestSdkVersion} is already installed in directory '{sdkDir.Name}'." +
+                " Skipping installation. To install anyway, pass --force.");
+        }
+        else
+        {
+            var installResult = await InstallSdkVersionFromChannel(
+                dnvmFs,
+                logger,
+                latestSdkVersion,
+                rid,
+                feedUrl,
+                manifest,
+                sdkDir);
+
+            if (installResult != Result.Success)
+            {
+                return installResult;
+            }
+
+            manifest = manifest with { InstalledSdks = manifest.InstalledSdks.Add(new InstalledSdk {
+                ReleaseVersion = release.ReleaseVersion,
+                RuntimeVersion = release.Runtime.Version,
+                AspNetVersion = release.AspNetCore.Version,
+                SdkVersion = latestSdkVersion,
+                SdkDirName = sdkDir,
+            }) };
         }
 
         logger.Info($"Adding installed version '{latestSdkVersion}' to manifest.");
-        manifest = manifest with { InstalledSdkVersions = manifest.InstalledSdkVersions.Add(new InstalledSdk {
-            ReleaseVersion = release.ReleaseVersion,
-            RuntimeVersion = release.Runtime.Version,
-            AspNetVersion = release.AspNetCore.Version,
-            Channel = channel,
-            SdkVersion = latestSdkVersion,
-            SdkDirName = sdkDir,
-        }) };
-        var oldTracked = manifest.TrackedChannels.First(t => t.ChannelName == channel);
+        var oldTracked = manifest.TrackedChannels.Single(t => t.ChannelName == channel);
         var newTracked = oldTracked with {
             InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
         };

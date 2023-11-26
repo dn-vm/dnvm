@@ -26,15 +26,13 @@ public sealed class ListTests
                 SdkVersion = new(1,0,0),
                 RuntimeVersion = new(1,0,0),
                 AspNetVersion = new(1,0,0),
-                ReleaseVersion = new(1,0,0),
-                Channel = Channel.Latest }, Channel.Latest)
+                ReleaseVersion = new(1,0,0) }, Channel.Latest)
             .AddSdk(new InstalledSdk() {
                 SdkVersion = previewVersion,
                 RuntimeVersion = previewVersion,
                 AspNetVersion = previewVersion,
                 ReleaseVersion = previewVersion,
-                SdkDirName = new("preview"),
-                Channel = Channel.Preview }, Channel.Preview);
+                SdkDirName = new("preview") }, Channel.Preview);
 
         ListCommand.PrintSdks(_logger, manifest);
         var output = """
@@ -60,7 +58,6 @@ Installed SDKs:
                 RuntimeVersion = new(42, 42, 42),
                 AspNetVersion = new(42, 42, 42),
                 ReleaseVersion = new(42, 42, 42),
-                Channel = Channel.Latest
             }, Channel.Latest);
 
         var env = new Dictionary<string, string>();

@@ -19,9 +19,8 @@ public sealed class UninstallCommand
         }
         catch (Exception e)
         {
-            Environment.FailFast("Error reading manifest: ", e);
-            // unreachable
-            return 1;
+            logger.Error($"Error reading manifest: {e.Message}");
+            throw;
         }
 
         var runtimesToKeep = new HashSet<(SemVersion, SdkDirName)>();
@@ -32,7 +31,7 @@ public sealed class UninstallCommand
         var winToKeep = new HashSet<(SemVersion, SdkDirName)>();
         var winToRemove = new HashSet<(SemVersion, SdkDirName)>();
 
-        foreach (var installed in manifest.InstalledSdkVersions)
+        foreach (var installed in manifest.InstalledSdks)
         {
             if (installed.SdkVersion == args.SdkVersion && (args.Dir is null || installed.SdkDirName == args.Dir))
             {
@@ -134,11 +133,11 @@ public sealed class UninstallCommand
     private static Manifest UninstallSdk(Manifest manifest, SemVersion sdkVersion)
     {
         // Delete SDK version from all directories
-        var newVersions = manifest.InstalledSdkVersions
+        var newVersions = manifest.InstalledSdks
             .Where(sdk => sdk.SdkVersion != sdkVersion)
             .ToEq();
         return manifest with {
-            InstalledSdkVersions = newVersions,
+            InstalledSdks = newVersions,
         };
     }
 }

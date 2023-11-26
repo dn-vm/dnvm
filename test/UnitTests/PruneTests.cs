@@ -29,7 +29,7 @@ public sealed class PruneTests
 
         var outOfDate = PruneCommand.GetOutOfDateSdks(manifest);
 
-        var item1 = manifest.InstalledSdkVersions[0];
+        var item1 = manifest.InstalledSdks[0];
         List<(SemVersion, SdkDirName)> expected = [ (item1.SdkVersion, item1.SdkDirName) ];
         Assert.Equal(expected, outOfDate);
     }

@@ -1,5 +1,6 @@
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Spectre.Console;
 
@@ -37,11 +38,13 @@ public static class ListCommand
         table.AddColumn("Version");
         table.AddColumn("Channel");
         table.AddColumn("Location");
-        foreach (var sdk in manifest.InstalledSdkVersions)
+        foreach (var sdk in manifest.InstalledSdks)
         {
             string selected = manifest.CurrentSdkDir == sdk.SdkDirName ? "*" : " ";
-            var channel = sdk.Channel?.GetLowerName() ?? "";
-            table.AddRow(selected, sdk.SdkVersion.ToString(), channel, sdk.SdkDirName.Name);
+            var channels = manifest.TrackedChannels
+                .Where(c => c.InstalledSdkVersions.Contains(sdk.SdkVersion))
+                .Select(c => c.ChannelName.ToString().ToLowerInvariant());
+            table.AddRow(selected, sdk.SdkVersion.ToString(), string.Join(", ", channels), sdk.SdkDirName.Name);
         }
         logger.Console.Write(table);
     }

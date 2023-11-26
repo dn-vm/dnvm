@@ -50,7 +50,7 @@ public sealed class PruneCommand
     {
         var latestMajorMinorInDirs = new Dictionary<(SdkDirName Dir, string MajorMinor), SemVersion>();
         var sdksToRemove = new List<(SemVersion, SdkDirName)>();
-        foreach (var sdk in manifest.InstalledSdkVersions)
+        foreach (var sdk in manifest.InstalledSdks)
         {
             var majorMinor = sdk.SdkVersion.ToMajorMinor();
             var dir = sdk.SdkDirName;
