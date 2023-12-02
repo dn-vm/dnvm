@@ -36,7 +36,7 @@ public sealed class UntrackTests
         var result = UntrackCommand.RunHelper(Channel.Latest, manifest, logger);
         if (result is UntrackCommand.Result.Success({} newManifest))
         {
-            Assert.Empty(newManifest.TrackedChannels);
+            Assert.True(Assert.Single(newManifest.TrackedChannels).Untracked);
         }
         else
         {

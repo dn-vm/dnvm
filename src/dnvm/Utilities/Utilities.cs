@@ -69,6 +69,16 @@ public static class Utilities
         return builder.MoveToImmutable();
     }
 
+    public static EqArray<U> SelectAsArray<T, U>(this EqArray<T> e, Func<T, U> f)
+    {
+        var builder = ImmutableArray.CreateBuilder<U>(e.Length);
+        foreach (var item in e)
+        {
+            builder.Add(f(item));
+        }
+        return new(builder.MoveToImmutable());
+    }
+
     public static async Task<ImmutableArray<U>> SelectAsArray<T, U>(this ImmutableArray<T> e, Func<T, Task<U>> f)
     {
         var builder = ImmutableArray.CreateBuilder<U>(e.Length);

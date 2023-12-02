@@ -10,7 +10,7 @@ using static Dnvm.Test.TestUtils;
 
 namespace Dnvm.Test;
 
-public sealed class InstallTests
+public sealed class TrackTests
 {
     private readonly Logger _logger = new Logger(new TestConsole());
 
@@ -38,12 +38,11 @@ public sealed class InstallTests
             AspNetVersion = installedVersion,
             RuntimeVersion = installedVersion,
             ReleaseVersion = installedVersion,
-            Channel = channel,
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ];
         Assert.Equal(new Manifest
         {
-            InstalledSdkVersions = installedVersions,
+            InstalledSdks = installedVersions,
             TrackedChannels = [
                 new TrackedChannel {
                     ChannelName = channel,
@@ -113,5 +112,40 @@ public sealed class InstallTests
         var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
         Assert.True(env.Vfs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
+    });
+
+    [Fact]
+    public Task ChannelOverlap() => RunWithServer(async (server, env) =>
+    {
+        // Default release index only contains an LTS release, so adding LTS and latest
+        // should result in the same SDK being installed
+        var result = await TrackCommand.Run(env, _logger, new() { Channel = Channel.Latest });
+        Assert.Equal(TrackCommand.Result.Success , result);
+        result = await TrackCommand.Run(env, _logger, new() { Channel = Channel.Lts });
+        Assert.Equal(TrackCommand.Result.Success , result);
+
+        var ltsRelease = server.ReleasesIndexJson.Releases.Single(r => r.ReleaseType == "lts");
+        var releaseVersion = SemVersion.Parse(ltsRelease.LatestRelease, SemVersionStyles.Strict);
+        var sdkVersion = SemVersion.Parse(ltsRelease.LatestSdk, SemVersionStyles.Strict);
+        var manifest = await env.ReadManifest();
+        Assert.Equal([ new() {
+            ReleaseVersion = releaseVersion,
+            SdkVersion = sdkVersion,
+            RuntimeVersion = releaseVersion,
+            AspNetVersion = releaseVersion,
+            SdkDirName = DnvmEnv.DefaultSdkDirName
+        } ], manifest.InstalledSdks);
+        Assert.Equal([
+            new() {
+                ChannelName = Channel.Latest,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
+                InstalledSdkVersions = [ sdkVersion ]
+            },
+            new() {
+                ChannelName = Channel.Lts,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
+                InstalledSdkVersions = [ sdkVersion ]
+            }
+        ], manifest.TrackedChannels);
     });
 }

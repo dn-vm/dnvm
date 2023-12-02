@@ -1,6 +1,7 @@
 
 using System.Collections.Immutable;
 using System.Runtime.InteropServices.Marshalling;
+using System.Security.Cryptography;
 using Semver;
 using Serde.Json;
 using Spectre.Console.Testing;
@@ -36,12 +37,11 @@ public sealed class UpdateTests
         var sdkDir = DnvmEnv.DefaultSdkDirName;
         var manifest = new Manifest
         {
-            InstalledSdkVersions = [ new InstalledSdk {
+            InstalledSdks = [ new InstalledSdk {
                 SdkVersion = new(42, 42, 142),
                 AspNetVersion = new(42, 42, 142),
                 RuntimeVersion = new(42, 42, 142),
                 ReleaseVersion = new(42, 42, 142),
-                Channel = Channel.Latest,
                 SdkDirName = sdkDir
             } ],
             TrackedChannels =
@@ -76,13 +76,12 @@ public sealed class UpdateTests
         // and confirm that 42.42 is processed as newer
         var installedVersion = new SemVersion(41, 0, 0);
         var manifest = new Manifest {
-            InstalledSdkVersions = [ new InstalledSdk {
+            InstalledSdks = [ new InstalledSdk {
                 SdkVersion = installedVersion,
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 AspNetVersion = installedVersion,
                 RuntimeVersion = installedVersion,
                 ReleaseVersion = installedVersion,
-                Channel = Channel.Latest
             }] ,
             TrackedChannels = [ new TrackedChannel {
                 ChannelName = Channel.Latest,
@@ -92,10 +91,11 @@ public sealed class UpdateTests
         };
         var releasesIndex = mockServer.ReleasesIndexJson;
         var results = UpdateCommand.FindPotentialUpdates(manifest, releasesIndex);
-        var (channel, newestInstalled, newestAvailable) = results[0];
+        var (channel, newestInstalled, newestAvailable, sdkDir) = results[0];
         Assert.Equal(Channel.Latest, channel);
         Assert.Equal(new SemVersion(41, 0, 0), newestInstalled);
         Assert.Equal("42.42.42", newestAvailable!.LatestRelease);
+        Assert.Equal(DnvmEnv.DefaultSdkDirName, sdkDir);
         Assert.Single(results);
         return Task.CompletedTask;
     });
@@ -118,13 +118,12 @@ public sealed class UpdateTests
         EqArray<SemVersion> sdkVersions = [ baseVersion, upgradeVersion ];
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
         var expectedManifest = new Manifest {
-            InstalledSdkVersions = sdkVersions.Select(v => new InstalledSdk
+            InstalledSdks = sdkVersions.Select(v => new InstalledSdk
             {
                 SdkVersion = v,
                 AspNetVersion = v,
                 RuntimeVersion = v,
                 ReleaseVersion = v,
-                Channel = channel,
                 SdkDirName = DnvmEnv.DefaultSdkDirName }).ToEq(),
             TrackedChannels = [ new TrackedChannel() {
                 ChannelName = channel,
@@ -238,4 +237,66 @@ public sealed class UpdateTests
         var actual = releasesIndex.GetChannelIndex(Channel.Preview);
         Assert.Equal(previewRelease, actual);
     }
+
+    [Fact]
+    public Task DontUpdateUntracked() => TestUtils.RunWithServer(async (server, env) =>
+    {
+        var result = await TrackCommand.Run(env, _logger, new() {
+            Channel = Channel.Latest,
+            Verbose = true
+        });
+
+        Assert.Equal(TrackCommand.Result.Success, result);
+
+        result = await TrackCommand.Run(env, _logger, new() {
+            Channel = Channel.Preview,
+            Verbose = true
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+    });
+
+    [Fact]
+    public Task ChannelOverlap() => TestUtils.RunWithServer(async (server, env) =>
+    {
+        // Default release index only contains an LTS release, so adding LTS and latest
+        // should result in the same SDK being installed
+        var result = await TrackCommand.Run(env, _logger, new() { Channel = Channel.Latest });
+        Assert.Equal(TrackCommand.Result.Success , result);
+        result = await TrackCommand.Run(env, _logger, new() { Channel = Channel.Lts });
+        Assert.Equal(TrackCommand.Result.Success , result);
+
+        var oldRelease = server.ReleasesIndexJson.Releases.Single(r => r.ReleaseType == "lts");
+        var newSdkVersion = new SemVersion(42, 42, 43);
+        var newRelease = server.RegisterReleaseVersion(newSdkVersion, "lts", "active");
+        var updateResult = await UpdateCommand.Run(env, _logger, new() { Yes = true });
+
+        var oldSdkVersion = SemVersion.Parse(oldRelease.LatestSdk, SemVersionStyles.Strict);
+        var oldReleaseVersion = SemVersion.Parse(oldRelease.LatestRelease, SemVersionStyles.Strict);
+        var manifest = await env.ReadManifest();
+        Assert.Equal([
+            new() {
+                SdkVersion = oldSdkVersion,
+                ReleaseVersion = oldReleaseVersion,
+                RuntimeVersion = oldReleaseVersion,
+                AspNetVersion = oldReleaseVersion,
+            },
+            new() {
+                SdkVersion = newSdkVersion,
+                ReleaseVersion = newSdkVersion,
+                RuntimeVersion = newSdkVersion,
+                AspNetVersion = newSdkVersion,
+            } ], manifest.InstalledSdks);
+        Assert.Equal([
+            new() {
+                ChannelName = Channel.Latest,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
+                InstalledSdkVersions = [ oldSdkVersion, newSdkVersion ]
+            },
+            new() {
+                ChannelName = Channel.Lts,
+                SdkDirName = DnvmEnv.DefaultSdkDirName,
+                InstalledSdkVersions = [ oldSdkVersion, newSdkVersion ]
+            }
+        ], manifest.TrackedChannels);
+    });
 }

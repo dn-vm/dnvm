@@ -5,6 +5,7 @@ using Dnvm;
 using Dnvm.Test;
 using Semver;
 using Xunit;
+using System.Net.NetworkInformation;
 
 public sealed class ManifestTests
 {
@@ -33,7 +34,7 @@ public sealed class ManifestTests
     "installedSdkVersions":[{"version":"7.0.203","sdkDirName":{"name":"dn"}},{"version":"8.0.100-preview.3.23178.7","sdkDirName":{"name":"preview"}}],
     "trackedChannels":[
         {"channelName":"latest","sdkDirName":{"name":"dn"},"installedSdkVersions":["7.0.203"]},
-        {"channelName":"preview","sdkDirName":{"name":"dn"},"installedSdkVersions":["8.0.100-rc.1.23455.8"]}
+        {"channelName":"preview","sdkDirName":{"name":"dn"},"installedSdkVersions":["8.0.100-preview.3.23178.7"]}
     ]
 }
 """;
@@ -88,8 +89,8 @@ public sealed class ManifestTests
         });
 
         var v5 = (await ManifestUtils.DeserializeNewOrOldManifest(manifest, env.DotnetFeedUrl))!;
-        Assert.Equal(Channel.Latest, v5.InstalledSdkVersions[0].Channel);
-        Assert.Equal(Channel.Preview, v5.InstalledSdkVersions[1].Channel);
+        Assert.Equal(Channel.Latest, v5.TrackedChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[0].SdkVersion)).ChannelName);
+        Assert.Equal(Channel.Preview, v5.TrackedChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[1].SdkVersion)).ChannelName);
     });
 
     [Fact]

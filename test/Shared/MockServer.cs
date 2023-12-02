@@ -65,14 +65,14 @@ public sealed class MockServer : IAsyncDisposable
     }
 
     [MemberNotNull(nameof(ReleasesIndexJson))]
-    private void RegisterReleaseVersion(SemVersion ltsVersion, string releaseType, string supportPhase)
+    public ChannelReleaseIndex.Release RegisterReleaseVersion(SemVersion version, string releaseType, string supportPhase)
     {
-        var majorMinor = ltsVersion.ToMajorMinor();
+        var majorMinor = version.ToMajorMinor();
         ReleasesIndexJson ??= new DotnetReleasesIndex{ Releases = [ ] };
         ReleasesIndexJson = ReleasesIndexJson with {
             Releases = ReleasesIndexJson.Releases.Add(new() {
-                LatestRelease = ltsVersion.ToString(),
-                LatestSdk = ltsVersion.ToString(),
+                LatestRelease = version.ToString(),
+                LatestSdk = version.ToString(),
                 MajorMinorVersion = majorMinor,
                 ReleaseType = releaseType,
                 SupportPhase = supportPhase,
@@ -83,10 +83,12 @@ public sealed class MockServer : IAsyncDisposable
         {
             index = new() { Releases = [] };
         }
+        var newRelease = ChannelReleaseIndex.CreateRelease(version);
         index = index with {
-            Releases = index.Releases.Add(ChannelReleaseIndex.CreateRelease(ltsVersion))
+            Releases = index.Releases.Add(newRelease)
         };
         ChannelIndexMap[majorMinor] = index;
+        return newRelease;
     }
 
     private async Task WaitForConnection()
