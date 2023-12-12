@@ -10,9 +10,9 @@ public sealed class PruneTests
     public void OutOfDateInOneDir()
     {
         var manifest = Manifest.Empty
-            .AddSdk(new(42, 42, 42), Channel.Latest, new("dn"))
-            .AddSdk(new(42, 42, 43), Channel.Preview, new("dn"))
-            .AddSdk(new(42, 42, 42), Channel.Preview, new("preview"));
+            .AddSdk(new(42, 42, 42), new Channel.Latest(), new("dn"))
+            .AddSdk(new(42, 42, 43), new Channel.Preview(), new("dn"))
+            .AddSdk(new(42, 42, 42), new Channel.Preview(), new("preview"));
 
         var outOfDate = PruneCommand.GetOutOfDateSdks(manifest);
 
@@ -24,8 +24,8 @@ public sealed class PruneTests
     public void OutOfDatePreview()
     {
         var manifest = Manifest.Empty
-            .AddSdk(SemVersion.Parse("8.0.0-preview.1", SemVersionStyles.Strict), Channel.Preview, new("dn"))
-            .AddSdk(SemVersion.Parse("8.0.0-rc.2", SemVersionStyles.Strict), Channel.Preview, new("dn"));
+            .AddSdk(SemVersion.Parse("8.0.0-preview.1", SemVersionStyles.Strict), new Channel.Preview(), new("dn"))
+            .AddSdk(SemVersion.Parse("8.0.0-rc.2", SemVersionStyles.Strict), new Channel.Preview(), new("dn"));
 
         var outOfDate = PruneCommand.GetOutOfDateSdks(manifest);
 

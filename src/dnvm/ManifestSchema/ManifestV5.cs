@@ -114,9 +114,9 @@ public static partial class ManifestV5Convert
 
 
         Channel? channel = (v4Version.Major, v4Version.Minor) switch {
-            (6, 0) => Channel.Lts,
-            (7, 0) => Channel.Latest,
-            (8, 0) => Channel.Preview,
+            (6, 0) => new Channel.Lts(),
+            (7, 0) => new Channel.Latest(),
+            (8, 0) => new Channel.Preview(),
             _ => manifestV4.TrackedChannels
                  .SingleOrNull(c => c.SdkDirName == v4.SdkDirName)?.ChannelName
         } ;

@@ -17,7 +17,7 @@ public sealed class TrackTests
     [Fact]
     public Task LtsInstall() => RunWithServer(async (server, env) =>
     {
-        const Channel channel = Channel.Lts;
+        Channel channel = new Channel.Lts();
         var options = new CommandArguments.TrackArguments()
         {
             Channel = channel,
@@ -58,7 +58,7 @@ public sealed class TrackTests
     {
         var args = new CommandArguments.TrackArguments()
         {
-            Channel = Channel.Lts,
+            Channel = new Channel.Lts(),
             Verbose = true,
         };
         var homeFs = env.Vfs;
@@ -80,7 +80,7 @@ public sealed class TrackTests
 
         var args = new CommandArguments.TrackArguments()
         {
-            Channel = Channel.Preview,
+            Channel = new Channel.Preview(),
         };
         // Preview used to be isolated, but it shouldn't be anymore
         var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
@@ -101,7 +101,7 @@ public sealed class TrackTests
         const string dirName = "sts";
         var args = new CommandArguments.TrackArguments()
         {
-            Channel = Channel.Sts,
+            Channel = new Channel.Sts(),
             SdkDir = dirName
         };
         // Check that the SDK is installed is isolated into the "sts" subdirectory
@@ -119,9 +119,9 @@ public sealed class TrackTests
     {
         // Default release index only contains an LTS release, so adding LTS and latest
         // should result in the same SDK being installed
-        var result = await TrackCommand.Run(env, _logger, new() { Channel = Channel.Latest });
+        var result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Latest() });
         Assert.Equal(TrackCommand.Result.Success , result);
-        result = await TrackCommand.Run(env, _logger, new() { Channel = Channel.Lts });
+        result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Lts() });
         Assert.Equal(TrackCommand.Result.Success , result);
 
         var ltsRelease = server.ReleasesIndexJson.Releases.Single(r => r.ReleaseType == "lts");
@@ -137,12 +137,12 @@ public sealed class TrackTests
         } ], manifest.InstalledSdks);
         Assert.Equal([
             new() {
-                ChannelName = Channel.Latest,
+                ChannelName = new Channel.Latest(),
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = [ sdkVersion ]
             },
             new() {
-                ChannelName = Channel.Lts,
+                ChannelName = new Channel.Lts(),
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = [ sdkVersion ]
             }

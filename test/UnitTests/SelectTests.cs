@@ -23,7 +23,7 @@ public sealed class SelectTests
     {
         var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
-            Channel = Channel.Latest,
+            Channel = new Channel.Latest(),
         });
         Assert.Equal(TrackCommand.Result.Success, result);
         var homeFs = env.Vfs;
@@ -32,7 +32,7 @@ public sealed class SelectTests
         Assert.True(homeFs.FileExists(defaultDotnet));
         result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
-            Channel = Channel.Preview,
+            Channel = new Channel.Preview(),
         });
         Assert.Equal(TrackCommand.Result.Success, result);
         var previewDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
@@ -64,7 +64,7 @@ public sealed class SelectTests
             [
                 new TrackedChannel
                     {
-                        ChannelName = Channel.Latest,
+                        ChannelName = new Channel.Latest(),
                         SdkDirName = dn
                     },
             ]

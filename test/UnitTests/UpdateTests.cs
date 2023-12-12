@@ -48,7 +48,7 @@ public sealed class UpdateTests
             [
                 new TrackedChannel
                     {
-                        ChannelName = Channel.Latest,
+                        ChannelName = new Channel.Latest(),
                         SdkDirName = sdkDir,
                         InstalledSdkVersions = [ new(42, 42, 142) ]
                     },
@@ -84,7 +84,7 @@ public sealed class UpdateTests
                 ReleaseVersion = installedVersion,
             }] ,
             TrackedChannels = [ new TrackedChannel {
-                ChannelName = Channel.Latest,
+                ChannelName = new Channel.Latest(),
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = [ installedVersion ]
             } ]
@@ -92,7 +92,7 @@ public sealed class UpdateTests
         var releasesIndex = mockServer.ReleasesIndexJson;
         var results = UpdateCommand.FindPotentialUpdates(manifest, releasesIndex);
         var (channel, newestInstalled, newestAvailable, sdkDir) = results[0];
-        Assert.Equal(Channel.Latest, channel);
+        Assert.Equal(new Channel.Latest(), channel);
         Assert.Equal(new SemVersion(41, 0, 0), newestInstalled);
         Assert.Equal("42.42.42", newestAvailable!.LatestRelease);
         Assert.Equal(DnvmEnv.DefaultSdkDirName, sdkDir);
@@ -105,7 +105,7 @@ public sealed class UpdateTests
     {
         var baseVersion = new SemVersion(41, 0, 0);
         var upgradeVersion = new SemVersion(41, 0, 1);
-        const Channel channel = Channel.Latest;
+        Channel channel = new Channel.Latest();
         Setup(mockServer, baseVersion);
         var result = await TrackCommand.Run(env, _logger, new() {
             Channel = channel,
@@ -202,17 +202,17 @@ public sealed class UpdateTests
             Releases = [ltsRelease, stsRelease, ltsPreview, stsPreview]
         };
 
-        var actual = releasesIndex.GetChannelIndex(Channel.Latest);
+        var actual = releasesIndex.GetChannelIndex(new Channel.Latest());
         // STS is newest
         Assert.Equal(stsRelease, actual);
 
-        actual = releasesIndex.GetChannelIndex(Channel.Lts);
+        actual = releasesIndex.GetChannelIndex(new Channel.Lts());
         Assert.Equal(ltsRelease, actual);
 
-        actual = releasesIndex.GetChannelIndex(Channel.Sts);
+        actual = releasesIndex.GetChannelIndex(new Channel.Sts());
         Assert.Equal(stsRelease, actual);
 
-        actual = releasesIndex.GetChannelIndex(Channel.Preview);
+        actual = releasesIndex.GetChannelIndex(new Channel.Preview());
         // LTS preview is newest
         Assert.Equal(ltsPreview, actual);
     }
@@ -234,7 +234,7 @@ public sealed class UpdateTests
             Releases = [previewRelease]
         };
 
-        var actual = releasesIndex.GetChannelIndex(Channel.Preview);
+        var actual = releasesIndex.GetChannelIndex(new Channel.Preview());
         Assert.Equal(previewRelease, actual);
     }
 
@@ -242,14 +242,14 @@ public sealed class UpdateTests
     public Task DontUpdateUntracked() => TestUtils.RunWithServer(async (server, env) =>
     {
         var result = await TrackCommand.Run(env, _logger, new() {
-            Channel = Channel.Latest,
+            Channel = new Channel.Latest(),
             Verbose = true
         });
 
         Assert.Equal(TrackCommand.Result.Success, result);
 
         result = await TrackCommand.Run(env, _logger, new() {
-            Channel = Channel.Preview,
+            Channel = new Channel.Preview(),
             Verbose = true
         });
         Assert.Equal(TrackCommand.Result.Success, result);
@@ -260,9 +260,9 @@ public sealed class UpdateTests
     {
         // Default release index only contains an LTS release, so adding LTS and latest
         // should result in the same SDK being installed
-        var result = await TrackCommand.Run(env, _logger, new() { Channel = Channel.Latest });
+        var result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Latest() });
         Assert.Equal(TrackCommand.Result.Success , result);
-        result = await TrackCommand.Run(env, _logger, new() { Channel = Channel.Lts });
+        result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Lts() });
         Assert.Equal(TrackCommand.Result.Success , result);
 
         var oldRelease = server.ReleasesIndexJson.Releases.Single(r => r.ReleaseType == "lts");
@@ -288,12 +288,12 @@ public sealed class UpdateTests
             } ], manifest.InstalledSdks);
         Assert.Equal([
             new() {
-                ChannelName = Channel.Latest,
+                ChannelName = new Channel.Latest(),
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = [ oldSdkVersion, newSdkVersion ]
             },
             new() {
-                ChannelName = Channel.Lts,
+                ChannelName = new Channel.Lts(),
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = [ oldSdkVersion, newSdkVersion ]
             }

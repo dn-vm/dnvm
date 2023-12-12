@@ -1,4 +1,5 @@
 
+using Spectre.Console;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
@@ -7,6 +8,7 @@ using Xunit;
 using Xunit.Abstractions;
 using Zio;
 using static Dnvm.Test.TestUtils;
+using static System.Environment;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 namespace Dnvm.Test;
@@ -45,6 +47,102 @@ public sealed class SelfInstallTests
 
         var result = await ProcUtil.RunWithOutput(env.RealPath(dotnetPath), "-h");
         Assert.Contains(Assets.ArchiveToken, result.Out);
+    });
+
+    [ConditionalFact(typeof(UnixOnly))]
+    public Task SelfInstallDialog() => RunWithServer(async (mockServer, env) =>
+    {
+        var buffer = new char[1024];
+        var psi = new ProcessStartInfo
+        {
+            FileName = DnvmExe,
+            Arguments = $"selfinstall --feed-url {mockServer.PrefixString} -v",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            EnvironmentVariables = {
+                ["HOME"] = env.UserHome,
+                ["DNVM_HOME"] = env.RealPath(UPath.Root)
+            }
+        };
+        var proc = Process.Start(psi)!;
+        // Discard the first two lines -- they're the prolog
+        for (int i = 0; i < 2; i++)
+        {
+            _ = await proc.StandardOutput.ReadLineAsync() + Environment.NewLine;
+        }
+        var lines = "";
+        for (int i = 0; i < 2; i++)
+        {
+            lines += await proc.StandardOutput.ReadLineAsync() + Environment.NewLine;
+        }
+        Assert.Equal($"""
+Starting dnvm install
+Please select install location [default: {env.RealPath(UPath.Root)}]:
+""", lines.Trim());
+
+        // Flush output
+        await proc.StandardOutput.ReadAsync(buffer);
+        // Write empty line -- use the default
+        await proc.StandardInput.WriteLineAsync();
+
+        lines = "";
+        for (int i = 0; i < 8; i++)
+        {
+            lines += await proc.StandardOutput.ReadLineAsync() + Environment.NewLine;
+        }
+        Assert.Equal("""
+Which channel would you like to start tracking?
+Available channels:
+	1) Latest - The latest supported version from either the LTS or STS support channels.
+	2) STS - The latest version in Short-Term support
+	3) LTS - The latest version in Long-Term support
+	4) Preview - The latest preview version
+
+Please select a channel [default: Latest]:
+""", lines.Trim());
+
+        // Flush output
+        await proc.StandardOutput.ReadAsync(buffer);
+        // Use 'preview'
+        await proc.StandardInput.WriteLineAsync("4");
+
+        lines = await proc.StandardOutput.ReadLineAsync();
+        Assert.Equal("One or more paths are missing from the user environment. Attempt to update the user environment?", lines);
+
+        // Flush output
+        await proc.StandardOutput.ReadAsync(buffer);
+        // Say yes
+        await proc.StandardInput.WriteLineAsync("y");
+
+        lines = "";
+        for (int i = 0; i < 8; i++)
+        {
+            lines += await proc.StandardOutput.ReadLineAsync();
+        }
+
+        Assert.Equal($"""
+Proceeding with installation.
+Log: Location of running exe: {DnvmExe}
+Log: Copying file from '{DnvmExe}' to '{DnvmEnv.DnvmExePath}'
+Dnvm installed successfully.
+Found latest version: 99.99.99-preview
+""".RemoveWhitespace(), lines.RemoveWhitespace());
+
+        do
+        {
+            lines = await proc.StandardOutput.ReadLineAsync();
+        } while (lines != null && !lines.Contains("Writing env sh file"));
+
+        lines = await proc.StandardOutput.ReadToEndAsync();
+        Assert.Equal($"""
+Log: Setting environment variables in shell files
+Scanning for shell files to update
+Log: Checking for file: {env.UserHome}/.profile
+Log: Checking for file: {env.UserHome}/.bashrc
+Log: Checking for file: {env.UserHome}/.zshrc
+""".RemoveWhitespace(), lines.RemoveWhitespace());
+        Assert.Contains(env.RealPath(UPath.Root), env.Vfs.ReadAllText(DnvmEnv.EnvPath));
     });
 
     [ConditionalFact(typeof(UnixOnly))]

@@ -1,8 +1,11 @@
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Internal.CommandLine;
 using Semver;
+using Serde;
 
 namespace Dnvm;
 
@@ -110,7 +113,7 @@ sealed record class CommandLineArguments(CommandArguments Command)
             var track = syntax.DefineCommand("track", ref commandName, "Start tracking a new channel");
             if (track.IsActive)
             {
-                Channel channel = Channel.Latest;
+                Channel channel = new Channel.Latest();
                 bool verbose = default;
                 bool force = default;
                 bool yes = false;
@@ -123,17 +126,7 @@ sealed record class CommandLineArguments(CommandArguments Command)
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from.");
                 syntax.DefineOption("s|sdkDir", ref sdkDir, "Track the channel in a separate directory with the given name.");
-                syntax.DefineParameter("channel", ref channel, c =>
-                    {
-                        if (Enum.TryParse<Channel>(c, ignoreCase: true, out var result))
-                        {
-                            return result;
-                        }
-                        var sep = Environment.NewLine + "\t- ";
-                        throw new FormatException(
-                            "Channel must be one of:"
-                            + sep + string.Join(sep, Enum.GetNames<Channel>()));
-                    },
+                syntax.DefineParameter("channel", ref channel, ChannelParse,
                     $"Track the channel specified. Defaults to '{channel.ToString().ToLowerInvariant()}'.");
 
                 command = new CommandArguments.TrackArguments
@@ -219,22 +212,11 @@ sealed record class CommandLineArguments(CommandArguments Command)
             if (untrack.IsActive)
             {
                 Channel? channel = null;
-                syntax.DefineParameter("channel", ref channel, c =>
-                    {
-                        if (Enum.TryParse<Channel>(c, ignoreCase: true, out var result))
-                        {
-                            return result;
-                        }
-                        var sep = Environment.NewLine + "\t- ";
-                        throw new FormatException(
-                            "Channel must be one of:"
-                            + sep + string.Join(sep, Enum.GetNames<Channel>()));
-                    },
-                    $"Remove the given channel from the list of tracked channels.");
+                syntax.DefineParameter("channel", ref channel, ChannelParse, $"Remove the given channel from the list of tracked channels.");
 
                 command = new CommandArguments.UntrackArguments
                 {
-                    Channel = channel!.Value,
+                    Channel = channel!,
                 };
             }
 
@@ -242,7 +224,7 @@ sealed record class CommandLineArguments(CommandArguments Command)
             if (uninstall.IsActive)
             {
                 SemVersion? sdkVersion = null;
-                syntax.DefineParameter("sdkVersion", ref sdkVersion, v =>
+                syntax.DefineParameter<SemVersion>("sdkVersion", ref sdkVersion!, v =>
                 {
                     if (SemVersion.TryParse(v, SemVersionStyles.Strict, out var result))
                     {
@@ -280,4 +262,21 @@ sealed record class CommandLineArguments(CommandArguments Command)
         return new CommandLineArguments(command);
     }
 
+    private static Channel ChannelParse(string channel)
+    {
+        var scalarDeserializer = new ScalarDeserializer(channel);
+        try
+        {
+            var result = Channel.Deserialize(ref scalarDeserializer);
+            return result;
+        }
+        catch (InvalidDeserializeValueException)
+        {
+            var sep = Environment.NewLine + "\t- ";
+            IEnumerable<Channel> channels = [new Channel.Latest(), new Channel.Preview(), new Channel.Lts(), new Channel.Sts()];
+            throw new FormatException(
+                "Channel must be one of:"
+                + sep + string.Join(sep, channels));
+        }
+    }
 }

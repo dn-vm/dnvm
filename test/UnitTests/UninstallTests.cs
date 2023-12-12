@@ -17,20 +17,20 @@ public sealed class UninstallTests
     {
         var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
-            Channel = Channel.Latest,
+            Channel = new Channel.Latest(),
         });
         Assert.Equal(TrackCommand.Result.Success, result);
         result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
-            Channel = Channel.Preview,
+            Channel = new Channel.Preview(),
             SdkDir = "preview"
         });
         Assert.Equal(TrackCommand.Result.Success, result);
         var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[0].LatestSdk, SemVersionStyles.Strict);
         var previewVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[1].LatestSdk, SemVersionStyles.Strict);
         var expectedManifest = Manifest.Empty
-            .AddSdk(ltsVersion, Channel.Latest, DnvmEnv.DefaultSdkDirName)
-            .AddSdk(previewVersion, Channel.Preview, new SdkDirName("preview"));
+            .AddSdk(ltsVersion, new Channel.Latest(), DnvmEnv.DefaultSdkDirName)
+            .AddSdk(previewVersion, new Channel.Preview(), new SdkDirName("preview"));
         var manifest = await env.ReadManifest();
         Assert.Equal(expectedManifest, manifest);
         var unResult = await UninstallCommand.Run(env, _logger, new CommandArguments.UninstallArguments
@@ -40,7 +40,7 @@ public sealed class UninstallTests
         Assert.Equal(0, unResult);
         manifest = await env.ReadManifest();
         var previewOnly = Manifest.Empty
-            .AddSdk(previewVersion, Channel.Preview, new SdkDirName("preview"));
+            .AddSdk(previewVersion, new Channel.Preview(), new SdkDirName("preview"));
         previewOnly = previewOnly with {
             TrackedChannels = manifest.TrackedChannels
         };
@@ -63,12 +63,12 @@ public sealed class UninstallTests
     {
         var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
-            Channel = Channel.Latest,
+            Channel = new Channel.Latest(),
         });
         Assert.Equal(TrackCommand.Result.Success, result);
         result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
         {
-            Channel = Channel.Preview,
+            Channel = new Channel.Preview(),
             SdkDir = "preview"
         });
         Assert.Equal(TrackCommand.Result.Success, result);

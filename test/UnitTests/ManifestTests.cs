@@ -89,20 +89,20 @@ public sealed class ManifestTests
         });
 
         var v5 = (await ManifestUtils.DeserializeNewOrOldManifest(manifest, env.DotnetFeedUrl))!;
-        Assert.Equal(Channel.Latest, v5.TrackedChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[0].SdkVersion)).ChannelName);
-        Assert.Equal(Channel.Preview, v5.TrackedChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[1].SdkVersion)).ChannelName);
+        Assert.Equal(new Channel.Latest(), v5.TrackedChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[0].SdkVersion)).ChannelName);
+        Assert.Equal(new Channel.Preview(), v5.TrackedChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[1].SdkVersion)).ChannelName);
     });
 
     [Fact]
     public Task ManifestV3Convert() => TestUtils.RunWithServer(async server =>
     {
         var v3 = ManifestV3.Empty
-            .AddSdk(new InstalledSdkV3("42.42.42"), Channel.Latest)
+            .AddSdk(new InstalledSdkV3("42.42.42"), new Channel.Latest())
             .AddSdk(new InstalledSdkV3("99.99.99-preview")
                     { SdkDirName = new("preview") },
-                    Channel.Preview);
+                    new Channel.Preview());
         var v5 = await v3.Convert().Convert(server.ReleasesIndexJson);
-        Assert.Equal(Channel.Latest, v5.InstalledSdkVersions[0].Channel);
-        Assert.Equal(Channel.Preview, v5.InstalledSdkVersions[1].Channel);
+        Assert.Equal(new Channel.Latest(), v5.InstalledSdkVersions[0].Channel);
+        Assert.Equal(new Channel.Preview(), v5.InstalledSdkVersions[1].Channel);
     });
 }

@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Semver;
 using Serde;
@@ -21,44 +22,6 @@ namespace Dnvm;
 public readonly partial record struct SdkDirName(string Name)
 {
     public string Name { get; init; } = Name.ToLowerInvariant();
-}
-
-[Closed]
-[GenerateSerde]
-public enum Channel
-{
-    /// <summary>
-    /// Latest supported version from either the LTS or STS support channels.
-    /// </summary>
-    Latest,
-    /// <summary>
-    /// Newest Long Term Support release.
-    /// </summary>
-    Lts,
-    /// <summary>
-    /// Newest Short Term Support release.
-    /// </summary>
-    Sts,
-
-    /// </summary>
-    /// <summary>
-    /// Newest "preview" release, not including nightly builds.
-    /// </summary>
-    Preview,
-}
-
-public static class Channels
-{
-    public static string GetDesc(this Channel c) => c switch
-    {
-        Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
-        Channel.Lts => "The latest version in Long-Term support",
-        Channel.Sts => "The latest version in Short-Term support",
-        Channel.Preview => "The latest preview version",
-        _ => throw new NotImplementedException(),
-    };
-
-    public static string GetLowerName(this Channel c) => c.ToString().ToLowerInvariant();
 }
 
 

@@ -21,7 +21,7 @@ public sealed class UntrackTests
     {
         var manifest = Manifest.Empty;
         var logger = new Logger(new TestConsole());
-        var result = UntrackCommand.RunHelper(Channel.Latest, manifest, logger);
+        var result = UntrackCommand.RunHelper(new Channel.Latest(), manifest, logger);
         Assert.True(result is UntrackCommand.Result.ChannelUntracked);
     }
 
@@ -30,10 +30,10 @@ public sealed class UntrackTests
     {
         var manifest = new Manifest
         {
-            TrackedChannels = [new TrackedChannel { ChannelName = Channel.Latest, SdkDirName = DnvmEnv.DefaultSdkDirName }]
+            TrackedChannels = [new TrackedChannel { ChannelName = new Channel.Latest(), SdkDirName = DnvmEnv.DefaultSdkDirName }]
         };
         var logger = new Logger(new TestConsole());
-        var result = UntrackCommand.RunHelper(Channel.Latest, manifest, logger);
+        var result = UntrackCommand.RunHelper(new Channel.Latest(), manifest, logger);
         if (result is UntrackCommand.Result.Success({} newManifest))
         {
             Assert.True(Assert.Single(newManifest.TrackedChannels).Untracked);
@@ -51,7 +51,7 @@ public sealed class UntrackTests
         var logger = new Logger(new TestConsole());
         var result = await TrackCommand.Run(testOptions.DnvmEnv, logger, new CommandArguments.TrackArguments
         {
-            Channel = Channel.Latest,
+            Channel = new Channel.Latest(),
             FeedUrl = mockServer.PrefixString
         });
         Assert.Equal(TrackCommand.Result.Success, result);

@@ -59,7 +59,9 @@ public class SelfInstallCommand
 
         if (!args.Yes)
         {
-            Console.Write($"Please select install location [default: {DnvmEnv.DefaultDnvmHome}]: ");
+            var defaultInstall = Environment.GetEnvironmentVariable("DNVM_HOME") ?? DnvmEnv.DefaultDnvmHome;
+            Console.WriteLine($"Please select install location [default: {defaultInstall}]: ");
+            Console.Write($"> ");
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
@@ -76,29 +78,30 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
 
-        var channel = Channel.Latest;
+        Channel channel = new Channel.Latest();
         if (!args.Yes)
         {
             Console.WriteLine("Which channel would you like to start tracking?");
-            Console.WriteLine("Available channels: ");
-            var channels = Enum.GetValues<Channel>();
-            for (int i = 0; i < channels.Length; i++)
+            Console.WriteLine("Available channels:");
+            List<Channel> channels = [ new Channel.Latest(), new Channel.Sts(), new Channel.Lts(), new Channel.Preview() ];
+            for (int i = 0; i < channels.Count; i++)
             {
                 var c = channels[i];
-                var name = Enum.GetName(c)!;
+                var name = c.GetDisplayName();
                 var desc = c.GetDesc();
                 Console.WriteLine($"\t{i + 1}) {name} - {desc}");
             }
             Console.WriteLine();
             while (true)
             {
-                Console.Write($"Please select a channel [default: {channel}]: ");
+                Console.WriteLine($"Please select a channel [default: {channel.GetDisplayName()}]:");
+                Console.Write("> ");
                 var resultStr = Console.ReadLine()?.Trim();
                 if (string.IsNullOrEmpty(resultStr))
                 {
                     break;
                 }
-                else if (int.TryParse(resultStr, out int resultInt) && resultInt > 0 && resultInt <= channels.Length)
+                else if (int.TryParse(resultStr, out int resultInt) && resultInt > 0 && resultInt <= channels.Count)
                 {
                     channel = channels[resultInt - 1];
                     break;
@@ -110,7 +113,8 @@ public class SelfInstallCommand
         var sdkDirName = DnvmEnv.DefaultSdkDirName;
         if (!args.Yes && MissingFromEnv(env, sdkDirName))
         {
-            Console.Write("One or more paths are missing from the user environment. Attempt to update the user environment? [Y/n] ");
+            Console.WriteLine("One or more paths are missing from the user environment. Attempt to update the user environment?");
+            Console.Write("[Y/n]> ");
             if (Console.ReadLine()?.Trim().ToLowerInvariant() == "y")
             {
                 updateUserEnv = true;
@@ -132,7 +136,7 @@ public class SelfInstallCommand
     public async Task<Result> Run(UPath targetPath, Channel channel, SdkDirName sdkDirName, bool updateUserEnv)
     {
         var procPath = Utilities.ProcessPath;
-        _logger.Info("Location of running exe" + procPath);
+        _logger.Info("Location of running exe: " + procPath);
 
         try
         {
