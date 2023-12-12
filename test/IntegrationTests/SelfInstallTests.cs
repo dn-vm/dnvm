@@ -124,7 +124,7 @@ Please select a channel [default: Latest]:
         Assert.Equal($"""
 Proceeding with installation.
 Log: Location of running exe: {DnvmExe}
-Log: Copying file from '{DnvmExe}' to '/dnvm'
+Log: Copying file from '{DnvmExe}' to '{DnvmEnv.DnvmExePath}'
 Dnvm installed successfully.
 Found latest version: 99.99.99-preview
 """.RemoveWhitespace(), lines.RemoveWhitespace());
