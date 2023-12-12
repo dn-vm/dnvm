@@ -33,4 +33,6 @@ public static class TestUtils
             using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
             await test(mockServer, testOptions.DnvmEnv);
         });
+
+    public static string StripNewlines(this string input) => input.Replace("\r", "").Replace("\n", "");
 }

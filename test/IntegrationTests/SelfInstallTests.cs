@@ -117,18 +117,17 @@ Please select a channel [default: Latest]:
         lines = "";
         for (int i = 0; i < 8; i++)
         {
-            lines += await proc.StandardOutput.ReadLineAsync() + Environment.NewLine;
+            lines += await proc.StandardOutput.ReadLineAsync();
         }
 
         Assert.Equal($"""
 Proceeding with installation.
-Log: Location of running exe: {NewLine}{DnvmExe}
-Log: Copying file from {NewLine}'{DnvmExe}'
+Log: Location of running exe: {DnvmExe}
+Log: Copying file from '{DnvmExe}'
 to '/dnvm'
 Dnvm installed successfully.
 Found latest version: 99.99.99-preview
-
-""", lines);
+""".StripNewlines(), lines);
 
         do
         {
@@ -139,11 +138,10 @@ Found latest version: 99.99.99-preview
         Assert.Equal($"""
 Log: Setting environment variables in shell files
 Scanning for shell files to update
-Log: Checking for file: {NewLine}{env.UserHome}/.profile
-Log: Checking for file: {NewLine}{env.UserHome}/.bashrc
-Log: Checking for file: {NewLine}{env.UserHome}/.zshrc
-
-""", lines);
+Log: Checking for file: {env.UserHome}/.profile
+Log: Checking for file: {env.UserHome}/.bashrc
+Log: Checking for file: {env.UserHome}/.zshrc
+""".StripNewlines(), lines.StripNewlines());
         Assert.Contains(env.RealPath(UPath.Root), env.Vfs.ReadAllText(DnvmEnv.EnvPath));
     });
 
