@@ -49,7 +49,7 @@ public sealed class SelfInstallTests
         Assert.Contains(Assets.ArchiveToken, result.Out);
     });
 
-    [Fact]
+    [ConditionalFact(typeof(UnixOnly))]
     public Task SelfInstallDialog() => RunWithServer(async (mockServer, env) =>
     {
         var buffer = new char[1024];
