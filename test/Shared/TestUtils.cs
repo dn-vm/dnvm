@@ -34,5 +34,5 @@ public static class TestUtils
             await test(mockServer, testOptions.DnvmEnv);
         });
 
-    public static string StripNewlines(this string input) => input.Replace("\r", "").Replace("\n", "");
+    public static string RemoveWhitespace(this string input) => input.Replace("\r", "").Replace("\n", "").Replace(" ", "");
 }
