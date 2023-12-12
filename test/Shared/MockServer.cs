@@ -108,7 +108,11 @@ public sealed class MockServer : IAsyncDisposable
 
             if (UrlToHandler.TryGetValue(ctx.Request.Url!.LocalPath.ToLowerInvariant(), out var action))
             {
+                try
+                {
                 action(ctx.Response);
+                }
+                catch {}
             }
             else
             {

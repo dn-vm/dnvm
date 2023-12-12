@@ -43,7 +43,7 @@ public static class ListCommand
             string selected = manifest.CurrentSdkDir == sdk.SdkDirName ? "*" : " ";
             var channels = manifest.TrackedChannels
                 .Where(c => c.InstalledSdkVersions.Contains(sdk.SdkVersion))
-                .Select(c => c.ChannelName.ToString().ToLowerInvariant());
+                .Select(c => c.ChannelName.GetLowerName());
             table.AddRow(selected, sdk.SdkVersion.ToString(), string.Join(", ", channels), sdk.SdkDirName.Name);
         }
         logger.Console.Write(table);
