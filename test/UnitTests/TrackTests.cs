@@ -148,4 +148,21 @@ public sealed class TrackTests
             }
         ], manifest.TrackedChannels);
     });
+
+    [Fact]
+    public Task TrackMajorMinor() => RunWithServer(async (server, env) =>
+    {
+        var result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Versioned(99, 99) });
+        Assert.Equal(TrackCommand.Result.Success, result);
+
+        var manifest = await env.ReadManifest();
+        var version = SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict);
+        Assert.Equal([ new() {
+            ReleaseVersion = version,
+            SdkVersion = version,
+            RuntimeVersion = version,
+            AspNetVersion = version,
+            SdkDirName = DnvmEnv.DefaultSdkDirName
+        } ], manifest.InstalledSdks);
+    });
 }

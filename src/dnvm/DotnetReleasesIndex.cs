@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Immutable;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.Xml.Schema;
 using Semver;
@@ -37,6 +38,7 @@ public partial record DotnetReleasesIndex
                 or (Channel.Sts, "active", "sts")
                 or (Channel.Preview, "go-live", _)
                 or (Channel.Preview, "preview", _) => true,
+                (Channel.Versioned v, _, _) when v.ToString() == releaseVersion.ToMajorMinor() => true,
                 _ => false
             };
             if (found &&

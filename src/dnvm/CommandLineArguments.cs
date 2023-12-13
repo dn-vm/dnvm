@@ -100,7 +100,7 @@ public abstract record CommandArguments
     }
 }
 
-sealed record class CommandLineArguments(CommandArguments Command)
+public sealed record class CommandLineArguments(CommandArguments Command)
 {
     public static CommandLineArguments Parse(string[] args)
     {
