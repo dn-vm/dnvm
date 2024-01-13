@@ -41,7 +41,7 @@ public static class ListCommand
         foreach (var sdk in manifest.InstalledSdks)
         {
             string selected = manifest.CurrentSdkDir == sdk.SdkDirName ? "*" : " ";
-            var channels = manifest.TrackedChannels
+            var channels = manifest.RegisteredChannels
                 .Where(c => c.InstalledSdkVersions.Contains(sdk.SdkVersion))
                 .Select(c => c.ChannelName.GetLowerName());
             table.AddRow(selected, sdk.SdkVersion.ToString(), string.Join(", ", channels), sdk.SdkDirName.Name);
@@ -51,12 +51,9 @@ public static class ListCommand
         logger.Log();
         logger.Log("Tracked channels:");
         logger.Log();
-        foreach (var c in manifest.TrackedChannels)
+        foreach (var c in manifest.TrackedChannels())
         {
-            if (!c.Untracked)
-            {
-                logger.Log($" • {c.ChannelName.GetLowerName()}");
-            }
+            logger.Log($" • {c.ChannelName.GetLowerName()}");
         }
     }
 }

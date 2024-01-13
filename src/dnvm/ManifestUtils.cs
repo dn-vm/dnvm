@@ -39,6 +39,11 @@ public static partial class ManifestUtils
         return Manifest.Empty;
     }
 
+    public static EqArray<RegisteredChannel> TrackedChannels(this Manifest manifest)
+    {
+        return manifest.RegisteredChannels.Where(x => !x.Untracked).ToEq();
+    }
+
     public static Manifest AddSdk(this Manifest manifest, SemVersion semVersion, Channel c)
         => AddSdk(manifest, semVersion, c, DnvmEnv.DefaultSdkDirName);
 
@@ -61,10 +66,10 @@ public static partial class ManifestUtils
         {
             installedSdks = installedSdks.Add(sdk);
         }
-        EqArray<TrackedChannel> trackedChannels = manifest.TrackedChannels;
+        EqArray<RegisteredChannel> trackedChannels = manifest.RegisteredChannels;
         if (trackedChannels.FirstOrNull(x => x.ChannelName == c && x.SdkDirName == sdk.SdkDirName) is { } oldTracked)
         {
-            trackedChannels = manifest.TrackedChannels;
+            trackedChannels = manifest.RegisteredChannels;
             var installedSdkVersions = oldTracked.InstalledSdkVersions;
             var newTracked = installedSdkVersions.Contains(sdk.SdkVersion)
                 ? oldTracked
@@ -75,7 +80,7 @@ public static partial class ManifestUtils
         }
         else
         {
-            trackedChannels = trackedChannels.Add(new TrackedChannel {
+            trackedChannels = trackedChannels.Add(new RegisteredChannel {
                 ChannelName = c,
                 SdkDirName = sdk.SdkDirName,
                 InstalledSdkVersions = [ sdk.SdkVersion ]
@@ -83,7 +88,7 @@ public static partial class ManifestUtils
         }
         return manifest with {
             InstalledSdks = installedSdks,
-            TrackedChannels = trackedChannels,
+            RegisteredChannels = trackedChannels,
         };
     }
 
@@ -95,8 +100,9 @@ public static partial class ManifestUtils
     {
         var version = JsonSerializer.Deserialize<ManifestVersionOnly>(manifestSrc).Version;
         // Handle versions that don't need the release index to convert
-        var manifest = version switch {
-            ManifestV5.VersionField => JsonSerializer.Deserialize<ManifestV5>(manifestSrc).Convert(),
+        Manifest? manifest = version switch {
+            ManifestV5.VersionField => JsonSerializer.Deserialize<ManifestV5>(manifestSrc).Convert().Convert(),
+            ManifestV6.VersionField => JsonSerializer.Deserialize<ManifestV6>(manifestSrc).Convert(),
             Manifest.VersionField => JsonSerializer.Deserialize<Manifest>(manifestSrc),
             _ => null
         };
@@ -109,10 +115,10 @@ public static partial class ManifestUtils
         return version switch
         {
             // The first version didn't have a version field
-            null => (await JsonSerializer.Deserialize<ManifestV1>(manifestSrc).Convert().Convert().Convert().Convert(releasesIndex)).Convert(),
-            ManifestV2.VersionField => (await JsonSerializer.Deserialize<ManifestV2>(manifestSrc).Convert().Convert().Convert(releasesIndex)).Convert(),
-            ManifestV3.VersionField => (await JsonSerializer.Deserialize<ManifestV3>(manifestSrc).Convert().Convert(releasesIndex)).Convert(),
-            ManifestV4.VersionField => (await JsonSerializer.Deserialize<ManifestV4>(manifestSrc).Convert(releasesIndex)).Convert(),
+            null => (await JsonSerializer.Deserialize<ManifestV1>(manifestSrc).Convert().Convert().Convert().Convert(releasesIndex)).Convert().Convert(),
+            ManifestV2.VersionField => (await JsonSerializer.Deserialize<ManifestV2>(manifestSrc).Convert().Convert().Convert(releasesIndex)).Convert().Convert(),
+            ManifestV3.VersionField => (await JsonSerializer.Deserialize<ManifestV3>(manifestSrc).Convert().Convert(releasesIndex)).Convert().Convert(),
+            ManifestV4.VersionField => (await JsonSerializer.Deserialize<ManifestV4>(manifestSrc).Convert(releasesIndex)).Convert().Convert(),
             _ => throw new InvalidDataException("Unknown manifest version: " + version)
         };
     }

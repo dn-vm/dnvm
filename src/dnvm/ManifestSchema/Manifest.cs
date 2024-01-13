@@ -17,20 +17,46 @@ public sealed partial record Manifest
     public static readonly Manifest Empty = new();
 
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
-    public const int VersionField = 6;
+    public const int VersionField = 7;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
 
     public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
     public EqArray<InstalledSdk> InstalledSdks { get; init; } = [];
-    public EqArray<TrackedChannel> TrackedChannels { get; init; } = [];
+    public EqArray<RegisteredChannel> RegisteredChannels { get; init; } = [];
 
-    internal Manifest Untrack(Channel channel)
+    internal Manifest TrackChannel(RegisteredChannel channel)
+    {
+        var existing = RegisteredChannels.FirstOrNull(c =>
+            c.ChannelName == channel.ChannelName && c.SdkDirName == channel.SdkDirName);
+        if (existing is null)
+        {
+            return this with
+            {
+                RegisteredChannels = RegisteredChannels.Add(channel)
+            };
+        }
+        else if (existing is { Untracked: true })
+        {
+            var newVersions = existing.InstalledSdkVersions.Concat(channel.InstalledSdkVersions).Distinct().ToEq();
+            return this with
+            {
+                RegisteredChannels = RegisteredChannels.Replace(existing, existing with
+                {
+                    InstalledSdkVersions = newVersions,
+                    Untracked = false,
+                })
+            };
+        }
+        throw new InvalidOperationException("Channel already tracked");
+    }
+
+    internal Manifest UntrackChannel(Channel channel)
     {
         return this with
         {
-            TrackedChannels = TrackedChannels.Select(c =>
+            RegisteredChannels = RegisteredChannels.Select(c =>
             {
                 if (c.ChannelName == channel)
                 {
@@ -43,7 +69,7 @@ public sealed partial record Manifest
 }
 
 [GenerateSerde]
-public partial record TrackedChannel
+public partial record RegisteredChannel
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
@@ -71,23 +97,24 @@ public partial record InstalledSdk
 
 public static partial class ManifestConvert
 {
-    public static Manifest Convert(this ManifestV5 v5) => new Manifest
+    public static Manifest Convert(this ManifestV6 v6) => new Manifest
     {
-        InstalledSdks = v5.InstalledSdkVersions.SelectAsArray(v => v.Convert()).ToEq(),
-        TrackedChannels = v5.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
+        InstalledSdks = v6.InstalledSdks.SelectAsArray(v => v.Convert()).ToEq(),
+        RegisteredChannels = v6.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
     };
 
-    public static InstalledSdk Convert(this InstalledSdkV5 v5) => new InstalledSdk {
-        ReleaseVersion = v5.ReleaseVersion,
-        SdkVersion = v5.SdkVersion,
-        RuntimeVersion = v5.RuntimeVersion,
-        AspNetVersion = v5.AspNetVersion,
-        SdkDirName = v5.SdkDirName,
+    public static InstalledSdk Convert(this InstalledSdkV6 v6) => new InstalledSdk {
+        ReleaseVersion = v6.ReleaseVersion,
+        SdkVersion = v6.SdkVersion,
+        RuntimeVersion = v6.RuntimeVersion,
+        AspNetVersion = v6.AspNetVersion,
+        SdkDirName = v6.SdkDirName,
     };
 
-    public static TrackedChannel Convert(this TrackedChannelV5 v5) => new TrackedChannel {
-        ChannelName = v5.ChannelName,
-        SdkDirName = v5.SdkDirName,
-        InstalledSdkVersions = v5.InstalledSdkVersions
+    public static RegisteredChannel Convert(this TrackedChannelV6 v6) => new RegisteredChannel {
+        ChannelName = v6.ChannelName,
+        SdkDirName = v6.SdkDirName,
+        InstalledSdkVersions = v6.InstalledSdkVersions,
+        Untracked = v6.Untracked,
     };
 }

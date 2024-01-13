@@ -44,9 +44,9 @@ public sealed class UpdateTests
                 ReleaseVersion = new(42, 42, 142),
                 SdkDirName = sdkDir
             } ],
-            TrackedChannels =
+            RegisteredChannels =
             [
-                new TrackedChannel
+                new RegisteredChannel
                     {
                         ChannelName = new Channel.Latest(),
                         SdkDirName = sdkDir,
@@ -83,7 +83,7 @@ public sealed class UpdateTests
                 RuntimeVersion = installedVersion,
                 ReleaseVersion = installedVersion,
             }] ,
-            TrackedChannels = [ new TrackedChannel {
+            RegisteredChannels = [ new RegisteredChannel {
                 ChannelName = new Channel.Latest(),
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = [ installedVersion ]
@@ -125,7 +125,7 @@ public sealed class UpdateTests
                 RuntimeVersion = v,
                 ReleaseVersion = v,
                 SdkDirName = DnvmEnv.DefaultSdkDirName }).ToEq(),
-            TrackedChannels = [ new TrackedChannel() {
+            RegisteredChannels = [ new RegisteredChannel() {
                 ChannelName = channel,
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = sdkVersions
@@ -297,6 +297,6 @@ public sealed class UpdateTests
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = [ oldSdkVersion, newSdkVersion ]
             }
-        ], manifest.TrackedChannels);
+        ], manifest.RegisteredChannels);
     });
 }

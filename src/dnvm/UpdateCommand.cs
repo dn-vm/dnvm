@@ -110,7 +110,7 @@ public sealed partial class UpdateCommand
             table.AddColumn("Available");
             foreach (var (c, newestInstalled, newestAvailable, _) in updateResults)
             {
-                table.AddRow(c.ToString(), newestInstalled.ToString(), newestAvailable.LatestSdk);
+                table.AddRow(c.ToString(), newestInstalled?.ToString() ?? "(none)", newestAvailable.LatestSdk);
             }
             logger.Console.Write(table);
             logger.Log("Install updates? [y/N]: ");
@@ -161,12 +161,12 @@ public sealed partial class UpdateCommand
                 {
                     var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
 
-                    var oldTracked = manifest.TrackedChannels.Single(t => t.ChannelName == c);
+                    var oldTracked = manifest.RegisteredChannels.Single(t => t.ChannelName == c);
                     var newTracked = oldTracked with
                     {
                         InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
                     };
-                    manifest = manifest with { TrackedChannels = manifest.TrackedChannels.Replace(oldTracked, newTracked) };
+                    manifest = manifest with { RegisteredChannels = manifest.RegisteredChannels.Replace(oldTracked, newTracked) };
                 }
             }
         }
@@ -178,21 +178,21 @@ public sealed partial class UpdateCommand
         return Success;
     }
 
-    public static List<(Channel TrackedChannel, SemVersion NewestInstalled, DotnetReleasesIndex.ChannelIndex NewestAvailable, SdkDirName SdkDir)> FindPotentialUpdates(
+    public static List<(Channel TrackedChannel, SemVersion? NewestInstalled, DotnetReleasesIndex.ChannelIndex NewestAvailable, SdkDirName SdkDir)> FindPotentialUpdates(
         Manifest manifest,
         DotnetReleasesIndex releaseIndex)
     {
-        var list = new List<(Channel, SemVersion, DotnetReleasesIndex.ChannelIndex, SdkDirName)>();
-        foreach (var tracked in manifest.TrackedChannels)
+        var list = new List<(Channel, SemVersion?, DotnetReleasesIndex.ChannelIndex, SdkDirName)>();
+        foreach (var tracked in manifest.RegisteredChannels)
         {
             var newestInstalled = tracked.InstalledSdkVersions
-                .Max(SemVersion.PrecedenceComparer)!;
+                .Max(SemVersion.PrecedenceComparer);
             var release = releaseIndex.GetChannelIndex(tracked.ChannelName);
             if (release is { LatestSdk: var sdkVersion} &&
                 SemVersion.TryParse(sdkVersion, SemVersionStyles.Strict, out var newestAvailable) &&
                 SemVersion.ComparePrecedence(newestInstalled, newestAvailable) < 0)
             {
-                list.Add((tracked.ChannelName, newestInstalled!, release, tracked.SdkDirName));
+                list.Add((tracked.ChannelName, newestInstalled, release, tracked.SdkDirName));
             }
         }
         return list;
