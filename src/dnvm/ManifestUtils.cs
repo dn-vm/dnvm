@@ -39,6 +39,9 @@ public static partial class ManifestUtils
         return Manifest.Empty;
     }
 
+    public static Manifest AddSdk(this Manifest manifest, SemVersion semVersion, Channel c)
+        => AddSdk(manifest, semVersion, c, DnvmEnv.DefaultSdkDirName);
+
     public static Manifest AddSdk(this Manifest manifest, SemVersion semVersion, Channel c, SdkDirName sdkDirName)
     {
         var installedSdk = new InstalledSdk() {

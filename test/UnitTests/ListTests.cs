@@ -85,4 +85,68 @@ Installed SDKs:
 
         Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
     }
+
+    [Fact]
+    public async Task ListTracked()
+    {
+        var manifest = Manifest.Empty
+            .AddSdk(new SemVersion(42, 42, 42), new Channel.Latest())
+            .AddSdk(new SemVersion(10, 10, 10), new Channel.Lts());
+
+        var env = new Dictionary<string, string>();
+        using var userHome = new TempDirectory();
+        var home = new DnvmEnv(
+            userHome.Path,
+            new MemoryFileSystem(),
+            isPhysical: false,
+            getUserEnvVar: s => env[s],
+            setUserEnvVar: (name, val) => env[name] = val
+        );
+        home.WriteManifest(manifest);
+
+        var ret = await ListCommand.Run(_logger, home);
+        Assert.Equal(0, ret);
+        var output = """
+Installed SDKs:
+
+┌───┬──────────┬─────────┬──────────┐
+│   │ Version  │ Channel │ Location │
+├───┼──────────┼─────────┼──────────┤
+│ * │ 42.42.42 │ latest  │ dn       │
+│ * │ 10.10.10 │ lts     │ dn       │
+└───┴──────────┴─────────┴──────────┘
+
+Tracked channels:
+
+ * latest
+ * lts
+""";
+
+        Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
+
+        var console = new TestConsole();
+        var logger = new Logger(console);
+        if (UntrackCommand.RunHelper(new Channel.Latest(), manifest, logger) is not UntrackCommand.Result.Success({} newManifest))
+        {
+            throw new InvalidOperationException();
+        }
+        home.WriteManifest(newManifest);
+        ret = await ListCommand.Run(logger, home);
+        output = """
+Installed SDKs:
+
+┌───┬──────────┬─────────┬──────────┐
+│   │ Version  │ Channel │ Location │
+├───┼──────────┼─────────┼──────────┤
+│ * │ 42.42.42 │ latest  │ dn       │
+│ * │ 10.10.10 │ lts     │ dn       │
+└───┴──────────┴─────────┴──────────┘
+
+Tracked channels:
+
+ * lts
+""";
+
+        Assert.Equal(output, string.Join(Environment.NewLine, console.Lines));
+    }
 }

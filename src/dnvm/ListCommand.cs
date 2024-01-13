@@ -47,5 +47,16 @@ public static class ListCommand
             table.AddRow(selected, sdk.SdkVersion.ToString(), string.Join(", ", channels), sdk.SdkDirName.Name);
         }
         logger.Console.Write(table);
+
+        logger.Log();
+        logger.Log("Tracked channels:");
+        logger.Log();
+        foreach (var c in manifest.TrackedChannels)
+        {
+            if (!c.Untracked)
+            {
+                logger.Log($" * {c.ChannelName.GetLowerName()}");
+            }
+        }
     }
 }
