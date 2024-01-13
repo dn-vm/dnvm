@@ -59,10 +59,10 @@ public sealed class SelectTests
         var manifest = new Manifest()
         {
             CurrentSdkDir = dn,
-            TrackedChannels =
+            RegisteredChannels =
 
             [
-                new TrackedChannel
+                new RegisteredChannel
                     {
                         ChannelName = new Channel.Latest(),
                         SdkDirName = dn

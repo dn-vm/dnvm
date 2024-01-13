@@ -112,20 +112,18 @@ public sealed class TrackCommand
             return Result.ManifestIOError;
         }
 
-        if (manifest.TrackedChannels.Any(c => c.ChannelName == channel))
+        if (manifest.TrackedChannels().Any(c => c.ChannelName == channel))
         {
             logger.Log($"Channel '{channel}' is already being tracked." +
                 " Did you mean to run 'dnvm update'?");
             return Result.ChannelAlreadyTracked;
         }
 
-        manifest = manifest with {
-            TrackedChannels = manifest.TrackedChannels.Add(new TrackedChannel {
-                ChannelName = channel,
-                SdkDirName = sdkDir,
-                InstalledSdkVersions = EqArray<SemVersion>.Empty
-            })
-        };
+        manifest = manifest.TrackChannel(new RegisteredChannel {
+            ChannelName = channel,
+            SdkDirName = sdkDir,
+            InstalledSdkVersions = EqArray<SemVersion>.Empty
+        });
 
         DotnetReleasesIndex versionIndex;
         try
@@ -184,12 +182,25 @@ public sealed class TrackCommand
             }) };
         }
 
+        // Even if the SDK was already installed, we'll add it to the list of tracked versions
+        // for this channel. Otherwise you end up with non-determinism where the order of channel
+        // updates starts to matter. Consider if you track LTS and latest and the same version is in
+        // both channels. One channel will "win" when installing it, and then the next will skip
+        // installation. If the version is only added to one channel's tracking list, the result is
+        // not deterministic. By adding it to both, it doesn't matter what order we update channels in.
         logger.Info($"Adding installed version '{latestSdkVersion}' to manifest.");
-        var oldTracked = manifest.TrackedChannels.Single(t => t.ChannelName == channel);
-        var newTracked = oldTracked with {
-            InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
-        };
-        manifest = manifest with { TrackedChannels = manifest.TrackedChannels.Replace(oldTracked, newTracked) };
+        var oldTracked = manifest.RegisteredChannels.Single(t => t.ChannelName == channel);
+        if (oldTracked.InstalledSdkVersions.Contains(latestSdkVersion))
+        {
+            logger.Info("Version already tracked");
+        }
+        else
+        {
+            var newTracked = oldTracked with {
+                InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
+            };
+            manifest = manifest with { RegisteredChannels = manifest.RegisteredChannels.Replace(oldTracked, newTracked) };
+        }
 
         logger.Info("Writing manifest");
         dnvmFs.WriteManifest(manifest);

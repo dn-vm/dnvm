@@ -1,5 +1,6 @@
 
 using System.Collections.Immutable;
+using Semver;
 using Spectre.Console.Testing;
 using Xunit;
 using Zio.FileSystems;
@@ -30,13 +31,13 @@ public sealed class UntrackTests
     {
         var manifest = new Manifest
         {
-            TrackedChannels = [new TrackedChannel { ChannelName = new Channel.Latest(), SdkDirName = DnvmEnv.DefaultSdkDirName }]
+            RegisteredChannels = [new RegisteredChannel { ChannelName = new Channel.Latest(), SdkDirName = DnvmEnv.DefaultSdkDirName }]
         };
         var logger = new Logger(new TestConsole());
         var result = UntrackCommand.RunHelper(new Channel.Latest(), manifest, logger);
         if (result is UntrackCommand.Result.Success({} newManifest))
         {
-            Assert.True(Assert.Single(newManifest.TrackedChannels).Untracked);
+            Assert.True(Assert.Single(newManifest.RegisteredChannels).Untracked);
         }
         else
         {
@@ -47,13 +48,46 @@ public sealed class UntrackTests
     [Fact]
     public Task InstallAndUntrack() => TestWithServer(async (mockServer, env, CancellationToken) =>
     {
-        using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
         var logger = new Logger(new TestConsole());
-        var result = await TrackCommand.Run(testOptions.DnvmEnv, logger, new CommandArguments.TrackArguments
+        var channel = new Channel.Latest();
+        var result = await TrackCommand.Run(env, logger, new CommandArguments.TrackArguments
         {
-            Channel = new Channel.Latest(),
+            Channel = channel,
             FeedUrl = mockServer.PrefixString
         });
         Assert.Equal(TrackCommand.Result.Success, result);
+
+        var manifest = await env.ReadManifest();
+        Assert.Equal(manifest.TrackedChannels(), [new RegisteredChannel {
+            ChannelName = channel,
+            InstalledSdkVersions = [ MockServer.DefaultLtsVersion ],
+            SdkDirName = DnvmEnv.DefaultSdkDirName }]);
+        var untrackCode = await UntrackCommand.Run(env, logger, new CommandArguments.UntrackArguments
+        {
+            Channel = channel,
+        });
+        Assert.Equal(0, untrackCode);
+    });
+
+    [Fact]
+    public Task DoubleUntrack() => TestWithServer(async (mockServer, env, cancellationToken) =>
+    {
+        var logger = new Logger(new TestConsole());
+        var channel = new Channel.Latest();
+        var result = await TrackCommand.Run(env, logger, new CommandArguments.TrackArguments
+        {
+            Channel = channel,
+            FeedUrl = mockServer.PrefixString
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+
+        var untrackCode = await UntrackCommand.Run(env, logger, new CommandArguments.UntrackArguments
+        {
+            Channel = channel,
+        });
+        Assert.Equal(0, untrackCode);
+        var manifest = await env.ReadManifest();
+        var untrackResult = UntrackCommand.RunHelper(channel, manifest, logger);
+        Assert.True(untrackResult is UntrackCommand.Result.ChannelUntracked);
     });
 }

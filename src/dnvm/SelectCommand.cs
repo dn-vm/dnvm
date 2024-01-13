@@ -35,7 +35,7 @@ public static class SelectCommand
 
     public static async ValueTask<Result<Manifest, Result>> RunWithManifest(DnvmEnv env, SdkDirName newDir, Manifest manifest, Logger logger)
     {
-        var validDirs = manifest.TrackedChannels.Select(c => c.SdkDirName).ToList();
+        var validDirs = manifest.RegisteredChannels.Select(c => c.SdkDirName).ToList();
 
         if (!validDirs.Contains(newDir))
         {

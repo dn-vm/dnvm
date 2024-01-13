@@ -40,12 +40,12 @@ public sealed class UntrackCommand
 
     public static Result RunHelper(Channel channel, Manifest manifest, Logger logger)
     {
-        if (!manifest.TrackedChannels.Any(c => c.ChannelName == channel))
+        if (!manifest.TrackedChannels().Any(c => c.ChannelName == channel))
         {
             logger.Log("Channel '{channel}' is not tracked");
             return new Result.ChannelUntracked();
         }
 
-        return new Result.Success(manifest.Untrack(channel));
+        return new Result.Success(manifest.UntrackChannel(channel));
     }
 }

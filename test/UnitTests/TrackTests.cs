@@ -7,6 +7,7 @@ using Xunit.Abstractions;
 using Zio;
 using static Dnvm.TrackCommand;
 using static Dnvm.Test.TestUtils;
+using System.Net.Security;
 
 namespace Dnvm.Test;
 
@@ -43,8 +44,8 @@ public sealed class TrackTests
         Assert.Equal(new Manifest
         {
             InstalledSdks = installedVersions,
-            TrackedChannels = [
-                new TrackedChannel {
+            RegisteredChannels = [
+                new RegisteredChannel {
                     ChannelName = channel,
                     SdkDirName = DnvmEnv.DefaultSdkDirName,
                     InstalledSdkVersions = [ installedVersion ]
@@ -146,7 +147,7 @@ public sealed class TrackTests
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 InstalledSdkVersions = [ sdkVersion ]
             }
-        ], manifest.TrackedChannels);
+        ], manifest.RegisteredChannels);
     });
 
     [Fact]
@@ -164,5 +165,35 @@ public sealed class TrackTests
             AspNetVersion = version,
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ], manifest.InstalledSdks);
+    });
+
+    [Fact]
+    public Task TrackPreviouslyTracked() => RunWithServer(async (mockServer, env) =>
+    {
+        var logger = new Logger(new TestConsole());
+        var channel = new Channel.Latest();
+        var result = await TrackCommand.Run(env, logger, new CommandArguments.TrackArguments
+        {
+            Channel = channel,
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+
+        var untrackCode = await UntrackCommand.Run(env, logger, new CommandArguments.UntrackArguments
+        {
+            Channel = channel,
+        });
+        Assert.Equal(0, untrackCode);
+        result = await TrackCommand.Run(env, logger, new CommandArguments.TrackArguments
+        {
+            Channel = channel,
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+        var manifest = await env.ReadManifest();
+        Assert.Equal([ new RegisteredChannel {
+            ChannelName = channel,
+            SdkDirName = DnvmEnv.DefaultSdkDirName,
+            InstalledSdkVersions = [ MockServer.DefaultLtsVersion],
+            Untracked = false
+        }], manifest.RegisteredChannels);
     });
 }

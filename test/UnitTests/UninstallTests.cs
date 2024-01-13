@@ -42,7 +42,7 @@ public sealed class UninstallTests
         var previewOnly = Manifest.Empty
             .AddSdk(previewVersion, new Channel.Preview(), new SdkDirName("preview"));
         previewOnly = previewOnly with {
-            TrackedChannels = manifest.TrackedChannels
+            RegisteredChannels = manifest.RegisteredChannels
         };
         Assert.Equal(previewOnly, manifest);
 
