@@ -44,6 +44,11 @@ Installed SDKs:
 │ * │ 1.0.0          │ latest  │ dn       │
 │   │ 4.0.0-preview1 │ preview │ preview  │
 └───┴────────────────┴─────────┴──────────┘
+
+Tracked channels:
+
+ • latest
+ • preview
 """;
 
         Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
@@ -81,6 +86,10 @@ Installed SDKs:
 ├───┼──────────┼─────────┼──────────┤
 │ * │ 42.42.42 │ latest  │ dn       │
 └───┴──────────┴─────────┴──────────┘
+
+Tracked channels:
+
+ • latest
 """;
 
         Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
@@ -118,8 +127,8 @@ Installed SDKs:
 
 Tracked channels:
 
- * latest
- * lts
+ • latest
+ • lts
 """;
 
         Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
@@ -144,7 +153,7 @@ Installed SDKs:
 
 Tracked channels:
 
- * lts
+ • lts
 """;
 
         Assert.Equal(output, string.Join(Environment.NewLine, console.Lines));

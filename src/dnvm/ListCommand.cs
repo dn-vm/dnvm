@@ -55,7 +55,7 @@ public static class ListCommand
         {
             if (!c.Untracked)
             {
-                logger.Log($" * {c.ChannelName.GetLowerName()}");
+                logger.Log($" • {c.ChannelName.GetLowerName()}");
             }
         }
     }
