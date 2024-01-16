@@ -24,7 +24,7 @@ public sealed class TrackCommand
     public enum Result
     {
         Success = 0,
-        CouldntFetchLatestVersion,
+        UnknownChannel,
         InstallLocationNotWritable,
         NotASingleFile,
         ExtractFailed,
@@ -142,8 +142,8 @@ public sealed class TrackCommand
         var latestChannelIndex = versionIndex.GetChannelIndex(channel);
         if (latestChannelIndex is null)
         {
-            logger.Error("Could not fetch the latest package version");
-            return Result.CouldntFetchLatestVersion;
+            logger.Error($"Could not channel '{channel}' in the dotnet releases index.");
+            return Result.UnknownChannel;
         }
         var latestSdkVersion = SemVersion.Parse(latestChannelIndex.LatestSdk, SemVersionStyles.Strict);
         logger.Log("Found latest version: " + latestSdkVersion);
@@ -221,7 +221,7 @@ public sealed class TrackCommand
     {
         var sdkInstallPath = UPath.Root / sdkDirName.Name;
         var latestVersionString = latestVersion.ToString();
-        string archiveName = ConstructArchiveName(latestVersionString, rid, Utilities.ZipSuffix);
+        string archiveName = InstallCommand.ConstructArchiveName(latestVersionString, rid, Utilities.ZipSuffix);
         using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
         string archivePath = Path.Combine(tempDir.Path, archiveName);
         logger.Info("Archive path: " + archivePath);
@@ -269,72 +269,13 @@ public sealed class TrackCommand
                 return Result.ExtractFailed;
             }
         }
-        CreateSymlinkIfMissing(dnvmFs, sdkDirName);
+        InstallCommand.CreateSymlinkIfMissing(dnvmFs, sdkDirName);
 
         return Result.Success;
-    }
-
-    static string ConstructArchiveName(
-        string? specificVersion,
-        RID rid,
-        string suffix)
-    {
-        return specificVersion is null
-            ? $"dotnet-sdk-{rid}{suffix}"
-            : $"dotnet-sdk-{specificVersion}-{rid}{suffix}";
     }
 
     static string ConstructDownloadLink(string feed, string latestVersion, string archiveName)
     {
         return $"{feed}/Sdk/{latestVersion}/{archiveName}";
     }
-
-    /// <summary>
-    /// Creates a symlink from the dotnet exe in the dnvm home directory to the dotnet exe in the
-    /// sdk install directory.
-    /// </summary>
-    /// <remarks>
-    /// Doesn't use a symlink on Windows because the dotnet muxer doesn't properly resolve through
-    /// symlinks.
-    /// </remarks>
-    internal static void RetargetSymlink(DnvmEnv dnvmFs, SdkDirName sdkDirName)
-    {
-        var dnvmHome = dnvmFs.Vfs.ConvertPathToInternal(UPath.Root);
-        RetargetSymlink(dnvmHome, sdkDirName);
-
-        static void RetargetSymlink(string dnvmHome, SdkDirName sdkDirName)
-        {
-            var symlinkPath = Path.Combine(dnvmHome, DotnetSymlinkName);
-            var sdkInstallDir = Path.Combine(dnvmHome, sdkDirName.Name);
-            // Delete if it already exists
-            try
-            {
-                File.Delete(symlinkPath);
-            }
-            catch { }
-            if (OperatingSystem.IsWindows())
-            {
-                // On Windows, we can't create a symlink, so create a .cmd file that calls the dotnet.exe
-                File.WriteAllText(symlinkPath, $"""
-    @echo off
-    "%~dp0{sdkDirName.Name}\{DotnetExeName}" %*
-    """);
-            }
-            else
-            {
-                // On Unix, we can create a symlink
-                File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, DotnetExeName));
-            }
-        }
-    }
-
-    private static void CreateSymlinkIfMissing(DnvmEnv dnvmFs, SdkDirName sdkDirName)
-    {
-        var symlinkPath = dnvmFs.Vfs.ConvertPathToInternal(UPath.Root + DotnetSymlinkName);
-        if (!File.Exists(symlinkPath))
-        {
-            RetargetSymlink(dnvmFs, sdkDirName);
-        }
-    }
-
 }

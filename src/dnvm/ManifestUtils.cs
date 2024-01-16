@@ -44,13 +44,18 @@ public static partial class ManifestUtils
         return manifest.RegisteredChannels.Where(x => !x.Untracked).ToEq();
     }
 
-    public static Manifest AddSdk(this Manifest manifest, SemVersion semVersion, Channel c)
-        => AddSdk(manifest, semVersion, c, DnvmEnv.DefaultSdkDirName);
-
-    public static Manifest AddSdk(this Manifest manifest, SemVersion semVersion, Channel c, SdkDirName sdkDirName)
+    public static Manifest AddSdk(
+        this Manifest manifest,
+        SemVersion semVersion,
+        Channel? c = null,
+        SdkDirName? sdkDirParam = null)
     {
+        if (sdkDirParam is not {} sdkDir)
+        {
+            sdkDir = DnvmEnv.DefaultSdkDirName;
+        }
         var installedSdk = new InstalledSdk() {
-            SdkDirName = sdkDirName,
+            SdkDirName = sdkDir,
             SdkVersion = semVersion,
             RuntimeVersion = semVersion,
             AspNetVersion = semVersion,
@@ -59,28 +64,29 @@ public static partial class ManifestUtils
         return manifest.AddSdk(installedSdk, c);
     }
 
-    public static Manifest AddSdk(this Manifest manifest, InstalledSdk sdk, Channel c)
+    public static Manifest AddSdk(this Manifest manifest,
+        InstalledSdk sdk,
+        Channel? c = null)
     {
         var installedSdks = manifest.InstalledSdks;
         if (!installedSdks.Contains(sdk))
         {
             installedSdks = installedSdks.Add(sdk);
         }
-        EqArray<RegisteredChannel> trackedChannels = manifest.RegisteredChannels;
-        if (trackedChannels.FirstOrNull(x => x.ChannelName == c && x.SdkDirName == sdk.SdkDirName) is { } oldTracked)
+        EqArray<RegisteredChannel> allChannels = manifest.RegisteredChannels;
+        if (allChannels.FirstOrNull(x => !x.Untracked && x.ChannelName == c && x.SdkDirName == sdk.SdkDirName) is { } oldTracked)
         {
-            trackedChannels = manifest.RegisteredChannels;
             var installedSdkVersions = oldTracked.InstalledSdkVersions;
             var newTracked = installedSdkVersions.Contains(sdk.SdkVersion)
                 ? oldTracked
                 : oldTracked with {
                     InstalledSdkVersions = installedSdkVersions.Add(sdk.SdkVersion)
                 };
-            trackedChannels = trackedChannels.Replace(oldTracked, newTracked);
+            allChannels = allChannels.Replace(oldTracked, newTracked);
         }
-        else
+        else if (c is not null)
         {
-            trackedChannels = trackedChannels.Add(new RegisteredChannel {
+            allChannels = allChannels.Add(new RegisteredChannel {
                 ChannelName = c,
                 SdkDirName = sdk.SdkDirName,
                 InstalledSdkVersions = [ sdk.SdkVersion ]
@@ -88,7 +94,7 @@ public static partial class ManifestUtils
         }
         return manifest with {
             InstalledSdks = installedSdks,
-            RegisteredChannels = trackedChannels,
+            RegisteredChannels = allChannels,
         };
     }
 

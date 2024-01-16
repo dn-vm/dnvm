@@ -1,5 +1,6 @@
 
 using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -7,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.IO.Enumeration;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -14,6 +16,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
 using Semver;
+using Spectre.Console;
 using StaticCs;
 using Zio;
 using Zio.FileSystems;
@@ -30,6 +33,61 @@ public readonly record struct DirectoryResource(
     public void Dispose()
     {
         Directory.Delete(Path, recursive: Recursive);
+    }
+}
+
+public static class SpectreUtil
+{
+    public static Task<string?> DownloadWithProgress(
+        this IAnsiConsole console,
+        HttpClient client,
+        string filePath,
+        string url)
+    {
+        return console.Progress().StartAsync(async ctx =>
+        {
+            using var archiveResponse = await client.GetAsync(url);
+            if (!archiveResponse.IsSuccessStatusCode)
+            {
+                return await archiveResponse.Content.ReadAsStringAsync();
+            }
+
+            if (archiveResponse.Content.Headers.ContentLength is not { } contentLength)
+            {
+                throw new InvalidDataException("HTTP Content length is null");
+            }
+
+            using var tempArchiveFile = new FileStream(
+                filePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                64 * 1024, // 64kB
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+            // Use 1/100 of the file size as the buffer size, up to 1 MB.
+            const int oneMb = 1024 * 1024;
+            var bufferSize = (int)Math.Min(contentLength / 100, oneMb);
+
+            using var archiveHttpStream = await archiveResponse.Content.ReadAsStreamAsync();
+            var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+            var progressTask = ctx.AddTask("Downloading SDK[/]");
+            progressTask.MaxValue = contentLength;
+
+            while (true)
+            {
+                var read = await archiveHttpStream.ReadAsync(buffer);
+                if (read == 0)
+                {
+                    break;
+                }
+                await tempArchiveFile.WriteAsync(buffer.AsMemory(0, read));
+                progressTask.Increment(read / contentLength);
+            }
+            await tempArchiveFile.FlushAsync();
+            progressTask.StopTask();
+            return null;
+        });
     }
 }
 

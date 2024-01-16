@@ -13,6 +13,13 @@ public abstract record CommandArguments
 {
     private CommandArguments() {}
 
+    public sealed record InstallArguments : CommandArguments
+    {
+        public required SemVersion SdkVersion { get; init; }
+        public bool Force { get; internal set; }
+        public SdkDirName? SdkDir { get; internal set; }
+    }
+
     public sealed record TrackArguments : CommandArguments
     {
         public required Channel Channel { get; init; }

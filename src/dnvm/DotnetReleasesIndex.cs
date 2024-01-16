@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Immutable;
+using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
@@ -94,18 +95,11 @@ public partial record DotnetReleasesIndex
 [GenerateSerde]
 public partial record ChannelReleaseIndex
 {
-    public static Release CreateRelease(SemVersion universalVersion)
-    {
-        var component = new Component { Version = universalVersion };
-        return new() {
-            ReleaseVersion = universalVersion,
-            Runtime = component,
-            Sdk = component,
-            Sdks = [ component ],
-            AspNetCore = component,
-            WindowsDesktop = component
-        };
-    }
+    public static readonly ChannelReleaseIndex Empty = new() { Releases = [ ] };
+
+    public ChannelReleaseIndex AddRelease(Release release) => this with {
+        Releases = Releases.Add(release)
+    };
 
     public required EqArray<Release> Releases { get; init; }
 
@@ -113,6 +107,24 @@ public partial record ChannelReleaseIndex
     [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]
     public partial record Release()
     {
+        public static Release Create(SemVersion universalVersion)
+        {
+            var component = new Component
+            {
+                Version = universalVersion,
+                Files = []
+            };
+            return new()
+            {
+                ReleaseVersion = universalVersion,
+                Runtime = component,
+                Sdk = component,
+                Sdks = [component],
+                AspNetCore = component,
+                WindowsDesktop = component,
+            };
+        }
+
         [SerdeWrap(typeof(SemVersionSerdeWrap))]
         public required SemVersion ReleaseVersion { get; init; }
         public required Component Runtime { get; init; }
@@ -130,5 +142,17 @@ public partial record ChannelReleaseIndex
     {
         [SerdeWrap(typeof(SemVersionSerdeWrap))]
         public required SemVersion Version { get; init; }
+
+        public required EqArray<File> Files { get; init; }
+    }
+
+    [GenerateSerde]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]
+    public partial record File
+    {
+        public required string Name { get; init; }
+        public required string Rid { get; init; }
+        public required string Url { get; init; }
+        public required string Hash { get; init; }
     }
 }

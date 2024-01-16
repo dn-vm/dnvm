@@ -1,13 +1,10 @@
 using System.Collections.Immutable;
 using Semver;
-using Serde.Json;
 using Spectre.Console.Testing;
 using Xunit;
-using Xunit.Abstractions;
 using Zio;
 using static Dnvm.TrackCommand;
 using static Dnvm.Test.TestUtils;
-using System.Net.Security;
 
 namespace Dnvm.Test;
 
