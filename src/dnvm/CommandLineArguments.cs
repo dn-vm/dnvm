@@ -7,9 +7,11 @@ using System.Diagnostics;
 using Internal.CommandLine;
 using Semver;
 using Serde;
+using StaticCs;
 
 namespace Dnvm;
 
+[Closed]
 public abstract record CommandArguments
 {
     private CommandArguments() {}

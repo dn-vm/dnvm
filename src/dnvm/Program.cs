@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Semver;
 using Spectre.Console;
@@ -38,13 +39,15 @@ public static class Program
         return options.Command switch
         {
             CommandArguments.TrackArguments o => (int)await TrackCommand.Run(env, logger, o),
+            CommandArguments.InstallArguments o => (int)await InstallCommand.Run(env, logger, o),
             CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(env, logger, o),
             CommandArguments.ListArguments => (int)await ListCommand.Run(logger, env),
             CommandArguments.SelectArguments o => (int)await SelectCommand.Run(env, logger, o),
             CommandArguments.UntrackArguments o => await UntrackCommand.Run(env, logger, o),
             CommandArguments.UninstallArguments o => await UninstallCommand.Run(env, logger, o),
             CommandArguments.PruneArguments args => await PruneCommand.Run(env, logger, args),
-            _ => throw ExceptionUtilities.Unreachable
+
+            CommandArguments.SelfInstallArguments => throw ExceptionUtilities.Unreachable,
         };
     }
 }
