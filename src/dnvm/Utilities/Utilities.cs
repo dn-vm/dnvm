@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.IO.Enumeration;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -42,9 +43,17 @@ public static class SpectreUtil
         this IAnsiConsole console,
         HttpClient client,
         string filePath,
-        string url)
+        string url,
+        string description,
+        int? bufferSizeParam = null)
     {
-        return console.Progress().StartAsync(async ctx =>
+        return console.Progress()
+            .AutoRefresh(false)
+            .Columns(
+                new TaskDescriptionColumn(),
+                new ProgressBarColumn(),
+                new PercentageColumn())
+            .StartAsync(async ctx =>
         {
             using var archiveResponse = await client.GetAsync(url);
             if (!archiveResponse.IsSuccessStatusCode)
@@ -67,12 +76,11 @@ public static class SpectreUtil
 
             // Use 1/100 of the file size as the buffer size, up to 1 MB.
             const int oneMb = 1024 * 1024;
-            var bufferSize = (int)Math.Min(contentLength / 100, oneMb);
+            var bufferSize = bufferSizeParam ?? (int)Math.Min(contentLength / 100, oneMb);
 
             using var archiveHttpStream = await archiveResponse.Content.ReadAsStreamAsync();
             var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
-            var progressTask = ctx.AddTask("Downloading SDK[/]");
-            progressTask.MaxValue = contentLength;
+            var progressTask = ctx.AddTask(description, maxValue: contentLength);
 
             while (true)
             {
@@ -82,7 +90,8 @@ public static class SpectreUtil
                     break;
                 }
                 await tempArchiveFile.WriteAsync(buffer.AsMemory(0, read));
-                progressTask.Increment(read / contentLength);
+                progressTask.Increment(read);
+                ctx.Refresh();
             }
             await tempArchiveFile.FlushAsync();
             progressTask.StopTask();
@@ -244,8 +253,28 @@ public static class Utilities
         }
         try
         {
-            var extractDirName = tempExtractDir.FullName;
-            tempFs.CopyDirectory(tempExtractDir, dnvmFs.Vfs, dest, overwrite: true);
+            // We want to copy over all the files from the extraction directory to the target directory,
+            // with one exception. The top-level "dotnet" exe is always shared and if a dotnet process is
+            // already running it may have locked this file. On Unix, we can work around this problem by
+            // deleting (unlinking) the file, and then copying. On Windows, we can't delete an open file,
+            // so we have to move the file, move the new file over the old file, and then delete the old
+            // file.
+            foreach (var fsItem in tempFs.EnumerateItems(tempExtractDir, SearchOption.TopDirectoryOnly))
+            {
+                var destPath = dest / fsItem.GetName();
+                if (fsItem.IsDirectory)
+                {
+                    tempFs.CopyDirectory(fsItem.Path, dnvmFs.Vfs, destPath, overwrite: true);
+                }
+                else
+                {
+                    if (fsItem.Path == tempExtractDir / DotnetExeName)
+                    {
+                        dnvmFs.Vfs.DeleteFile(dest / DotnetExeName);
+                    }
+                    tempFs.MoveFileCross(fsItem.Path, dnvmFs.Vfs, destPath);
+                }
+            }
         }
         catch (Exception e)
         {

@@ -98,6 +98,10 @@ public sealed class MockServer : IAsyncDisposable
                 newRelease
             ] };
         }
+        else
+        {
+            index = index.AddRelease(newRelease);
+        }
         ChannelIndexMap[majorMinor] = index;
         return newRelease;
     }

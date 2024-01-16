@@ -48,6 +48,7 @@ public static class InstallCommand
         {
             logger.Log($"Version {sdkVersion} is already installed in directory '{sdkDir.Name}'." +
                 " Skipping installation. To install anyway, pass --force.");
+            return Result.Success;
         }
 
         DotnetReleasesIndex versionIndex;
@@ -101,10 +102,6 @@ public static class InstallCommand
         Logger logger)
     {
         var sdkVersion = release.Sdk.Version;
-        if (manifest.InstalledSdks.Any(s => s.SdkVersion == sdkVersion && s.SdkDirName == sdkDir))
-        {
-            throw new InvalidOperationException($"SDK version {sdkVersion} is already installed in directory '{sdkDir.Name}'");
-        }
 
         var ridString = Utilities.CurrentRID.ToString();
         var sdkInstallPath = UPath.Root / sdkDir.Name;
@@ -124,9 +121,14 @@ public static class InstallCommand
         var result = JsonSerializer.Serialize(manifest);
         logger.Info("Existing manifest: " + result);
 
-        logger.Log($"Downloading dotnet SDK {release.Sdk.Version}");
+        logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
 
-        var downloadError = await logger.Console.DownloadWithProgress(Program.HttpClient, archivePath, link);
+        var downloadError = await logger.Console.DownloadWithProgress(
+            Program.HttpClient,
+            archivePath,
+            link,
+            "Downloading SDK");
+
         if (downloadError is not null)
         {
             logger.Error(downloadError);
@@ -158,16 +160,22 @@ public static class InstallCommand
         }
         CreateSymlinkIfMissing(env, sdkDir);
 
-        manifest = manifest with { InstalledSdks = manifest.InstalledSdks.Add(new InstalledSdk {
-            ReleaseVersion = release.ReleaseVersion,
-            RuntimeVersion = release.Runtime.Version,
-            AspNetVersion = release.AspNetCore.Version,
-            SdkVersion = sdkVersion,
-            SdkDirName = sdkDir,
-            })
-        };
+        if (!manifest.InstalledSdks.Any(s => s.SdkVersion == sdkVersion && s.SdkDirName == sdkDir))
+        {
+            manifest = manifest with
+            {
+                InstalledSdks = manifest.InstalledSdks.Add(new InstalledSdk
+                {
+                    ReleaseVersion = release.ReleaseVersion,
+                    RuntimeVersion = release.Runtime.Version,
+                    AspNetVersion = release.AspNetCore.Version,
+                    SdkVersion = sdkVersion,
+                    SdkDirName = sdkDir,
+                })
+            };
 
-        env.WriteManifest(manifest);
+            env.WriteManifest(manifest);
+        }
 
         return null;
     }
