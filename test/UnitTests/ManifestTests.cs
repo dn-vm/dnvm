@@ -64,26 +64,26 @@ public sealed class ManifestTests
         server.ChannelIndexMap.Add("7.0", new() {
             Releases = [
                 new ChannelReleaseIndex.Release {
-                    AspNetCore = new() { Version = runtimeVersion },
+                    AspNetCore = new() { Version = runtimeVersion, Files = [ ] },
                     ReleaseVersion = runtimeVersion,
-                    Runtime = new() { Version = runtimeVersion },
-                    Sdk = new() { Version = sdkVersion },
-                    Sdks = [ new() { Version = sdkVersion }  ],
-                    WindowsDesktop = new() { Version = runtimeVersion },
+                    Runtime = new() { Version = runtimeVersion, Files = [ ] },
+                    Sdk = new() { Version = sdkVersion, Files = [ ]},
+                    Sdks = [ new() { Version = sdkVersion, Files = [ ] }  ],
+                    WindowsDesktop = new() { Version = runtimeVersion, Files = [ ] },
                 }
             ]
         });
         runtimeVersion = SemVersion.Parse("8.0.0-preview.3.23178.7", SemVersionStyles.Strict);
         sdkVersion = SemVersion.Parse("8.0.100-preview.3.23178.7", SemVersionStyles.Strict);
-        server.ChannelIndexMap.Add("8.0", new() {
+        server.ChannelIndexMap.Add("8.0", new ChannelReleaseIndex() {
             Releases = [
                 new ChannelReleaseIndex.Release {
-                    AspNetCore = new() { Version = runtimeVersion },
+                    AspNetCore = new() { Version = runtimeVersion, Files = [ ] },
                     ReleaseVersion = runtimeVersion,
-                    Runtime = new() { Version = runtimeVersion },
-                    Sdk = new() { Version = sdkVersion },
-                    Sdks = [ new() { Version = sdkVersion }  ],
-                    WindowsDesktop = new() { Version = runtimeVersion },
+                    Runtime = new() { Version = runtimeVersion, Files = [ ] },
+                    Sdk = new() { Version = sdkVersion, Files = [ ] },
+                    Sdks = [ new() { Version = sdkVersion, Files = [ ] }  ],
+                    WindowsDesktop = new() { Version = runtimeVersion, Files = [ ] },
                 }
             ]
         });

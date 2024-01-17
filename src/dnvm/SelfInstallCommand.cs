@@ -172,7 +172,7 @@ public class SelfInstallCommand
             return Result.InstallFailed;
         }
 
-        TrackCommand.RetargetSymlink(_env, sdkDirName);
+        InstallCommand.RetargetSymlink(_env, sdkDirName);
 
         // Set up path
         if (updateUserEnv)
@@ -207,7 +207,7 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
         logger.Info($"Retargeting symlink in {dnvmHome} to {SdkInstallPath}");
-        TrackCommand.RetargetSymlink(dnvmEnv, sdkDirName);
+        InstallCommand.RetargetSymlink(dnvmEnv, sdkDirName);
         if (!OperatingSystem.IsWindows())
         {
             await WriteEnvFile(dnvmEnv, SdkInstallPath, logger);

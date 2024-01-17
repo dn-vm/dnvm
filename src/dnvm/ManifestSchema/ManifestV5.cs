@@ -109,7 +109,7 @@ public static partial class ManifestV5Convert
 
         var channelReleaseIndex = await getChannelIndex(majorMinorVersion);
         var exactRelease = channelReleaseIndex.Releases
-            .Where(r => r.Sdks.Contains(new() { Version = v4Version}))
+            .Where(r => r.Sdks.Any(s => s.Version == v4Version))
             .Single();
 
 

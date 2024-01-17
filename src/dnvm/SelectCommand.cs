@@ -57,7 +57,7 @@ public static class SelectCommand
     /// </summary>
     private static Task<Manifest> SelectNewDir(DnvmEnv env, SdkDirName newDir, Manifest manifest)
     {
-        TrackCommand.RetargetSymlink(env, newDir);
+        InstallCommand.RetargetSymlink(env, newDir);
         return Task.FromResult(manifest with { CurrentSdkDir = newDir });
     }
 }

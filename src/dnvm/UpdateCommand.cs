@@ -123,9 +123,9 @@ public sealed partial class UpdateCommand
                 {
                     var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
 
-                    var release = JsonSerializer.Deserialize<ChannelReleaseIndex>(
-                        await Program.HttpClient.GetStringAsync(newestAvailable.ChannelReleaseIndexUrl))
-                        .Releases.Single(r => r.Sdk.Version == latestSdkVersion);
+                    var releases = JsonSerializer.Deserialize<ChannelReleaseIndex>(
+                        await Program.HttpClient.GetStringAsync(newestAvailable.ChannelReleaseIndexUrl)).Releases;
+                    var release = releases.Single(r => r.Sdk.Version == latestSdkVersion);
                     releasesToInstall.Add((release, sdkDir));
                 }
 

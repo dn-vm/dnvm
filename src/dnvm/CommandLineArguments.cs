@@ -2,16 +2,27 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Diagnostics;
 using Internal.CommandLine;
 using Semver;
 using Serde;
+using StaticCs;
 
 namespace Dnvm;
 
+[Closed]
 public abstract record CommandArguments
 {
     private CommandArguments() {}
+
+    public sealed record InstallArguments : CommandArguments
+    {
+        public required SemVersion SdkVersion { get; init; }
+        public bool Force { get; init; } = false;
+        public SdkDirName? SdkDir { get; init; } = null;
+        public bool Verbose { get; init; } = false;
+    }
 
     public sealed record TrackArguments : CommandArguments
     {
@@ -102,12 +113,16 @@ public abstract record CommandArguments
 
 public sealed record class CommandLineArguments(CommandArguments Command)
 {
-    public static CommandLineArguments Parse(string[] args)
+    public static CommandLineArguments Parse(string[] args) => Parse(true, args);
+
+    public static CommandLineArguments Parse(bool handleErrors, string[] args)
     {
         CommandArguments? command = default;
 
         var argSyntax = ArgumentSyntax.Parse(args, syntax =>
         {
+            syntax.HandleErrors = handleErrors;
+
             string? commandName = null;
 
             var track = syntax.DefineCommand("track", ref commandName, "Start tracking a new channel");
@@ -138,6 +153,35 @@ public sealed record class CommandLineArguments(CommandArguments Command)
                     Prereqs = prereqs,
                     FeedUrl = feedUrl,
                     SdkDir = sdkDir,
+                };
+            }
+
+            var install = syntax.DefineCommand("install", ref commandName, "Install an SDK");
+            if (install.IsActive)
+            {
+                SemVersion version = default!;
+                bool force = false;
+                SdkDirName? sdkDir = null;
+                bool verbose = default!;
+
+                syntax.DefineOption("f|force", ref force, "Force install the given SDK, even if already installed");
+                syntax.DefineOption("s|sdk-dir", ref sdkDir, s => new SdkDirName(s), "Install the SDK into a separate directory with the given name.");
+                syntax.DefineOption("v|verbose", ref verbose, "Print debugging messages to the console.");
+                syntax.DefineParameter("version", ref version!, v =>
+                {
+                    if (SemVersion.TryParse(v, SemVersionStyles.Strict, out var result))
+                    {
+                        return result;
+                    }
+                    throw new FormatException($"Invalid version: {v}");
+                }, "The version of the SDK to install.");
+
+                command = new CommandArguments.InstallArguments
+                {
+                    SdkVersion = version,
+                    Force = force,
+                    SdkDir = sdkDir,
+                    Verbose = verbose
                 };
             }
 

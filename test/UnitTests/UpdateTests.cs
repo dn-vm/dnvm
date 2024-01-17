@@ -151,7 +151,7 @@ public sealed class UpdateTests
             mockServer.ChannelIndexMap.Clear();
             mockServer.ChannelIndexMap.Add(version.ToMajorMinor(), new()
             {
-                Releases = [ChannelReleaseIndex.CreateRelease(version)]
+                Releases = [ChannelReleaseIndex.Release.Create(version)]
             });
         }
     });

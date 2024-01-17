@@ -81,14 +81,27 @@ public sealed class MockServer : IAsyncDisposable
                 ChannelReleaseIndexUrl = GetChannelIndexUrl(majorMinor)
             })
         };
+        var newRelease = ChannelReleaseIndex.Release.Create(version);
+        newRelease = newRelease with {
+            Sdk = newRelease.Sdk with {
+                Files = [ new() {
+                    Name = $"dotnet-sdk-{CurrentRID}{ZipSuffix}",
+                    Hash = "",
+                    Rid = CurrentRID.ToString(),
+                    Url = $"{PrefixString}sdk/{version}/dotnet-sdk-{CurrentRID}{ZipSuffix}"
+                }]
+            }
+        };
         if (!ChannelIndexMap.TryGetValue(majorMinor, out var index))
         {
-            index = new() { Releases = [] };
+            index = new() { Releases = [
+                newRelease
+            ] };
         }
-        var newRelease = ChannelReleaseIndex.CreateRelease(version);
-        index = index with {
-            Releases = index.Releases.Add(newRelease)
-        };
+        else
+        {
+            index = index.AddRelease(newRelease);
+        }
         ChannelIndexMap[majorMinor] = index;
         return newRelease;
     }
@@ -140,7 +153,8 @@ public sealed class MockServer : IAsyncDisposable
             {
                 var sdkVersion = SemVersion.Parse(r.LatestSdk, SemVersionStyles.Strict);
                 var route = $"/sdk/{sdkVersion}/dotnet-sdk-{sdkVersion}-{CurrentRID}{ZipSuffix}";
-                routes[route] = GetSdk(sdkVersion, sdkVersion, sdkVersion, sdkVersion);
+                var unversioned = $"/sdk/{sdkVersion}/dotnet-sdk-{CurrentRID}{ZipSuffix}";
+                routes[route] = routes[unversioned] = GetSdk(sdkVersion, sdkVersion, sdkVersion, sdkVersion);
             }
             return routes;
         }
