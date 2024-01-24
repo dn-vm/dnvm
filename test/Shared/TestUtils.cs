@@ -1,5 +1,6 @@
 
 using System.Runtime.CompilerServices;
+using Semver;
 
 namespace Dnvm.Test;
 
@@ -35,4 +36,30 @@ public static class TestUtils
         });
 
     public static string RemoveWhitespace(this string input) => input.Replace("\r", "").Replace("\n", "").Replace(" ", "");
+
+    public static ChannelReleaseIndex.Release CreateRelease(string prefixString, SemVersion universalVersion)
+    {
+        var rid = Utilities.CurrentRID.ToString();
+        var file = new ChannelReleaseIndex.File()
+        {
+            Name = $"dotnet-sdk-{rid}{Utilities.ZipSuffix}",
+            Rid = rid,
+            Url = $"{prefixString}sdk/{universalVersion}/dotnet-sdk-{rid}{Utilities.ZipSuffix}",
+            Hash = ""
+        };
+        var component = new ChannelReleaseIndex.Component
+        {
+            Version = universalVersion,
+            Files = [ file ]
+        };
+        return new()
+        {
+            ReleaseVersion = universalVersion,
+            Runtime = component,
+            Sdk = component,
+            Sdks = [component],
+            AspNetCore = component,
+            WindowsDesktop = component,
+        };
+    }
 }

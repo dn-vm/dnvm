@@ -1,5 +1,6 @@
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Net.Http;
@@ -107,24 +108,6 @@ public partial record ChannelReleaseIndex
     [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]
     public partial record Release()
     {
-        public static Release Create(SemVersion universalVersion)
-        {
-            var component = new Component
-            {
-                Version = universalVersion,
-                Files = []
-            };
-            return new()
-            {
-                ReleaseVersion = universalVersion,
-                Runtime = component,
-                Sdk = component,
-                Sdks = [component],
-                AspNetCore = component,
-                WindowsDesktop = component,
-            };
-        }
-
         [SerdeWrap(typeof(SemVersionSerdeWrap))]
         public required SemVersion ReleaseVersion { get; init; }
         public required Component Runtime { get; init; }
