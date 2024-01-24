@@ -32,6 +32,7 @@ public sealed class Assets
         var exePath = Path.Combine(tempDir.Path, Utilities.DotnetExeName);
         MakeFakeExe(exePath, ArchiveToken);
 
+        File.WriteAllText(Path.Combine(tempDir.Path, "test.txt"), "test text");
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "sdk", sdkVersion.ToString()));
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "shared", "Microsoft.NETCore.App", runtimeVersion.ToString()));
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "host", "fxr", runtimeVersion.ToString()));

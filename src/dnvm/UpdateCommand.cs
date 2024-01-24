@@ -50,7 +50,8 @@ public sealed partial class UpdateCommand
         Success,
         CouldntFetchIndex,
         NotASingleFile,
-        SelfUpdateFailed
+        SelfUpdateFailed,
+        UpdateFailed
     }
 
     public async Task<Result> Run()
@@ -100,79 +101,91 @@ public sealed partial class UpdateCommand
         {
             logger.Log("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
         }
-        var updateResults = FindPotentialUpdates(manifest, releasesIndex);
-        if (updateResults.Count > 0)
+
+        try
         {
-            logger.Log("Found versions available for update");
-            var table = new Table();
-            table.AddColumn("Channel");
-            table.AddColumn("Installed");
-            table.AddColumn("Available");
-            foreach (var (c, newestInstalled, newestAvailable, _) in updateResults)
+            var updateResults = FindPotentialUpdates(manifest, releasesIndex);
+            if (updateResults.Count > 0)
             {
-                table.AddRow(c.ToString(), newestInstalled?.ToString() ?? "(none)", newestAvailable.LatestSdk);
-            }
-            logger.Console.Write(table);
-            logger.Log("Install updates? [y/N]: ");
-            var response = yes ? "y" : Console.ReadLine();
-            if (response?.Trim().ToLowerInvariant() == "y")
-            {
-                // Find releases
-                var releasesToInstall = new HashSet<(ChannelReleaseIndex.Release, SdkDirName)>();
-                foreach (var (c, _, newestAvailable, sdkDir) in updateResults)
+                logger.Log("Found versions available for update");
+                var table = new Table();
+                table.AddColumn("Channel");
+                table.AddColumn("Installed");
+                table.AddColumn("Available");
+                foreach (var (c, newestInstalled, newestAvailable, _) in updateResults)
                 {
-                    var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
-
-                    var releases = JsonSerializer.Deserialize<ChannelReleaseIndex>(
-                        await Program.HttpClient.GetStringAsync(newestAvailable.ChannelReleaseIndexUrl)).Releases;
-                    var release = releases.Single(r => r.Sdk.Version == latestSdkVersion);
-                    releasesToInstall.Add((release, sdkDir));
+                    table.AddRow(c.ToString(), newestInstalled?.ToString() ?? "(none)", newestAvailable.LatestSdk);
                 }
-
-                // Install releases
-                foreach (var (release, sdkDir) in releasesToInstall)
+                logger.Console.Write(table);
+                logger.Log("Install updates? [y/N]: ");
+                var response = yes ? "y" : Console.ReadLine();
+                if (response?.Trim().ToLowerInvariant() == "y")
                 {
-                    var latestSdkVersion = release.Sdk.Version;
-                    _ = await TrackCommand.InstallSdkVersionFromChannel(
-                        dnvmFs,
-                        logger,
-                        latestSdkVersion,
-                        Utilities.CurrentRID,
-                        feedUrl,
-                        manifest,
-                        sdkDir);
-
-                    logger.Info($"Adding installed version '{latestSdkVersion}' to manifest.");
-                    manifest = manifest with
+                    // Find releases
+                    var releasesToInstall = new HashSet<(ChannelReleaseIndex.Release, SdkDirName)>();
+                    foreach (var (c, _, newestAvailable, sdkDir) in updateResults)
                     {
-                        InstalledSdks = manifest.InstalledSdks.Add(new InstalledSdk
+                        var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
+
+                        var releases = JsonSerializer.Deserialize<ChannelReleaseIndex>(
+                            await Program.HttpClient.GetStringAsync(newestAvailable.ChannelReleaseIndexUrl)).Releases;
+                        var release = releases.Single(r => r.Sdk.Version == latestSdkVersion);
+                        releasesToInstall.Add((release, sdkDir));
+                    }
+
+                    // Install releases
+                    foreach (var (release, sdkDir) in releasesToInstall)
+                    {
+                        var latestSdkVersion = release.Sdk.Version;
+                        var result = await TrackCommand.InstallSdkVersionFromChannel(
+                            dnvmFs,
+                            logger,
+                            latestSdkVersion,
+                            Utilities.CurrentRID,
+                            feedUrl,
+                            manifest,
+                            sdkDir);
+
+                        if (result != TrackCommand.Result.Success)
                         {
-                            ReleaseVersion = release.ReleaseVersion,
-                            SdkVersion = latestSdkVersion,
-                            RuntimeVersion = release.Runtime.Version,
-                            AspNetVersion = release.AspNetCore.Version,
-                            SdkDirName = sdkDir,
-                        })
-                    };
-                }
+                            logger.Error($"Failed to install version '{latestSdkVersion}'");
+                            return Result.UpdateFailed;
+                        }
 
-                // Update manifest for tracked channels
-                foreach (var (c, _, newestAvailable, _) in updateResults)
-                {
-                    var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
+                        logger.Info($"Adding installed version '{latestSdkVersion}' to manifest.");
+                        manifest = manifest with
+                        {
+                            InstalledSdks = manifest.InstalledSdks.Add(new InstalledSdk
+                            {
+                                ReleaseVersion = release.ReleaseVersion,
+                                SdkVersion = latestSdkVersion,
+                                RuntimeVersion = release.Runtime.Version,
+                                AspNetVersion = release.AspNetCore.Version,
+                                SdkDirName = sdkDir,
+                            })
+                        };
+                    }
 
-                    var oldTracked = manifest.RegisteredChannels.Single(t => t.ChannelName == c);
-                    var newTracked = oldTracked with
+                    // Update manifest for tracked channels
+                    foreach (var (c, _, newestAvailable, _) in updateResults)
                     {
-                        InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
-                    };
-                    manifest = manifest with { RegisteredChannels = manifest.RegisteredChannels.Replace(oldTracked, newTracked) };
+                        var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
+
+                        var oldTracked = manifest.RegisteredChannels.Single(t => t.ChannelName == c);
+                        var newTracked = oldTracked with
+                        {
+                            InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
+                        };
+                        manifest = manifest with { RegisteredChannels = manifest.RegisteredChannels.Replace(oldTracked, newTracked) };
+                    }
                 }
             }
         }
-
-        logger.Info("Writing manifest");
-        dnvmFs.WriteManifest(manifest);
+        finally
+        {
+            logger.Info("Writing manifest");
+            dnvmFs.WriteManifest(manifest);
+        }
 
         logger.Log("Successfully installed");
         return Success;
