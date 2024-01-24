@@ -268,10 +268,7 @@ public static class Utilities
                 }
                 else
                 {
-                    if (fsItem.Path == tempExtractDir / DotnetExeName)
-                    {
-                        dnvmFs.Vfs.DeleteFile(dest / DotnetExeName);
-                    }
+                    dnvmFs.Vfs.DeleteFile(destPath);
                     tempFs.MoveFileCross(fsItem.Path, dnvmFs.Vfs, destPath);
                 }
             }
