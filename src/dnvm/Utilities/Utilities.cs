@@ -40,22 +40,23 @@ public readonly record struct DirectoryResource(
 public static class SpectreUtil
 {
     public static Task<string?> DownloadWithProgress(
-        this IAnsiConsole console,
+        this Logger logger,
         HttpClient client,
         string filePath,
         string url,
         string description,
         int? bufferSizeParam = null)
     {
+        var console = logger.Console;
         return console.Progress()
-            .AutoRefresh(false)
+            .AutoRefresh(true)
             .Columns(
                 new TaskDescriptionColumn(),
                 new ProgressBarColumn(),
                 new PercentageColumn())
             .StartAsync(async ctx =>
         {
-            using var archiveResponse = await client.GetAsync(url);
+            using var archiveResponse = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
             if (!archiveResponse.IsSuccessStatusCode)
             {
                 return await archiveResponse.Content.ReadAsStringAsync();
@@ -66,6 +67,14 @@ public static class SpectreUtil
                 throw new InvalidDataException("HTTP Content length is null");
             }
 
+            // Use 1/100 of the file size as the buffer size, up to 1 MB.
+            const int oneMb = 1024 * 1024;
+            var bufferSize = bufferSizeParam ?? (int)Math.Min(contentLength / 100, oneMb);
+            logger.Info($"Buffer size: {bufferSize} bytes");
+
+            var progressTask = ctx.AddTask(description, maxValue: contentLength);
+            console.MarkupLine($"Starting download (size: {contentLength / oneMb:0.00} MB)");
+
             using var tempArchiveFile = new FileStream(
                 filePath,
                 FileMode.CreateNew,
@@ -74,13 +83,8 @@ public static class SpectreUtil
                 64 * 1024, // 64kB
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-            // Use 1/100 of the file size as the buffer size, up to 1 MB.
-            const int oneMb = 1024 * 1024;
-            var bufferSize = bufferSizeParam ?? (int)Math.Min(contentLength / 100, oneMb);
-
             using var archiveHttpStream = await archiveResponse.Content.ReadAsStreamAsync();
             var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
-            var progressTask = ctx.AddTask(description, maxValue: contentLength);
 
             while (true)
             {
