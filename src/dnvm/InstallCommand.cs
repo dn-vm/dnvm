@@ -123,7 +123,7 @@ public static class InstallCommand
 
         logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
 
-        var downloadError = await logger.Console.DownloadWithProgress(
+        var downloadError = await logger.DownloadWithProgress(
             Program.HttpClient,
             archivePath,
             link,
