@@ -81,7 +81,7 @@ public sealed class MockServer : IAsyncDisposable
                 ChannelReleaseIndexUrl = GetChannelIndexUrl(majorMinor)
             })
         };
-        var newRelease = ChannelReleaseIndex.Release.Create(version);
+        var newRelease = TestUtils.CreateRelease(PrefixString, version);
         newRelease = newRelease with {
             Sdk = newRelease.Sdk with {
                 Files = [ new() {

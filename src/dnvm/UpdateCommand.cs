@@ -80,7 +80,6 @@ public sealed partial class UpdateCommand
             releaseIndex,
             manifest,
             _args.Yes,
-            _feedUrl,
             _releasesUrl,
             cancellationToken: default);
     }
@@ -91,7 +90,6 @@ public sealed partial class UpdateCommand
         DotnetReleasesIndex releasesIndex,
         Manifest manifest,
         bool yes,
-        string feedUrl,
         string releasesUrl,
         CancellationToken cancellationToken)
     {
@@ -137,33 +135,19 @@ public sealed partial class UpdateCommand
                     foreach (var (release, sdkDir) in releasesToInstall)
                     {
                         var latestSdkVersion = release.Sdk.Version;
-                        var result = await TrackCommand.InstallSdkVersionFromChannel(
+                        var result = await InstallCommand.InstallSdk(
                             dnvmFs,
-                            logger,
-                            latestSdkVersion,
-                            Utilities.CurrentRID,
-                            feedUrl,
                             manifest,
-                            sdkDir);
+                            release,
+                            sdkDir,
+                            logger);
 
-                        if (result != TrackCommand.Result.Success)
+                        if (result is not Result<Manifest, InstallCommand.InstallError>.Ok(var newManifest))
                         {
                             logger.Error($"Failed to install version '{latestSdkVersion}'");
-                            return Result.UpdateFailed;
+                            return UpdateFailed;
                         }
-
-                        logger.Info($"Adding installed version '{latestSdkVersion}' to manifest.");
-                        manifest = manifest with
-                        {
-                            InstalledSdks = manifest.InstalledSdks.Add(new InstalledSdk
-                            {
-                                ReleaseVersion = release.ReleaseVersion,
-                                SdkVersion = latestSdkVersion,
-                                RuntimeVersion = release.Runtime.Version,
-                                AspNetVersion = release.AspNetCore.Version,
-                                SdkDirName = sdkDir,
-                            })
-                        };
+                        manifest = newManifest;
                     }
 
                     // Update manifest for tracked channels

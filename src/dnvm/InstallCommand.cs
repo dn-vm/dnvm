@@ -75,7 +75,7 @@ public static class InstallCommand
             .Releases.Single(r => r.Sdk.Version == sdkVersion);
 
         var installError = await InstallSdk(env, manifest, release, sdkDir, logger);
-        if (installError is not null)
+        if (installError is not Result<Manifest, InstallError>.Ok)
         {
             return Result.InstallError;
         }
@@ -84,7 +84,7 @@ public static class InstallCommand
     }
 
     [Closed]
-    private enum InstallError
+    internal enum InstallError
     {
         DownloadFailed,
         ExtractFailed
@@ -94,7 +94,7 @@ public static class InstallCommand
     /// Install the given SDK inside the given directory, and update the manifest. Does not update the channel manifest.
     /// </summary>
     /// <exception cref="InvalidOperationException">Throws when manifest already contains the given SDK.</exception>
-    private static async Task<InstallError?> InstallSdk(
+    internal static async Task<Result<Manifest, InstallError>> InstallSdk(
         DnvmEnv env,
         Manifest manifest,
         ChannelReleaseIndex.Release release,
@@ -177,7 +177,7 @@ public static class InstallCommand
             env.WriteManifest(manifest);
         }
 
-        return null;
+        return manifest;
     }
 
 

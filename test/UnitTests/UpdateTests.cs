@@ -63,7 +63,6 @@ public sealed class UpdateTests
             releasesIndex,
             manifest,
             yes: false,
-            env.DotnetFeedUrl,
             env.DnvmReleasesUrl!,
             cancellationToken);
         Assert.Contains("dnvm is out of date", console.Output);
@@ -151,7 +150,7 @@ public sealed class UpdateTests
             mockServer.ChannelIndexMap.Clear();
             mockServer.ChannelIndexMap.Add(version.ToMajorMinor(), new()
             {
-                Releases = [ChannelReleaseIndex.Release.Create(version)]
+                Releases = [ TestUtils.CreateRelease(mockServer.PrefixString, version)]
             });
         }
     });

@@ -27,7 +27,7 @@ public sealed class TrackCommand
         UnknownChannel,
         InstallLocationNotWritable,
         NotASingleFile,
-        ExtractFailed,
+        InstallFailed,
         SelfInstallFailed,
         ManifestIOError,
         ManifestFileCorrupted,
@@ -159,27 +159,18 @@ public sealed class TrackCommand
         }
         else
         {
-            var installResult = await InstallSdkVersionFromChannel(
+            var installResult = await InstallCommand.InstallSdk(
                 dnvmFs,
-                logger,
-                latestSdkVersion,
-                rid,
-                feedUrl,
                 manifest,
-                sdkDir);
+                release,
+                sdkDir,
+                logger);
 
-            if (installResult != Result.Success)
+            if (installResult is not Result<Manifest, InstallCommand.InstallError>.Ok(var newManifest))
             {
-                return installResult;
+                return Result.InstallFailed;
             }
-
-            manifest = manifest with { InstalledSdks = manifest.InstalledSdks.Add(new InstalledSdk {
-                ReleaseVersion = release.ReleaseVersion,
-                RuntimeVersion = release.Runtime.Version,
-                AspNetVersion = release.AspNetCore.Version,
-                SdkVersion = latestSdkVersion,
-                SdkDirName = sdkDir,
-            }) };
+            manifest = newManifest;
         }
 
         // Even if the SDK was already installed, we'll add it to the list of tracked versions
@@ -208,74 +199,5 @@ public sealed class TrackCommand
         logger.Log("Successfully installed");
 
         return Result.Success;
-    }
-
-    public static async Task<Result> InstallSdkVersionFromChannel(
-        DnvmEnv dnvmFs,
-        Logger logger,
-        SemVersion latestVersion,
-        RID rid,
-        string feedUrl,
-        Manifest manifest,
-        SdkDirName sdkDirName)
-    {
-        var sdkInstallPath = UPath.Root / sdkDirName.Name;
-        var latestVersionString = latestVersion.ToString();
-        string archiveName = InstallCommand.ConstructArchiveName(latestVersionString, rid, Utilities.ZipSuffix);
-        using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
-        string archivePath = Path.Combine(tempDir.Path, archiveName);
-        logger.Info("Archive path: " + archivePath);
-
-        var link = ConstructDownloadLink(feedUrl, latestVersionString, archiveName);
-        logger.Info("Download link: " + link);
-
-        var result = JsonSerializer.Serialize(manifest);
-        logger.Info("Existing manifest: " + result);
-
-        logger.Log("Downloading dotnet SDK...");
-
-        using (var tempArchiveFile = File.Create(archivePath, 64 * 1024 /* 64kB */, FileOptions.WriteThrough))
-        using (var archiveResponse = await Program.HttpClient.GetAsync(link))
-        using (var archiveHttpStream = await archiveResponse.Content.ReadAsStreamAsync())
-        {
-            if (!archiveResponse.IsSuccessStatusCode)
-            {
-                logger.Error("Failed archive response");
-                logger.Error(await archiveResponse.Content.ReadAsStringAsync());
-            }
-            await archiveHttpStream.CopyToAsync(tempArchiveFile);
-            await tempArchiveFile.FlushAsync();
-        }
-        logger.Log($"Installing to {sdkInstallPath}");
-        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, dnvmFs, sdkInstallPath);
-        File.Delete(archivePath);
-        if (extractResult != null)
-        {
-            logger.Error("Extract failed: " + extractResult);
-            return Result.ExtractFailed;
-        }
-
-        var dotnetExePath = sdkInstallPath / Utilities.DotnetExeName;
-        if (!OperatingSystem.IsWindows())
-        {
-            logger.Info("chmoding downloaded host");
-            try
-            {
-                Utilities.ChmodExec(dnvmFs.Vfs, dotnetExePath);
-            }
-            catch (Exception e)
-            {
-                logger.Error("chmod failed: " + e.Message);
-                return Result.ExtractFailed;
-            }
-        }
-        InstallCommand.CreateSymlinkIfMissing(dnvmFs, sdkDirName);
-
-        return Result.Success;
-    }
-
-    static string ConstructDownloadLink(string feed, string latestVersion, string archiveName)
-    {
-        return $"{feed}/Sdk/{latestVersion}/{archiveName}";
     }
 }
