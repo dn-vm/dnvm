@@ -8,7 +8,7 @@ namespace Dnvm;
 /// Serializes as a string.
 /// </summary>
 internal readonly record struct SemVersionSerdeWrap(SemVersion Value)
-    : ISerialize, IDeserialize<SemVersion>, ISerializeWrap<SemVersion, SemVersionSerdeWrap>
+    : ISerialize, ISerialize<SemVersion>, IDeserialize<SemVersion>, ISerializeWrap<SemVersion, SemVersionSerdeWrap>
 {
     public static SemVersionSerdeWrap Create(SemVersion value) => new(value);
 
@@ -25,5 +25,10 @@ internal readonly record struct SemVersionSerdeWrap(SemVersion Value)
     public void Serialize(ISerializer serializer)
     {
         serializer.SerializeString(Value.ToString());
+    }
+
+    public void Serialize(SemVersion value, ISerializer serializer)
+    {
+        serializer.SerializeString(value.ToString());
     }
 }

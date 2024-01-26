@@ -59,12 +59,17 @@ public readonly struct EqArray<T>(ImmutableArray<T> value) : IReadOnlyCollection
 
 public static class EqArraySerdeWrap
 {
-    public readonly record struct SerializeImpl<T, TWrap>(EqArray<T> Value) : ISerialize
-        where TWrap : struct, ISerialize, ISerializeWrap<T, TWrap>
+    public readonly record struct SerializeImpl<T, TWrap>(EqArray<T> Value) : ISerialize, ISerialize<EqArray<T>>
+        where TWrap : struct, ISerialize, ISerialize<T>, ISerializeWrap<T, TWrap>
     {
         public void Serialize(ISerializer serializer)
         {
             EnumerableHelpers.SerializeSpan<T, TWrap>(typeof(EqArray<T>).Name, Value.Array.AsSpan(), serializer);
+        }
+
+        public void Serialize(EqArray<T> value, ISerializer serializer)
+        {
+            EnumerableHelpers.SerializeSpan<T, TWrap>(typeof(EqArray<T>).Name, value.Array.AsSpan(), serializer);
         }
     }
     public readonly record struct DeserializeImpl<T, TWrap> : IDeserialize<EqArray<T>>
