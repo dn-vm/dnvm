@@ -62,10 +62,10 @@ public abstract partial record Channel
     public sealed partial record Preview : Channel;
 }
 
-partial record Channel : ISerialize
+partial record Channel : ISerialize<Channel>, ISerialize
 {
     protected abstract void Serialize(ISerializer serializer);
-    void ISerialize.Serialize(ISerializer serializer) => Serialize(serializer);
+    void ISerialize<Channel>.Serialize(Channel channel, ISerializer serializer) => Serialize(serializer);
 
     partial record Versioned
     {
