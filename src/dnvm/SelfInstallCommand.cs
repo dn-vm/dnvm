@@ -21,7 +21,7 @@ public class SelfInstallCommand
     private readonly Logger _logger;
     // Place to install dnvm
     private readonly CommandArguments.SelfInstallArguments _installArgs;
-    private readonly string _feedUrl;
+    private readonly IEnumerable<string> _feedUrls;
 
     public SelfInstallCommand(DnvmEnv env, Logger logger, CommandArguments.SelfInstallArguments args)
     {
@@ -32,11 +32,9 @@ public class SelfInstallCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _installArgs.FeedUrl ?? env.DotnetFeedUrl;
-        if (_feedUrl[^1] == '/')
-        {
-            _feedUrl = _feedUrl[..^1];
-        }
+        _feedUrls = _installArgs.FeedUrl is null
+            ? _env.DotnetFeedUrls
+            : new[] { _installArgs.FeedUrl.TrimEnd('/') };
     }
 
     public static async Task<Result> Run(Logger logger, CommandArguments.SelfInstallArguments args)
@@ -164,7 +162,7 @@ public class SelfInstallCommand
             _logger,
             channel,
             _installArgs.Force,
-            _feedUrl,
+            _feedUrls,
             sdkDirName);
 
         if (result is not TrackCommand.Result.Success)

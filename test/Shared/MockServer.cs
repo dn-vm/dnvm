@@ -17,6 +17,7 @@ public sealed class MockServer : IAsyncDisposable
     private readonly TaskScope _scope;
     public int Port { get; }
     private volatile bool _disposing = false;
+    private readonly List<SemVersion> _dailyBuilds = new();
 
     public string PrefixString => $"http://localhost:{Port}/";
     public string DnvmReleasesUrl => PrefixString + "releases.json";
@@ -106,6 +107,11 @@ public sealed class MockServer : IAsyncDisposable
         return newRelease;
     }
 
+    public void RegisterDailyBuild(SemVersion version)
+    {
+        _dailyBuilds.Add(version);
+    }
+
     private async Task WaitForConnection()
     {
         while (_listener.IsListening)
@@ -139,7 +145,9 @@ public sealed class MockServer : IAsyncDisposable
     private Dictionary<string, Action<HttpListenerResponse>> UrlToHandler
     {
         get {
-            var routes = new Dictionary<string, Action<HttpListenerResponse>>()
+            var routes = new Dictionary<string, Action<HttpListenerResponse>>(
+                StringComparer.OrdinalIgnoreCase
+            )
             {
                 ["/release-metadata/releases-index.json"] = GetReleasesIndexJson,
                 ["/releases.json"] = GetReleasesJson,
@@ -156,34 +164,46 @@ public sealed class MockServer : IAsyncDisposable
                 var unversioned = $"/sdk/{sdkVersion}/dotnet-sdk-{CurrentRID}{ZipSuffix}";
                 routes[route] = routes[unversioned] = GetSdk(sdkVersion, sdkVersion, sdkVersion, sdkVersion);
             }
+            foreach (var v in _dailyBuilds)
+            {
+                var productCommit = MakeProductCommit(v);
+                routes[$"/sdk/{v}/productCommit-{CurrentRID}.json"] = WriteJson(productCommit);
+                var route = $"/sdk/{v}/dotnet-sdk-{v}-{CurrentRID}{ZipSuffix}";
+                var unversioned = $"/sdk/{v}/dotnet-sdk-{CurrentRID}{ZipSuffix}";
+                routes[route] = routes[unversioned] = GetSdk(v, v, v, v);
+            }
             return routes;
         }
     }
 
-    private void GetReleasesIndexJson(HttpListenerResponse response)
-    {
-        byte[] buffer= Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ReleasesIndexJson));
-        response.StatusCode = (int)HttpStatusCode.OK;
-        // Get a response stream and write the response to it.
-        response.ContentLength64 = buffer.Length;
-        var output = response.OutputStream;
-        output.Write(buffer, 0, buffer.Length);
-        // You must close the output stream.
-        output.Close();
-    }
+    private static string MakeProductCommit(SemVersion version) => $$"""
+{
+    "installer": { "version": "{{version}}" },
+    "sdk": { "version": "{{version}}" },
+    "runtime": { "version": "{{version}}" },
+    "aspnetcore": { "version": "{{version}}" },
+    "windowsdesktop": { "version": "{{version}}" }
+}
+""";
 
-    private Action<HttpListenerResponse> GetChannelIndexJson(ChannelReleaseIndex index)
+    private void GetReleasesIndexJson(HttpListenerResponse response) => WriteJson(JsonSerializer.Serialize(ReleasesIndexJson))(response);
+
+    private static Action<HttpListenerResponse> WriteJson(string json)
     {
-        var buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(index));
+        byte[] buffer = Encoding.UTF8.GetBytes(json);
         return (response) =>
         {
             response.StatusCode = (int)HttpStatusCode.OK;
+            // Get a response stream and write the response to it.
             response.ContentLength64 = buffer.Length;
             var output = response.OutputStream;
             output.Write(buffer, 0, buffer.Length);
+            // You must close the output stream.
             output.Close();
         };
     }
+
+    private Action<HttpListenerResponse> GetChannelIndexJson(ChannelReleaseIndex index) => WriteJson(JsonSerializer.Serialize(index));
 
     private static Action<HttpListenerResponse> GetSdk(
         SemVersion sdkVersion,
@@ -208,16 +228,7 @@ public sealed class MockServer : IAsyncDisposable
         response.OutputStream.Close();
     }
 
-    private void GetReleasesJson(HttpListenerResponse response)
-    {
-        byte[] buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(DnvmReleases));
-        // Get a response stream and write the response to it.
-        response.ContentLength64 = buffer.Length;
-        var output = response.OutputStream;
-        output.Write(buffer, 0, buffer.Length);
-        // You must close the output stream.
-        output.Close();
-    }
+    private void GetReleasesJson(HttpListenerResponse response) => WriteJson(JsonSerializer.Serialize(DnvmReleases))(response);
 
     public ValueTask DisposeAsync()
     {

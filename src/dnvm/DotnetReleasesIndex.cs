@@ -16,10 +16,24 @@ namespace Dnvm;
 public partial record DotnetReleasesIndex
 {
     public const string ReleasesUrlSuffix = "/release-metadata/releases-index.json";
-    public async static Task<DotnetReleasesIndex> FetchLatestIndex(string feed, string urlSuffix = ReleasesUrlSuffix)
+    public async static Task<DotnetReleasesIndex> FetchLatestIndex(IEnumerable<string> feeds, string urlSuffix = ReleasesUrlSuffix)
     {
-        var response = await Program.HttpClient.GetStringAsync(feed.TrimEnd('/') + urlSuffix);
-        return JsonSerializer.Deserialize<DotnetReleasesIndex>(response);
+        HttpResponseMessage? lastResponse = null;
+        foreach (var feed in feeds)
+        {
+            var adjustedUrl = feed.TrimEnd('/') + urlSuffix;
+            var response = await Program.HttpClient.GetAsync(adjustedUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                return JsonSerializer.Deserialize<DotnetReleasesIndex>(await response.Content.ReadAsStringAsync());
+            }
+            else
+            {
+                lastResponse = response;
+            }
+        }
+        lastResponse!.EnsureSuccessStatusCode();
+        throw ExceptionUtilities.Unreachable;
     }
 
     public ChannelIndex? GetChannelIndex(Channel c)
@@ -134,8 +148,8 @@ public partial record ChannelReleaseIndex
     public partial record File
     {
         public required string Name { get; init; }
-        public required string Rid { get; init; }
         public required string Url { get; init; }
-        public required string Hash { get; init; }
+        public required string Rid { get; init; }
+        public string? Hash { get; init; } = null;
     }
 }

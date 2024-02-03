@@ -21,7 +21,7 @@ public sealed class ManifestTests
     ]
 }
 """;
-        var parsed = await ManifestUtils.DeserializeNewOrOldManifest(manifest, env.DotnetFeedUrl);
+        var parsed = await ManifestUtils.DeserializeNewOrOldManifest(manifest, env.DotnetFeedUrls);
         Assert.Equal("dn", parsed!.CurrentSdkDir.Name);
     });
 
@@ -88,7 +88,7 @@ public sealed class ManifestTests
             ]
         });
 
-        var v5 = (await ManifestUtils.DeserializeNewOrOldManifest(manifest, env.DotnetFeedUrl))!;
+        var v5 = (await ManifestUtils.DeserializeNewOrOldManifest(manifest, env.DotnetFeedUrls))!;
         Assert.Equal(new Channel.Latest(), v5.RegisteredChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[0].SdkVersion)).ChannelName);
         Assert.Equal(new Channel.Preview(), v5.RegisteredChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[1].SdkVersion)).ChannelName);
     });

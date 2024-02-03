@@ -1,5 +1,8 @@
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,7 +19,10 @@ namespace Dnvm;
 public sealed class DnvmEnv : IDisposable
 {
     public const string ManifestFileName = "dnvmManifest.json";
-    public const string DefaultDotnetFeedUrl = "https://dotnetcli.azureedge.net/dotnet";
+    public static EqArray<string> DefaultDotnetFeedUrls => [
+        "https://dotnetcli.azureedge.net/dotnet",
+        "https://dotnetbuilds.azureedge.net/public"
+    ];
     public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
@@ -77,7 +83,7 @@ public sealed class DnvmEnv : IDisposable
     public SubFileSystem TempFs { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
-    public string DotnetFeedUrl { get; }
+    public IEnumerable<string> DotnetFeedUrls { get; }
     public string DnvmReleasesUrl { get; }
     public string UserHome { get; }
 
@@ -88,8 +94,8 @@ public sealed class DnvmEnv : IDisposable
         bool isPhysical,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
-        string dotnetFeedUrl = DnvmEnv.DefaultDotnetFeedUrl,
-        string releasesUrl = DnvmEnv.DefaultReleasesUrl)
+        IEnumerable<string>? dotnetFeedUrls = null,
+        string releasesUrl = DefaultReleasesUrl)
     {
         UserHome = userHome;
         Vfs = vfs;
@@ -103,7 +109,7 @@ public sealed class DnvmEnv : IDisposable
             owned: true);
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
-        DotnetFeedUrl = dotnetFeedUrl;
+        DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
         DnvmReleasesUrl = releasesUrl;
     }
 
@@ -114,7 +120,7 @@ public sealed class DnvmEnv : IDisposable
     public async Task<Manifest> ReadManifest()
     {
         var text = Vfs.ReadAllText(ManifestPath);
-        return await ManifestUtils.DeserializeNewOrOldManifest(text, DotnetFeedUrl);
+        return await ManifestUtils.DeserializeNewOrOldManifest(text, DotnetFeedUrls);
     }
 
     public void WriteManifest(Manifest manifest)

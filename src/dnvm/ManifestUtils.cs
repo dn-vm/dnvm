@@ -1,5 +1,7 @@
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -102,7 +104,7 @@ public static partial class ManifestUtils
     /// Either reads a manifest in the current format, or reads a
     /// manifest in the old format and converts it to the new format.
     /// </summary>
-    public static async Task<Manifest> DeserializeNewOrOldManifest(string manifestSrc, string releasesUrl)
+    public static async Task<Manifest> DeserializeNewOrOldManifest(string manifestSrc, IEnumerable<string> releasesUrls)
     {
         var version = JsonSerializer.Deserialize<ManifestVersionOnly>(manifestSrc).Version;
         // Handle versions that don't need the release index to convert
@@ -116,8 +118,9 @@ public static partial class ManifestUtils
         {
             return manifest;
         }
+
         // Retrieve release index and convert
-        var releasesIndex = await DotnetReleasesIndex.FetchLatestIndex(releasesUrl);
+        var releasesIndex = await DotnetReleasesIndex.FetchLatestIndex(releasesUrls);
         return version switch
         {
             // The first version didn't have a version field

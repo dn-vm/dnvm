@@ -20,7 +20,7 @@ public sealed class TestEnv : IDisposable
                 isPhysical: true,
                 getUserEnvVar: s => _envVars[s],
                 setUserEnvVar: (name, val) => _envVars[name] = val,
-                dotnetFeedUrl,
+                [ dotnetFeedUrl ],
                 releasesUrl);
     }
 
