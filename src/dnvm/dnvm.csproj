@@ -21,7 +21,7 @@
     </PackageReference>
     <PackageReference Include="Semver" Version="2.2.0" />
 
-    <PackageReference Include="Serde" Version="0.6.0-preview1" />
+    <PackageReference Include="Serde" Version="0.6.0-preview2" />
 
     <PackageReference Include="Spectre.Console" Version="0.46.0" />
     <PackageReference Include="StaticCs" Version="0.3.1" />
