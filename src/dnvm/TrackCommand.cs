@@ -142,7 +142,7 @@ public sealed class TrackCommand
         var latestChannelIndex = versionIndex.GetChannelIndex(channel);
         if (latestChannelIndex is null)
         {
-            logger.Error($"Could not channel '{channel}' in the dotnet releases index.");
+            logger.Error($"Could not find channel '{channel}' in the dotnet releases index.");
             return Result.UnknownChannel;
         }
         var latestSdkVersion = SemVersion.Parse(latestChannelIndex.LatestSdk, SemVersionStyles.Strict);
