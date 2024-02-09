@@ -6,8 +6,7 @@
     <Nullable>enable</Nullable>
     <InvariantGlobalization>true</InvariantGlobalization>
     <PublishAot>true</PublishAot>
-    <!-- Skip symbol stripping on osx. The symbols are so broken that dsymutil crashes. -->
-    <StripSymbols Condition="!$([MSBuild]::IsOsPlatform('OSX'))">true</StripSymbols>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,7 +20,7 @@
     </PackageReference>
     <PackageReference Include="Semver" Version="2.2.0" />
 
-    <PackageReference Include="Serde" Version="0.6.0-preview2" />
+    <PackageReference Include="Serde" Version="0.6.0-preview5" />
 
     <PackageReference Include="Spectre.Console" Version="0.46.0" />
     <PackageReference Include="StaticCs" Version="0.3.1" />

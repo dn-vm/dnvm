@@ -1,8 +1,11 @@
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Semver;
+using Serde;
 using Serde.Json;
 using Spectre.Console;
 using StaticCs;
@@ -10,7 +13,7 @@ using Zio;
 
 namespace Dnvm;
 
-public static class InstallCommand
+public static partial class InstallCommand
 {
     public enum Result
     {
@@ -54,7 +57,7 @@ public static class InstallCommand
         DotnetReleasesIndex versionIndex;
         try
         {
-            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(env.DotnetFeedUrl);
+            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(env.DotnetFeedUrls);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -63,16 +66,13 @@ public static class InstallCommand
             return Result.CouldntFetchReleaseIndex;
         }
 
-        var channelIndex = versionIndex.GetChannelIndex(channel);
-        if (channelIndex is null)
+        var release = await TryGetReleaseFromIndex(versionIndex, channel, sdkVersion) ??
+            await TryGetReleaseFromServer(env, sdkVersion);
+        if (release is null)
         {
-            logger.Error($"Channel '{channel}' not found in .NET releases index");
+            logger.Error($"SDK version '{sdkVersion}' could not be found in .NET releases index or server.");
             return Result.UnknownChannel;
         }
-
-        var release = JsonSerializer.Deserialize<ChannelReleaseIndex>(
-            await Program.HttpClient.GetStringAsync(channelIndex.ChannelReleaseIndexUrl))
-            .Releases.Single(r => r.Sdk.Version == sdkVersion);
 
         var installError = await InstallSdk(env, manifest, release, sdkDir, logger);
         if (installError is not Result<Manifest, InstallError>.Ok)
@@ -81,6 +81,99 @@ public static class InstallCommand
         }
 
         return Result.Success;
+    }
+
+    private static async Task<ChannelReleaseIndex.Release?> TryGetReleaseFromIndex(
+        DotnetReleasesIndex versionIndex,
+        Channel channel,
+        SemVersion sdkVersion)
+    {
+        if (versionIndex.GetChannelIndex(channel) is { } channelIndex)
+        {
+            return JsonSerializer.Deserialize<ChannelReleaseIndex>(
+                await Program.HttpClient.GetStringAsync(channelIndex.ChannelReleaseIndexUrl))
+                .Releases.SingleOrDefault(r => r.Sdk.Version == sdkVersion);
+        }
+
+        return null;
+    }
+
+    private static async Task<ChannelReleaseIndex.Release?> TryGetReleaseFromServer(
+        DnvmEnv env,
+        SemVersion sdkVersion)
+    {
+        foreach (var feedUrl in env.DotnetFeedUrls)
+        {
+            var downloadUrl = $"/Sdk/{sdkVersion}/productCommit-{Utilities.CurrentRID}.json";
+            try
+            {
+                var productCommitData = JsonSerializer.Deserialize<CommitData>(await Program.HttpClient.GetStringAsync(feedUrl.TrimEnd('/') + downloadUrl));
+                if (productCommitData.Installer.Version != sdkVersion)
+                {
+                    throw new InvalidOperationException("Fetched product commit data does not match requested SDK version");
+                }
+                var archiveName = ConstructArchiveName(versionString: sdkVersion.ToString(), Utilities.CurrentRID, Utilities.ZipSuffix);
+                var sdk = new ChannelReleaseIndex.Component
+                {
+                    Version = sdkVersion,
+                    Files = [ new ChannelReleaseIndex.File
+                    {
+                        Name = archiveName,
+                        Url = MakeSdkUrl(feedUrl, sdkVersion, archiveName),
+                        Rid = Utilities.CurrentRID.ToString(),
+                    }]
+                };
+
+                return new ChannelReleaseIndex.Release
+                {
+                    Sdk = sdk,
+                    AspNetCore = new ChannelReleaseIndex.Component
+                    {
+                        Version = productCommitData.Aspnetcore.Version,
+                        Files = []
+                    },
+                    Runtime = new()
+                    {
+                        Version = productCommitData.Runtime.Version,
+                        Files = []
+                    },
+                    ReleaseVersion = productCommitData.Runtime.Version,
+                    Sdks = [sdk],
+                    WindowsDesktop = new()
+                    {
+                        Version = productCommitData.Windowsdesktop.Version,
+                        Files = []
+                    },
+                };
+            }
+            catch
+            {
+                continue;
+            }
+        }
+        return null;
+    }
+
+    private static string MakeSdkUrl(string feedUrl, SemVersion version, string archiveName)
+    {
+        return feedUrl.TrimEnd('/') + $"/Sdk/{version}/{archiveName}";
+    }
+
+    [GenerateDeserialize]
+    private partial record CommitData
+    {
+        public required Component Installer { get; init; }
+        public required Component Sdk { get; init; }
+        public required Component Aspnetcore { get; init; }
+        public required Component Runtime { get; init; }
+        public required Component Windowsdesktop { get; init; }
+
+        [GenerateDeserialize]
+        public partial record Component
+        {
+            [SerdeMemberOptions(WrapperDeserialize = typeof(SemVersionSerdeWrap))]
+            public required SemVersion Version { get; init;  }
+        }
     }
 
     [Closed]
@@ -114,7 +207,7 @@ public static class InstallCommand
         string archivePath = Path.Combine(tempDir.Path, archiveName);
         logger.Info("Archive path: " + archivePath);
 
-        var downloadFile = release.Sdk.Files.Single(f => f.Name == archiveName);
+        var downloadFile = release.Sdk.Files.Single(f => f.Rid == ridString && f.Url.EndsWith(Utilities.ZipSuffix));
         var link = downloadFile.Url;
         logger.Info("Download link: " + link);
 

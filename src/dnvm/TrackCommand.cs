@@ -1,5 +1,7 @@
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -19,7 +21,7 @@ public sealed class TrackCommand
 
     private readonly Logger _logger;
     private readonly CommandArguments.TrackArguments _installArgs;
-    private readonly string _feedUrl;
+    private readonly IEnumerable<string> _feedUrls;
 
     public enum Result
     {
@@ -44,11 +46,9 @@ public sealed class TrackCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _installArgs.FeedUrl ?? env.DotnetFeedUrl;
-        if (_feedUrl[^1] == '/')
-        {
-            _feedUrl = _feedUrl[..^1];
-        }
+        _feedUrls = args.FeedUrl is not null
+            ? [ args.FeedUrl.TrimEnd('/') ]
+            : env.DotnetFeedUrls;
         // Use an explicit SdkDir if specified, otherwise, only the preview channel is isolated by
         // default.
         _sdkDir = args.SdkDir switch {
@@ -84,7 +84,7 @@ public sealed class TrackCommand
             _logger,
             _installArgs.Channel,
             _installArgs.Force,
-            _feedUrl,
+            _feedUrls,
             _sdkDir);
     }
 
@@ -93,7 +93,7 @@ public sealed class TrackCommand
         Logger logger,
         Channel channel,
         bool force,
-        string feedUrl,
+        IEnumerable<string> feedUrls,
         SdkDirName sdkDir)
     {
         Manifest manifest;
@@ -128,7 +128,7 @@ public sealed class TrackCommand
         DotnetReleasesIndex versionIndex;
         try
         {
-            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(feedUrl);
+            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(feedUrls);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

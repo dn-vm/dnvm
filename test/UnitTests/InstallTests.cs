@@ -1,4 +1,5 @@
 
+using Semver;
 using Spectre.Console.Testing;
 using Xunit;
 using Zio;
@@ -91,5 +92,24 @@ public sealed class InstallTests
         Assert.NotEqual(-1, index);
         index = console.Output.Substring(index + 1).IndexOf("Downloading SDK");
         Assert.NotEqual(-1, index);
+    });
+
+    [Fact]
+    public Task InstallReleaseFromServer() => RunWithServer(async (server, env) =>
+    {
+        var console = new TestConsole();
+        var logger = new Logger(console);
+        var previewVersion = SemVersion.Parse("192.192.192-preview", SemVersionStyles.Strict);
+        server.RegisterDailyBuild(previewVersion);
+        var options = new CommandArguments.InstallArguments()
+        {
+            SdkVersion = previewVersion
+        };
+        var installResult = await InstallCommand.Run(env, logger, options);
+        Assert.Equal(InstallCommand.Result.Success, installResult);
+
+        var manifest = await env.ReadManifest();
+        var expectedManifest = Manifest.Empty.AddSdk(previewVersion);
+        Assert.Equal(expectedManifest, manifest);
     });
 }

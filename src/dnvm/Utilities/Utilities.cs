@@ -10,6 +10,7 @@ using System.IO.Compression;
 using System.IO.Enumeration;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -17,6 +18,8 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
 using Semver;
+using Serde;
+using Serde.Json;
 using Spectre.Console;
 using StaticCs;
 using Zio;
@@ -106,6 +109,16 @@ public static class SpectreUtil
 
 public static class Utilities
 {
+    public static Dictionary<TKey, TValue> DeserializeDictionary<TKey, TKeyWrap, TValue, TValueWrap>(string json)
+        where TKey : notnull
+        where TKeyWrap : IDeserialize<TKey>
+        where TValueWrap : IDeserialize<TValue>
+    {
+        return JsonSerializer.Deserialize<
+            Dictionary<TKey, TValue>,
+            DictWrap.DeserializeImpl<TKey, TKeyWrap, TValue, TValueWrap>>(json);
+    }
+
     public static readonly string ZipSuffix = Environment.OSVersion.Platform == PlatformID.Win32NT ? ".zip" : ".tar.gz";
 
     [UnsupportedOSPlatform("windows")]

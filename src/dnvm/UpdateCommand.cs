@@ -20,7 +20,7 @@ public sealed partial class UpdateCommand
     private readonly DnvmEnv _env;
     private readonly Logger _logger;
     private readonly CommandArguments.UpdateArguments _args;
-    private readonly string _feedUrl;
+    private readonly IEnumerable<string> _feedUrls;
     private readonly string _releasesUrl;
 
     public UpdateCommand(DnvmEnv env, Logger logger, CommandArguments.UpdateArguments args)
@@ -31,11 +31,9 @@ public sealed partial class UpdateCommand
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrl = _args.FeedUrl ?? env.DotnetFeedUrl;
-        if (_feedUrl[^1] == '/')
-        {
-            _feedUrl = _feedUrl[..^1];
-        }
+        _feedUrls = _args.FeedUrl is not null
+            ? [ _args.FeedUrl.TrimEnd('/') ]
+            : env.DotnetFeedUrls;
         _releasesUrl = _args.DnvmReleasesUrl ?? env.DnvmReleasesUrl;
         _env = env;
     }
@@ -64,7 +62,7 @@ public sealed partial class UpdateCommand
         DotnetReleasesIndex releaseIndex;
         try
         {
-            releaseIndex = await DotnetReleasesIndex.FetchLatestIndex(_feedUrl);
+            releaseIndex = await DotnetReleasesIndex.FetchLatestIndex(_feedUrls);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
