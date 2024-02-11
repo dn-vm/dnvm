@@ -71,6 +71,8 @@ public partial record DotnetReleasesIndex
 [GenerateSerde]
 public partial record DotnetReleasesIndex
 {
+    public static readonly DotnetReleasesIndex Empty = new() { Releases = [ ] };
+
     [SerdeMemberOptions(Rename = "releases-index")]
     public required ImmutableArray<ChannelIndex> Releases { get; init; }
 

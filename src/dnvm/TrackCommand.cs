@@ -89,7 +89,7 @@ public sealed class TrackCommand
     }
 
     internal static async Task<Result> InstallLatestFromChannel(
-        DnvmEnv dnvmFs,
+        DnvmEnv dnvmEnv,
         Logger logger,
         Channel channel,
         bool force,
@@ -99,7 +99,7 @@ public sealed class TrackCommand
         Manifest manifest;
         try
         {
-            manifest = await ManifestUtils.ReadOrCreateManifest(dnvmFs);
+            manifest = await ManifestUtils.ReadOrCreateManifest(dnvmEnv);
         }
         catch (InvalidDataException)
         {
@@ -114,7 +114,7 @@ public sealed class TrackCommand
 
         if (manifest.TrackedChannels().Any(c => c.ChannelName == channel))
         {
-            logger.Log($"Channel '{channel}' is already being tracked." +
+            logger.Log($"Channel '{channel.GetDisplayName()}' is already being tracked." +
                 " Did you mean to run 'dnvm update'?");
             return Result.ChannelAlreadyTracked;
         }
@@ -142,9 +142,30 @@ public sealed class TrackCommand
         var latestChannelIndex = versionIndex.GetChannelIndex(channel);
         if (latestChannelIndex is null)
         {
-            logger.Error($"Could not find channel '{channel}' in the dotnet releases index.");
-            return Result.UnknownChannel;
+            // If the channel index is missing there are two possibilities:
+            //   1. The channel is not supported by the index
+            //   2. The channel is supported but there are currently no builds available
+            // We want to provide a helpful error message about the first case, but let the second
+            // case go through without attempting to install anything.
+            if (channel is Channel.Versioned)
+            {
+                logger.Error($"Could not find channel '{channel}' in the dotnet releases index.");
+                return Result.UnknownChannel;
+            }
+            else
+            {
+                logger.Log($"""
+No builds available for channel '{channel}'. This often happens for preview channels when the first
+preview has not yet been released.
+Proceeding without SDK installation.
+""");
+                dnvmEnv.WriteManifest(manifest);
+                return Result.Success;
+            }
         }
+
+        // Proceed with SDK installation
+
         var latestSdkVersion = SemVersion.Parse(latestChannelIndex.LatestSdk, SemVersionStyles.Strict);
         logger.Log("Found latest version: " + latestSdkVersion);
 
@@ -160,7 +181,7 @@ public sealed class TrackCommand
         else
         {
             var installResult = await InstallCommand.InstallSdk(
-                dnvmFs,
+                dnvmEnv,
                 manifest,
                 release,
                 sdkDir,
@@ -194,7 +215,7 @@ public sealed class TrackCommand
         }
 
         logger.Info("Writing manifest");
-        dnvmFs.WriteManifest(manifest);
+        dnvmEnv.WriteManifest(manifest);
 
         logger.Log("Successfully installed");
 

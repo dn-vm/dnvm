@@ -1,4 +1,5 @@
 
+using System.Globalization;
 using Semver;
 using Serde;
 using StaticCs;
@@ -14,23 +15,6 @@ public static class Channels
         Channel.Sts => "The latest version in Short-Term support",
         Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
         Channel.Preview => "The latest preview version",
-    };
-
-    public static string GetLowerName(this Channel c) => c switch
-    {
-        Channel.Versioned v => v.ToString(),
-        Channel.Lts => "lts",
-        Channel.Sts => "sts",
-        Channel.Latest => "latest",
-        Channel.Preview => "preview",
-    };
-    public static string GetDisplayName(this Channel c) => c switch
-    {
-        Channel.Versioned v => v.ToString(),
-        Channel.Lts => "LTS",
-        Channel.Sts => "STS",
-        Channel.Latest => "Latest",
-        Channel.Preview => "Preview",
     };
 }
 
@@ -64,35 +48,31 @@ public abstract partial record Channel
 
 partial record Channel : ISerialize<Channel>, ISerialize
 {
-    protected abstract void Serialize(ISerializer serializer);
-    void ISerialize<Channel>.Serialize(Channel channel, ISerializer serializer) => Serialize(serializer);
+    public abstract string GetDisplayName();
+    public sealed override string ToString() => GetDisplayName();
+    public string GetLowerName() => GetDisplayName().ToLowerInvariant();
+    void ISerialize<Channel>.Serialize(Channel channel, ISerializer serializer)
+        => serializer.SerializeString(GetLowerName());
 
     partial record Versioned
     {
-        public override string ToString() => $"{Major}.{Minor}";
-
-        protected override void Serialize(ISerializer serializer)
-            => serializer.SerializeString(this.ToString());
+        public override string GetDisplayName() => $"{Major}.{Minor}";
     }
     partial record Lts : Channel
     {
-        protected override void Serialize(ISerializer serializer)
-            => serializer.SerializeString("lts");
+        public override string GetDisplayName() => "LTS";
     }
     partial record Sts : Channel
     {
-        protected override void Serialize(ISerializer serializer)
-            => serializer.SerializeString("sts");
+        public override string GetDisplayName() => "STS";
     }
     partial record Latest : Channel
     {
-        protected override void Serialize(ISerializer serializer)
-            => serializer.SerializeString("latest");
+        public override string GetDisplayName() => "Latest";
     }
     partial record Preview : Channel
     {
-        protected override void Serialize(ISerializer serializer)
-            => serializer.SerializeString("preview");
+        public override string GetDisplayName() => "Preview";
     }
 }
 

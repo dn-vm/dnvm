@@ -10,7 +10,13 @@ namespace Dnvm.Test;
 
 public sealed class TrackTests
 {
-    private readonly Logger _logger = new Logger(new TestConsole());
+    private readonly TestConsole _console = new();
+    private readonly Logger _logger;
+
+    public TrackTests()
+    {
+        _logger = new Logger(_console);
+    }
 
     [Fact]
     public Task LtsInstall() => RunWithServer(async (server, env) =>
@@ -191,6 +197,26 @@ public sealed class TrackTests
             SdkDirName = DnvmEnv.DefaultSdkDirName,
             InstalledSdkVersions = [ MockServer.DefaultLtsVersion],
             Untracked = false
+        }], manifest.RegisteredChannels);
+    });
+
+    [Fact]
+    public Task TrackNoBuilds() => RunWithServer(async (mockServer, env) =>
+    {
+        mockServer.ReleasesIndexJson = DotnetReleasesIndex.Empty;
+        mockServer.ChannelIndexMap.Clear();
+        mockServer.RegisterReleaseVersion(MockServer.DefaultLtsVersion, "lts", "active");
+        var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        {
+            Channel = new Channel.Preview()
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+        Assert.Contains("Proceeding without SDK installation", _console.Output);
+        var manifest = await env.ReadManifest();
+        Assert.Equal([ new RegisteredChannel {
+            ChannelName = new Channel.Preview(),
+            SdkDirName = DnvmEnv.DefaultSdkDirName,
+            InstalledSdkVersions = [ ]
         }], manifest.RegisteredChannels);
     });
 }
