@@ -12,6 +12,7 @@ namespace Dnvm.Test;
 public sealed class MockServer : IAsyncDisposable
 {
     public static readonly SemVersion DefaultLtsVersion = new SemVersion(42, 42, 42);
+    public static readonly SemVersion DefaultPreviewVersion = SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict);
 
     private readonly HttpListener _listener;
     private readonly TaskScope _scope;
@@ -52,7 +53,7 @@ public sealed class MockServer : IAsyncDisposable
             }
         }
         RegisterReleaseVersion(DefaultLtsVersion, "lts", "active");
-        RegisterReleaseVersion(SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict), "sts", "preview");
+        RegisterReleaseVersion(DefaultPreviewVersion, "sts", "preview");
         DnvmReleases = new()
         {
             LatestVersion = new()

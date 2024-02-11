@@ -18,7 +18,7 @@ public sealed class UpdateTests
         Yes = true,
     };
 
-    public UpdateTests(ITestOutputHelper output)
+    public UpdateTests()
     {
         _logger = new Logger(new TestConsole());
     }
@@ -297,5 +297,56 @@ public sealed class UpdateTests
                 InstalledSdkVersions = [ oldSdkVersion, newSdkVersion ]
             }
         ], manifest.RegisteredChannels);
+    });
+
+    [Fact]
+    public async Task UpdateNoBuilds() => await TestUtils.RunWithServer(async (server, env) =>
+    {
+        server.ReleasesIndexJson = DotnetReleasesIndex.Empty;
+        server.ChannelIndexMap.Clear();
+        server.RegisterReleaseVersion(MockServer.DefaultLtsVersion, "lts", "active");
+        var trackResult = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        {
+            Channel = new Channel.Preview()
+        });
+        Assert.Equal(TrackCommand.Result.Success, trackResult);
+        var manifest = await env.ReadManifest();
+        Assert.Equal([ new RegisteredChannel {
+            ChannelName = new Channel.Preview(),
+            SdkDirName = DnvmEnv.DefaultSdkDirName,
+            InstalledSdkVersions = [ ]
+        }], manifest.RegisteredChannels);
+
+        var updateResult = await UpdateCommand.Run(env, _logger, updateArguments);
+        Assert.Equal(UpdateCommand.Result.Success, updateResult);
+    });
+
+    [Fact]
+    public async Task UpdateNoBuildsInstalled() => await TestUtils.RunWithServer(async (server, env) =>
+    {
+        server.ReleasesIndexJson = DotnetReleasesIndex.Empty;
+        server.ChannelIndexMap.Clear();
+        server.RegisterReleaseVersion(MockServer.DefaultLtsVersion, "lts", "active");
+        var trackResult = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        {
+            Channel = new Channel.Preview()
+        });
+        Assert.Equal(TrackCommand.Result.Success, trackResult);
+        var manifest = await env.ReadManifest();
+        Assert.Equal([ new RegisteredChannel {
+            ChannelName = new Channel.Preview(),
+            SdkDirName = DnvmEnv.DefaultSdkDirName,
+            InstalledSdkVersions = [ ]
+        }], manifest.RegisteredChannels);
+
+        server.RegisterReleaseVersion(MockServer.DefaultPreviewVersion, "sts", "preview");
+        var updateResult = await UpdateCommand.Run(env, _logger, updateArguments);
+        Assert.Equal(UpdateCommand.Result.Success, updateResult);
+        manifest = await env.ReadManifest();
+        Assert.Equal([ new RegisteredChannel {
+            ChannelName = new Channel.Preview(),
+            SdkDirName = DnvmEnv.DefaultSdkDirName,
+            InstalledSdkVersions = [ MockServer.DefaultPreviewVersion ]
+        }], manifest.RegisteredChannels);
     });
 }
