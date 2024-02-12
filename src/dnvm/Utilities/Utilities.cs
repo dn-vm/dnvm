@@ -297,6 +297,14 @@ public static class Utilities
         return null;
     }
 
+    public static T Unwrap<T>(this T? t, [CallerArgumentExpression(parameterName: nameof(t))] string? expr = null) where T : class
+    {
+        if (t is null)
+        {
+            throw new NullReferenceException("Unexpected null value in expression: " + (expr ?? "(null)"));
+        }
+        return t;
+    }
 }
 
 [Closed]

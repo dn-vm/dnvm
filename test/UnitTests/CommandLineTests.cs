@@ -56,4 +56,16 @@ public sealed class CommandLineTests
             "badversion"
         ]));
     }
+
+    [Fact]
+    public void TrackMixedCase()
+    {
+        var options = CommandLineArguments.Parse([
+            "track",
+            "lTs"
+        ]);
+        Assert.True(options.Command is CommandArguments.TrackArguments {
+            Channel: Channel.Lts
+        });
+    }
 }
