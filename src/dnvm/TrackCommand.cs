@@ -66,8 +66,6 @@ public sealed class TrackCommand
     {
         var dnvmHome = _env.RealPath(UPath.Root);
         var sdkInstallPath = Path.Combine(dnvmHome, _sdkDir.Name);
-        _logger.Info("Install Directory: " + dnvmHome);
-        _logger.Info("SDK install directory: " + sdkInstallPath);
         try
         {
             Directory.CreateDirectory(dnvmHome);
@@ -79,16 +77,48 @@ public sealed class TrackCommand
             return Result.InstallLocationNotWritable;
         }
 
+        Manifest manifest;
+        try
+        {
+            manifest = await ManifestUtils.ReadOrCreateManifest(_env);
+        }
+        catch (InvalidDataException)
+        {
+            _logger.Error("Manifest file corrupted");
+            return Result.ManifestFileCorrupted;
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _logger.Error("Error reading manifest file: " + e.Message);
+            return Result.ManifestIOError;
+        }
+
+        var channel = _installArgs.Channel;
+        if (manifest.TrackedChannels().Any(c => c.ChannelName == channel))
+        {
+            _logger.Log($"Channel '{channel.GetDisplayName()}' is already being tracked." +
+                " Did you mean to run 'dnvm update'?");
+            return Result.ChannelAlreadyTracked;
+        }
+
+        manifest = manifest.TrackChannel(new RegisteredChannel {
+            ChannelName = channel,
+            SdkDirName = _sdkDir,
+            InstalledSdkVersions = EqArray<SemVersion>.Empty
+        });
+
         return await InstallLatestFromChannel(
+            manifest,
             _env,
             _logger,
-            _installArgs.Channel,
+            channel,
             _installArgs.Force,
             _feedUrls,
             _sdkDir);
     }
 
     internal static async Task<Result> InstallLatestFromChannel(
+        Manifest manifest,
         DnvmEnv dnvmEnv,
         Logger logger,
         Channel channel,
@@ -96,35 +126,6 @@ public sealed class TrackCommand
         IEnumerable<string> feedUrls,
         SdkDirName sdkDir)
     {
-        Manifest manifest;
-        try
-        {
-            manifest = await ManifestUtils.ReadOrCreateManifest(dnvmEnv);
-        }
-        catch (InvalidDataException)
-        {
-            logger.Error("Manifest file corrupted");
-            return Result.ManifestFileCorrupted;
-        }
-        catch (Exception e) when (e is not OperationCanceledException)
-        {
-            logger.Error("Error reading manifest file: " + e.Message);
-            return Result.ManifestIOError;
-        }
-
-        if (manifest.TrackedChannels().Any(c => c.ChannelName == channel))
-        {
-            logger.Log($"Channel '{channel.GetDisplayName()}' is already being tracked." +
-                " Did you mean to run 'dnvm update'?");
-            return Result.ChannelAlreadyTracked;
-        }
-
-        manifest = manifest.TrackChannel(new RegisteredChannel {
-            ChannelName = channel,
-            SdkDirName = sdkDir,
-            InstalledSdkVersions = EqArray<SemVersion>.Empty
-        });
-
         DotnetReleasesIndex versionIndex;
         try
         {

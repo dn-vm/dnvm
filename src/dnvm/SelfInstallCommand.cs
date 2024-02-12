@@ -157,13 +157,14 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
 
-        var result = await TrackCommand.InstallLatestFromChannel(
-            _env,
-            _logger,
-            channel,
-            _installArgs.Force,
-            _feedUrls,
-            sdkDirName);
+        var result = await TrackCommand.Run(_env, _logger, new CommandArguments.TrackArguments() {
+            Channel = channel,
+            Force = _installArgs.Force,
+            Verbose = _installArgs.Verbose,
+            FeedUrl = _installArgs.FeedUrl,
+            SdkDir = sdkDirName.Name,
+            Yes = _installArgs.Yes
+        });
 
         if (result is not TrackCommand.Result.Success)
         {
