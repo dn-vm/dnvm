@@ -20,6 +20,7 @@ public sealed class DnvmEnv : IDisposable
 {
     public const string ManifestFileName = "dnvmManifest.json";
     public static EqArray<string> DefaultDotnetFeedUrls => [
+        "https://dotnetcli.blob.core.windows.net/dotnet",
         "https://dotnetcli.azureedge.net/dotnet",
         "https://dotnetbuilds.azureedge.net/public"
     ];
