@@ -75,15 +75,14 @@ public static class EqArraySerdeWrap
     public readonly record struct DeserializeImpl<T, TWrap> : IDeserialize<EqArray<T>>
         where TWrap : IDeserialize<T>
     {
-        static EqArray<T> IDeserialize<EqArray<T>>.Deserialize<D>(ref D deserializer)
+        static EqArray<T> IDeserialize<EqArray<T>>.Deserialize(IDeserializer deserializer)
         {
-            return deserializer.DeserializeEnumerable<
-                EqArray<T>,
-                Visitor>(new Visitor());
+            return deserializer.DeserializeEnumerable(Visitor.Instance);
         }
 
-        private struct Visitor : IDeserializeVisitor<EqArray<T>>
+        private sealed class Visitor : IDeserializeVisitor<EqArray<T>>
         {
+            public static readonly Visitor Instance = new();
             public string ExpectedTypeName => typeof(ImmutableArray<T>).ToString();
             EqArray<T> IDeserializeVisitor<EqArray<T>>.VisitEnumerable<D>(ref D d)
             {
