@@ -78,10 +78,9 @@ partial record Channel : ISerialize<Channel>, ISerialize
 
 partial record Channel : IDeserialize<Channel>
 {
-    public static Channel Deserialize<D>(ref D deserializer)
-        where D : IDeserializer
+    public static Channel Deserialize(IDeserializer deserializer)
     {
-        var str = StringWrap.Deserialize(ref deserializer);
+        var str = StringWrap.Deserialize(deserializer);
         switch (str)
         {
             case "lts": return new Lts();

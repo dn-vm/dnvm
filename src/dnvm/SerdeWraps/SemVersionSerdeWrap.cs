@@ -12,9 +12,9 @@ internal readonly record struct SemVersionSerdeWrap(SemVersion Value)
 {
     public static SemVersionSerdeWrap Create(SemVersion value) => new(value);
 
-    public static SemVersion Deserialize<D>(ref D deserializer) where D : IDeserializer
+    public static SemVersion Deserialize(IDeserializer deserializer)
     {
-        var str = StringWrap.Deserialize(ref deserializer);
+        var str = StringWrap.Deserialize(deserializer);
         if (SemVersion.TryParse(str, SemVersionStyles.Strict, out var version))
         {
             return version;

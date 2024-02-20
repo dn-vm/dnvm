@@ -37,9 +37,11 @@ public abstract record CommandArguments
         /// Answer yes to every question or use the defaults.
         /// </summary>
         public bool Yes { get; init; } = false;
+        public bool Prereqs { get; init; } = false;
         /// <summary>
         /// When specified, install the SDK into a separate directory with the given name,
-        /// translated to lower-case.
+        /// translated to lower-case. Preview releases are installed into a directory named 'preview'
+        /// by default.
         /// </summary>
         public string? SdkDir { get; init; } = null;
     }
@@ -126,7 +128,7 @@ public sealed record class CommandLineArguments(CommandArguments Command)
             var track = syntax.DefineCommand("track", ref commandName, "Start tracking a new channel");
             if (track.IsActive)
             {
-                Channel? channel = null;
+                Channel channel = new Channel.Latest();
                 bool verbose = default;
                 bool force = default;
                 bool yes = false;
@@ -139,14 +141,16 @@ public sealed record class CommandLineArguments(CommandArguments Command)
                 syntax.DefineOption("prereqs", ref prereqs, "Print prereqs for dotnet on Ubuntu");
                 syntax.DefineOption("feed-url", ref feedUrl, $"Set the feed URL to download the SDK from.");
                 syntax.DefineOption("s|sdkDir", ref sdkDir, "Track the channel in a separate directory with the given name.");
-                syntax.DefineParameter("channel", ref channel, ChannelParse, $"Track the channel specified.");
+                syntax.DefineParameter("channel", ref channel, ChannelParse,
+                    $"Track the channel specified. Defaults to '{channel.ToString().ToLowerInvariant()}'.");
 
                 command = new CommandArguments.TrackArguments
                 {
-                    Channel = channel.Unwrap(),
+                    Channel = channel,
                     Verbose = verbose,
                     Force = force,
                     Yes = yes,
+                    Prereqs = prereqs,
                     FeedUrl = feedUrl,
                     SdkDir = sdkDir,
                 };
@@ -307,7 +311,7 @@ public sealed record class CommandLineArguments(CommandArguments Command)
         var scalarDeserializer = new ScalarDeserializer(channel.ToLowerInvariant());
         try
         {
-            var result = Channel.Deserialize(ref scalarDeserializer);
+            var result = Channel.Deserialize(scalarDeserializer);
             return result;
         }
         catch (InvalidDeserializeValueException)
