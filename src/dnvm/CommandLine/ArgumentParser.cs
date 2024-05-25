@@ -110,6 +110,7 @@ namespace Internal.CommandLine
 
         public bool TryParseParameter<T>(string diagnosticName,
             Func<string, T> valueConverter,
+            bool isRequired,
             [MaybeNullWhen(false)] out T value)
         {
             foreach (var token in _tokens)
@@ -124,6 +125,12 @@ namespace Internal.CommandLine
                 return true;
             }
 
+            if (isRequired)
+            {
+                var message = string.Format(Strings.ParameterRequiresValueFmt, diagnosticName);
+                throw new ArgumentSyntaxException(message);
+            }
+            
             value = default;
             return false;
         }
@@ -131,11 +138,12 @@ namespace Internal.CommandLine
         public bool TryParseParameterList<T>(
             string diagnosticName,
             Func<string, T> valueConverter,
+            bool isRequired,
             [NotNullWhen(true)] out IReadOnlyList<T>? values)
         {
             var result = new List<T>();
 
-            while (TryParseParameter(diagnosticName, valueConverter, out T? value))
+            while (TryParseParameter(diagnosticName, valueConverter, isRequired, out T? value))
             {
                 result.Add(value);
             }
