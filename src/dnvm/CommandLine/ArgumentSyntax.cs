@@ -211,7 +211,7 @@ namespace Internal.CommandLine
             return optionList;
         }
 
-        public Argument<T> DefineParameter<T>(string name, T defaultValue, Func<string, T> valueConverter)
+        public Argument<T> DefineParameter<T>(string name, T defaultValue, Func<string, T> valueConverter, bool isRequired)
         {
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException(Strings.NameMissing, "name");
@@ -239,7 +239,7 @@ namespace Internal.CommandLine
 
             try
             {
-                if (Parser.TryParseParameter(parameter.GetDisplayName(), valueConverter, out T? value))
+                if (Parser.TryParseParameter(parameter.GetDisplayName(), valueConverter, isRequired, out T? value))
                     parameter.SetValue(value);
             }
             catch (ArgumentSyntaxException ex)
@@ -272,7 +272,7 @@ namespace Internal.CommandLine
 
             try
             {
-                if (Parser.TryParseParameterList(parameterList.GetDisplayName(), valueConverter, out IReadOnlyList<T>? values))
+                if (Parser.TryParseParameterList(parameterList.GetDisplayName(), valueConverter, false, out IReadOnlyList<T>? values))
                     parameterList.SetValue(values);
             }
             catch (ArgumentSyntaxException ex)

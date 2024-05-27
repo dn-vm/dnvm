@@ -16,6 +16,7 @@ internal static class Strings
     public static readonly string UnknownCommandFmt = "unknown command '{0}'";
     public static readonly string UnmatchedQuoteFmt = "Unmatched quote at position {0}.";
     public static readonly string OptionRequiresValueFmt = "option {0} requires a value";
+    public static readonly string ParameterRequiresValueFmt = "Parameter {0} requires a value";
     public static readonly string ParameterAlreadyDefinedFmt = "Parameter '{0}' is already defined.";
     public static readonly string CannotDefineMultipleParameterLists = "Cannot define multiple parameter lists.";
     public static readonly string ParametersCannotBeDefinedAfterLists = "Parameters cannot be defined after parameter lists.";

@@ -183,22 +183,22 @@ namespace Internal.CommandLine
 
         public Argument<string> DefineParameter(string name, string defaultValue)
         {
-            return DefineParameter(name, defaultValue, s_stringParser);
+            return DefineParameter(name, defaultValue, s_stringParser, false);
         }
 
         public Argument<bool> DefineParameter(string name, bool defaultValue)
         {
-            return DefineParameter(name, defaultValue, s_booleanParser);
+            return DefineParameter(name, defaultValue, s_booleanParser, false);
         }
 
         public Argument<int> DefineParameter(string name, int defaultValue)
         {
-            return DefineParameter(name, defaultValue, s_int32Parser);
+            return DefineParameter(name, defaultValue, s_int32Parser, false);
         }
 
         public Argument<T> DefineParameter<T>(string name, ref T value, Func<string, T> valueConverter, string help)
         {
-            var parameter = DefineParameter(name, value, valueConverter);
+            var parameter = DefineParameter(name, value, valueConverter, true);
             parameter.Help = help;
 
             value = parameter.Value;
