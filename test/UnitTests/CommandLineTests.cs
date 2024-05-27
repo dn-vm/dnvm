@@ -7,6 +7,14 @@ namespace Dnvm.Test;
 public sealed class CommandLineTests
 {
     [Fact]
+    public void TrackMissingChannel()
+    {
+        Assert.Throws<ArgumentSyntaxException>(() => CommandLineArguments.Parse(handleErrors: false, [
+            "track"
+        ]));
+    }
+
+    [Fact]
     public void TrackMajorMinor()
     {
         var options = CommandLineArguments.Parse([
