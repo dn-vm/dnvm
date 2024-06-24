@@ -128,7 +128,7 @@ public sealed class InstallTests
         {
             public static void Main()
             {
-                Console.ReadLine();
+                System.Console.ReadLine();
             }
         }
         """;

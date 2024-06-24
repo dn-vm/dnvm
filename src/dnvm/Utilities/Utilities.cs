@@ -282,6 +282,11 @@ public static class Utilities
             {
                 var relativePath = fsItem.Path.FullName[extractFullName.Length..].TrimStart('/');
                 var destPath = UPath.Combine(dest, relativePath);
+                if (destPath == dest / DotnetExeName && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    dnvmFs.Vfs.MoveFile(destPath, UPath.Root / (Path.GetRandomFileName() + "old" + ExeSuffix));
+                }
+
                 if (fsItem.IsDirectory)
                 {
                     dnvmFs.Vfs.CreateDirectory(destPath);
