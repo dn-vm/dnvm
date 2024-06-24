@@ -107,7 +107,7 @@ public sealed class DnvmEnv : IDisposable
         TempFs = new SubFileSystem(
             PhysicalFs,
             PhysicalFs.ConvertPathFromInternal(Path.GetTempPath()),
-            owned: true);
+            owned: false);
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
         DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
@@ -131,8 +131,5 @@ public sealed class DnvmEnv : IDisposable
     }
 
     public void Dispose()
-    {
-        Vfs.Dispose();
-        TempFs.Dispose();
-    }
+    { }
 }
