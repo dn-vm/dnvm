@@ -1,4 +1,6 @@
 
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Semver;
 using Spectre.Console.Testing;
 using Xunit;
@@ -111,5 +113,65 @@ public sealed class InstallTests
         var manifest = await env.ReadManifest();
         var expectedManifest = Manifest.Empty.AddSdk(previewVersion);
         Assert.Equal(expectedManifest, manifest);
+    });
+
+    [Fact]
+    public Task InstallWhileDotnetRunning() => RunWithServer(async (server, env) =>
+    {
+        Assert.True(env.IsPhysicalDnvmHome);
+        var sdkPath = env.RealPath(UPath.Root / DnvmEnv.DefaultSdkDirName.Name);
+        Directory.CreateDirectory(sdkPath);
+        var dotnetPath = Path.Combine(sdkPath, Utilities.DotnetExeName);
+        // Write a script that will run until stopped, to replicate a running dotnet process
+        var winSrc = """
+        class Program
+        {
+            public static void Main()
+            {
+                Console.ReadLine();
+            }
+        }
+        """;
+        var unixSrc = """
+        #!/bin/bash
+        read -r line
+        """;
+        Assets.MakeXplatExe(dotnetPath, unixSrc, winSrc);
+        var psi = new ProcessStartInfo
+        {
+            FileName = dotnetPath,
+            WorkingDirectory = sdkPath,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true
+        };
+        var proc = Process.Start(psi)!;
+        await Task.Delay(1000);
+        Assert.False(proc.HasExited);
+
+        try
+        {
+            var console = new TestConsole();
+            var logger = new Logger(console);
+            var previewVersion = SemVersion.Parse("192.192.192-preview", SemVersionStyles.Strict);
+            server.RegisterDailyBuild(previewVersion);
+            var options = new CommandArguments.InstallArguments()
+            {
+                SdkVersion = previewVersion
+            };
+            var installResult = await InstallCommand.Run(env, logger, options);
+            Assert.Equal(InstallCommand.Result.Success, installResult);
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(previewVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
+        finally
+        {
+            // Close out the running dotnet process
+            proc.StandardInput.WriteLine("stop");
+            await Task.Delay(1000);
+            Assert.True(proc.HasExited);
+        }
     });
 }

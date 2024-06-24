@@ -4,6 +4,7 @@ using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
@@ -270,18 +271,20 @@ public static class Utilities
         }
         try
         {
+            var extractFullName = tempExtractDir.FullName;
             // We want to copy over all the files from the extraction directory to the target directory,
             // with one exception. The top-level "dotnet" exe is always shared and if a dotnet process is
             // already running it may have locked this file. On Unix, we can work around this problem by
             // deleting (unlinking) the file, and then copying. On Windows, we can't delete an open file,
             // so we have to move the file, move the new file over the old file, and then delete the old
             // file.
-            foreach (var fsItem in tempFs.EnumerateItems(tempExtractDir, SearchOption.TopDirectoryOnly))
+            foreach (var fsItem in tempFs.EnumerateItems(tempExtractDir, SearchOption.AllDirectories))
             {
-                var destPath = dest / fsItem.GetName();
+                var relativePath = fsItem.Path.FullName[extractFullName.Length..].TrimStart('/');
+                var destPath = UPath.Combine(dest, relativePath);
                 if (fsItem.IsDirectory)
                 {
-                    tempFs.CopyDirectory(fsItem.Path, dnvmFs.Vfs, destPath, overwrite: true);
+                    dnvmFs.Vfs.CreateDirectory(destPath);
                 }
                 else
                 {
