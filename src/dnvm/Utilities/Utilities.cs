@@ -110,6 +110,28 @@ public static class SpectreUtil
 
 public static class Utilities
 {
+    /// <summary>
+    /// Do our best to replace the target file with the source file. If the target file is locked,
+    /// we will try to delete it and then copy the source file over. If the target file cannot be
+    /// deleted, we will try to move it to the same folder with an additional ".old" suffix.
+    /// </summary>
+    public static void ForceReplaceFile(IFileSystem srcFs, UPath src, IFileSystem destFs, UPath dest)
+    {
+        try
+        {
+            // Does not throw if the file does not exist
+            destFs.DeleteFile(dest);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            var destDir = dest.GetDirectory();
+            var destName = dest.GetName();
+            var destOld = destDir / (destName + ".old");
+            destFs.MoveFile(dest, destOld);
+        }
+        srcFs.MoveFileCross(src, destFs, dest);
+    }
+
     public static Dictionary<TKey, TValue> DeserializeDictionary<TKey, TKeyWrap, TValue, TValueWrap>(string json)
         where TKey : notnull
         where TKeyWrap : IDeserialize<TKey>
@@ -282,10 +304,6 @@ public static class Utilities
             {
                 var relativePath = fsItem.Path.FullName[extractFullName.Length..].TrimStart('/');
                 var destPath = UPath.Combine(dest, relativePath);
-                if (destPath == dest / DotnetExeName && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    dnvmFs.Vfs.MoveFile(destPath, UPath.Root / (Path.GetRandomFileName() + "old" + ExeSuffix));
-                }
 
                 if (fsItem.IsDirectory)
                 {
@@ -293,8 +311,7 @@ public static class Utilities
                 }
                 else
                 {
-                    dnvmFs.Vfs.DeleteFile(destPath);
-                    tempFs.MoveFileCross(fsItem.Path, dnvmFs.Vfs, destPath);
+                    ForceReplaceFile(tempFs, fsItem.Path, dnvmFs.Vfs, destPath);
                 }
             }
         }
