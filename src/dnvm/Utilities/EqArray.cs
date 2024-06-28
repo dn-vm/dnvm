@@ -77,36 +77,7 @@ public static class EqArraySerdeWrap
     {
         static EqArray<T> IDeserialize<EqArray<T>>.Deserialize(IDeserializer deserializer)
         {
-            return deserializer.DeserializeEnumerable(Visitor.Instance);
-        }
-
-        private sealed class Visitor : IDeserializeVisitor<EqArray<T>>
-        {
-            public static readonly Visitor Instance = new();
-            public string ExpectedTypeName => typeof(ImmutableArray<T>).ToString();
-            EqArray<T> IDeserializeVisitor<EqArray<T>>.VisitEnumerable<D>(ref D d)
-            {
-                ImmutableArray<T>.Builder builder;
-                if (d.SizeOpt is int size)
-                {
-                    builder = ImmutableArray.CreateBuilder<T>(size);
-                }
-                else
-                {
-                    size = -1; // Set initial size to unknown
-                    builder = ImmutableArray.CreateBuilder<T>();
-                }
-
-                while (d.TryGetNext<T, TWrap>(out T? next))
-                {
-                    builder.Add(next);
-                }
-                if (size >= 0 && builder.Count != size)
-                {
-                    throw new InvalidDeserializeValueException($"Expected {size} items, found {builder.Count}");
-                }
-                return new(builder.ToImmutable());
-            }
+            return ImmutableArrayWrap.DeserializeImpl<T, TWrap>.Deserialize(deserializer).ToEq();
         }
     }
 }
