@@ -13,7 +13,7 @@ public sealed class TestEnv : IDisposable
 
     public TestEnv(string dotnetFeedUrl, string releasesUrl)
     {
-        var physicalFs = new PhysicalFileSystem();
+        var physicalFs = DnvmEnv.PhysicalFs;
         DnvmEnv = new DnvmEnv(
                 userHome: _userHome.Path,
                 new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(_dnvmHome.Path)),

@@ -30,7 +30,7 @@ public sealed class Assets
 
         using var tempDir = TestUtils.CreateTempDirectory();
         var exePath = Path.Combine(tempDir.Path, Utilities.DotnetExeName);
-        MakeFakeExe(exePath, ArchiveToken);
+        MakeEchoExe(exePath, ArchiveToken);
 
         File.WriteAllText(Path.Combine(tempDir.Path, "test.txt"), "test text");
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "sdk", sdkVersion.ToString()));
@@ -47,17 +47,40 @@ public sealed class Assets
         return new MemoryStream(_archiveCache.GetOrAdd(runtimeVersion, archive));
     }
 
-    public static void MakeFakeExe(string destPath, string outputString)
+    /// <summary>
+    /// Produces an executable file that prints the given string to stdout.
+    /// </summary>
+    public static void MakeEchoExe(string destPath, string outputString)
+    {
+        var unixSource = $$"""
+#!/bin/bash
+echo '{{outputString}}'
+""";
+        var windowsSource = $$"""
+using System;
+class Program {
+    public static void Main() {
+        Console.WriteLine("{{outputString}}");
+    }
+}
+""";
+
+        MakeXplatExe(destPath, unixSource, windowsSource);
+    }
+
+    /// <summary>
+    /// Make an exe, either a shell script or a C# .NET desktop app.
+    /// </summary>
+    public static void MakeXplatExe(string destPath, string unixSource, string windowsSource)
     {
         switch (Environment.OSVersion.Platform)
         {
             case PlatformID.Unix:
             {
+                Debug.Assert(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows));
                 // On Unix we can use a shell script, which looks exactly like an exe
-                File.WriteAllText(destPath, $$"""
-#!/bin/bash
-echo '{{outputString}}'
-""");
+                File.WriteAllText(destPath, unixSource);
+                Utilities.ChmodExec(destPath);
                 break;
             }
             case PlatformID.Win32NT:
@@ -65,14 +88,7 @@ echo '{{outputString}}'
                 // On Windows we have to make a fake exe, since shell scripts can't have
                 // the '.exe' extension
                 var helloCs = Path.GetTempFileName();
-                File.WriteAllText(helloCs, $$"""
-using System;
-class Program {
-    public static void Main() {
-        Console.WriteLine("{{outputString}}");
-    }
-}
-""");
+                File.WriteAllText(helloCs, windowsSource);
                 var proc = Process.Start(new ProcessStartInfo {
                     FileName = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe",
                     Arguments = $"-out:\"{destPath}\" \"{helloCs}\"",
@@ -122,7 +138,7 @@ class Program {
         const string outputString = "Hello from dnvm test. This output must contain the string << usage: >>";
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmPath = Path.Combine(tmpDir.Path, Utilities.DnvmExeName);
-        MakeFakeExe(dnvmPath, outputString);
+        MakeEchoExe(dnvmPath, outputString);
         var archivePath = MakeZipOrTarball(tmpDir.Path, Path.Combine(ArtifactsTmpDir.FullName, "dnvm"));
         return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
     }

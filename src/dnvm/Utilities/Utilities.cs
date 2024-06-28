@@ -4,6 +4,7 @@ using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
@@ -109,6 +110,28 @@ public static class SpectreUtil
 
 public static class Utilities
 {
+    /// <summary>
+    /// Do our best to replace the target file with the source file. If the target file is locked,
+    /// we will try to delete it and then copy the source file over. If the target file cannot be
+    /// deleted, we will try to move it to the same folder with an additional ".old" suffix.
+    /// </summary>
+    public static void ForceReplaceFile(IFileSystem srcFs, UPath src, IFileSystem destFs, UPath dest)
+    {
+        try
+        {
+            // Does not throw if the file does not exist
+            destFs.DeleteFile(dest);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            var destDir = dest.GetDirectory();
+            var destName = dest.GetName();
+            var destOld = destDir / (destName + ".old");
+            destFs.MoveFile(dest, destOld);
+        }
+        srcFs.MoveFileCross(src, destFs, dest);
+    }
+
     public static Dictionary<TKey, TValue> DeserializeDictionary<TKey, TKeyWrap, TValue, TValueWrap>(string json)
         where TKey : notnull
         where TKeyWrap : IDeserialize<TKey>
@@ -270,23 +293,25 @@ public static class Utilities
         }
         try
         {
+            var extractFullName = tempExtractDir.FullName;
             // We want to copy over all the files from the extraction directory to the target directory,
             // with one exception. The top-level "dotnet" exe is always shared and if a dotnet process is
             // already running it may have locked this file. On Unix, we can work around this problem by
             // deleting (unlinking) the file, and then copying. On Windows, we can't delete an open file,
             // so we have to move the file, move the new file over the old file, and then delete the old
             // file.
-            foreach (var fsItem in tempFs.EnumerateItems(tempExtractDir, SearchOption.TopDirectoryOnly))
+            foreach (var fsItem in tempFs.EnumerateItems(tempExtractDir, SearchOption.AllDirectories))
             {
-                var destPath = dest / fsItem.GetName();
+                var relativePath = fsItem.Path.FullName[extractFullName.Length..].TrimStart('/');
+                var destPath = UPath.Combine(dest, relativePath);
+
                 if (fsItem.IsDirectory)
                 {
-                    tempFs.CopyDirectory(fsItem.Path, dnvmFs.Vfs, destPath, overwrite: true);
+                    dnvmFs.Vfs.CreateDirectory(destPath);
                 }
                 else
                 {
-                    dnvmFs.Vfs.DeleteFile(destPath);
-                    tempFs.MoveFileCross(fsItem.Path, dnvmFs.Vfs, destPath);
+                    ForceReplaceFile(tempFs, fsItem.Path, dnvmFs.Vfs, destPath);
                 }
             }
         }

@@ -269,12 +269,12 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         // Create a dest dnvm home that looks like a previous install
         const string helloString = "Hello from dnvm test";
         var prevDnvmPath = Path.Combine(dnvmHome.Path, Utilities.DnvmExeName);
-        Assets.MakeFakeExe(prevDnvmPath, helloString);
+        Assets.MakeEchoExe(prevDnvmPath, helloString);
         // Create a fake dotnet
         var sdkDir = Path.Combine(dnvmHome.Path, "dn");
         Directory.CreateDirectory(sdkDir);
         var fakeDotnet = Path.Combine(sdkDir, Utilities.DotnetExeName);
-        Assets.MakeFakeExe(fakeDotnet, "Hello from dotnet test");
+        Assets.MakeEchoExe(fakeDotnet, "Hello from dotnet test");
         _ = await ProcUtil.RunWithOutput("chmod", $"+x {fakeDotnet}");
 
         var startVer = Program.SemVer;

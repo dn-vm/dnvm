@@ -46,6 +46,8 @@ public sealed class DnvmEnv : IDisposable
     /// </summary>
     public static readonly SdkDirName DefaultSdkDirName = new("dn");
 
+    public static readonly PhysicalFileSystem PhysicalFs = new();
+
 
     /// <summary>
     /// Get the path to DNVM_HOME, which is the location of the dnvm manifest
@@ -69,10 +71,9 @@ public sealed class DnvmEnv : IDisposable
         Action<string, string> setUserEnvVar)
     {
         Directory.CreateDirectory(realPath);
-        var physicalFs = new PhysicalFileSystem();
         return new DnvmEnv(
             userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
-            new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(realPath)),
+            new SubFileSystem(PhysicalFs, PhysicalFs.ConvertPathFromInternal(realPath)),
             isPhysical: true,
             getUserEnvVar,
             setUserEnvVar);
@@ -103,11 +104,10 @@ public sealed class DnvmEnv : IDisposable
         IsPhysicalDnvmHome = isPhysical;
         // TempFs must be a physical file system because we pass the path to external
         // commands that will not be able to write to shared memory
-        var physical = new PhysicalFileSystem();
         TempFs = new SubFileSystem(
-            physical,
-            physical.ConvertPathFromInternal(Path.GetTempPath()),
-            owned: true);
+            PhysicalFs,
+            PhysicalFs.ConvertPathFromInternal(Path.GetTempPath()),
+            owned: false);
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
         DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
@@ -131,8 +131,5 @@ public sealed class DnvmEnv : IDisposable
     }
 
     public void Dispose()
-    {
-        Vfs.Dispose();
-        TempFs.Dispose();
-    }
+    { }
 }
