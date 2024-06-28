@@ -75,39 +75,9 @@ public static class EqArraySerdeWrap
     public readonly record struct DeserializeImpl<T, TWrap> : IDeserialize<EqArray<T>>
         where TWrap : IDeserialize<T>
     {
-        static EqArray<T> IDeserialize<EqArray<T>>.Deserialize<D>(ref D deserializer)
+        static EqArray<T> IDeserialize<EqArray<T>>.Deserialize(IDeserializer deserializer)
         {
-            return deserializer.DeserializeEnumerable<
-                EqArray<T>,
-                Visitor>(new Visitor());
-        }
-
-        private struct Visitor : IDeserializeVisitor<EqArray<T>>
-        {
-            public string ExpectedTypeName => typeof(ImmutableArray<T>).ToString();
-            EqArray<T> IDeserializeVisitor<EqArray<T>>.VisitEnumerable<D>(ref D d)
-            {
-                ImmutableArray<T>.Builder builder;
-                if (d.SizeOpt is int size)
-                {
-                    builder = ImmutableArray.CreateBuilder<T>(size);
-                }
-                else
-                {
-                    size = -1; // Set initial size to unknown
-                    builder = ImmutableArray.CreateBuilder<T>();
-                }
-
-                while (d.TryGetNext<T, TWrap>(out T? next))
-                {
-                    builder.Add(next);
-                }
-                if (size >= 0 && builder.Count != size)
-                {
-                    throw new InvalidDeserializeValueException($"Expected {size} items, found {builder.Count}");
-                }
-                return new(builder.ToImmutable());
-            }
+            return ImmutableArrayWrap.DeserializeImpl<T, TWrap>.Deserialize(deserializer).ToEq();
         }
     }
 }

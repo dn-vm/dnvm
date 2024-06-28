@@ -6,65 +6,65 @@ namespace Dnvm;
 
 public struct ScalarDeserializer(string s) : IDeserializer
 {
-    public T DeserializeAny<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeAny<T>(IDeserializeVisitor<T> v)
     {
         throw new NotImplementedException();
     }
 
-    public T DeserializeBool<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeBool<T>(IDeserializeVisitor<T> v)
         => v.VisitBool(bool.Parse(s));
 
-    public T DeserializeByte<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeByte<T>(IDeserializeVisitor<T> v)
         => v.VisitByte(byte.Parse(s));
 
-    public T DeserializeChar<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeChar<T>(IDeserializeVisitor<T> v)
         => v.VisitChar(char.Parse(s));
 
-    public T DeserializeDecimal<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeDecimal<T>(IDeserializeVisitor<T> v)
         => v.VisitDecimal(decimal.Parse(s));
 
-    public T DeserializeDictionary<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeDictionary<T>(IDeserializeVisitor<T> v)
         => throw new InvalidDeserializeValueException("Found dictionary, expected scalar");
 
-    public T DeserializeDouble<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeDouble<T>(IDeserializeVisitor<T> v)
         => v.VisitDouble(double.Parse(s));
 
-    public T DeserializeEnumerable<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeEnumerable<T>(IDeserializeVisitor<T> v)
         => throw new InvalidDeserializeValueException("Found enumerable, expected scalar");
 
-    public T DeserializeFloat<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeFloat<T>(IDeserializeVisitor<T> v)
         => v.VisitFloat(float.Parse(s));
 
-    public T DeserializeI16<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeI16<T>(IDeserializeVisitor<T> v)
         => v.VisitI16(short.Parse(s));
 
-    public T DeserializeI32<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeI32<T>(IDeserializeVisitor<T> v)
         => v.VisitI32(int.Parse(s));
 
-    public T DeserializeI64<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeI64<T>(IDeserializeVisitor<T> v)
         => v.VisitI64(long.Parse(s));
 
-    public T DeserializeIdentifier<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeIdentifier<T>(IDeserializeVisitor<T> v)
         => throw new InvalidDeserializeValueException("Found identifier, expected scalar");
 
-    public T DeserializeNullableRef<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeNullableRef<T>(IDeserializeVisitor<T> v)
         => throw new InvalidDeserializeValueException("Found nullable ref, expected scalar");
 
-    public T DeserializeSByte<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeSByte<T>(IDeserializeVisitor<T> v)
         => v.VisitSByte(sbyte.Parse(s));
 
-    public T DeserializeString<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeString<T>(IDeserializeVisitor<T> v)
         => v.VisitString(s);
 
-    public T DeserializeType<T, V>(string typeName, ReadOnlySpan<string> fieldNames, V v) where V : IDeserializeVisitor<T>
+    public T DeserializeType<T>(string typeName, ReadOnlySpan<string> fieldNames, IDeserializeVisitor<T> v)
         => throw new InvalidDeserializeValueException("Found type, expected scalar");
 
-    public T DeserializeU16<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeU16<T>(IDeserializeVisitor<T> v)
         => v.VisitU16(ushort.Parse(s));
 
-    public T DeserializeU32<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeU32<T>(IDeserializeVisitor<T> v)
         => v.VisitU32(uint.Parse(s));
 
-    public T DeserializeU64<T, V>(V v) where V : IDeserializeVisitor<T>
+    public T DeserializeU64<T>(IDeserializeVisitor<T> v)
         => v.VisitU64(ulong.Parse(s));
 }
