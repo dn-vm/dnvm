@@ -7,6 +7,27 @@ namespace Dnvm.Test;
 public sealed class CommandLineTests
 {
     [Fact]
+    public void List()
+    {
+        var options = CommandLineArguments.Parse([
+            "list"
+        ]);
+        Assert.True(options.Command is CommandArguments.ListArguments);
+    }
+
+    [Fact]
+    public void SelectWithDir()
+    {
+        var options = CommandLineArguments.Parse([
+            "select",
+            "preview"
+        ]);
+        Assert.True(options.Command is CommandArguments.SelectArguments {
+            SdkDirName: "preview"
+        });
+    }
+
+    [Fact]
     public void TrackMissingChannel()
     {
         Assert.Throws<ArgumentSyntaxException>(() => CommandLineArguments.Parse(handleErrors: false, [

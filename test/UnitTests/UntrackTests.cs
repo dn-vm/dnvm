@@ -41,7 +41,7 @@ public sealed class UntrackTests
         }
         else
         {
-            Assert.True(false, "Expected success");
+            Assert.Fail();
         }
     }
 

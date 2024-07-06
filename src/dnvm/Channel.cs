@@ -46,7 +46,7 @@ public abstract partial record Channel
     public sealed partial record Preview : Channel;
 }
 
-partial record Channel : ISerialize<Channel>, ISerialize
+partial record Channel : ISerialize<Channel>
 {
     public abstract string GetDisplayName();
     public sealed override string ToString() => GetDisplayName();

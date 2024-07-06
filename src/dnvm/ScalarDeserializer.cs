@@ -56,9 +56,6 @@ public struct ScalarDeserializer(string s) : IDeserializer
     public T DeserializeString<T>(IDeserializeVisitor<T> v)
         => v.VisitString(s);
 
-    public T DeserializeType<T>(string typeName, ReadOnlySpan<string> fieldNames, IDeserializeVisitor<T> v)
-        => throw new InvalidDeserializeValueException("Found type, expected scalar");
-
     public T DeserializeU16<T>(IDeserializeVisitor<T> v)
         => v.VisitU16(ushort.Parse(s));
 
@@ -67,4 +64,10 @@ public struct ScalarDeserializer(string s) : IDeserializer
 
     public T DeserializeU64<T>(IDeserializeVisitor<T> v)
         => v.VisitU64(ulong.Parse(s));
+
+    IDeserializeCollection IDeserializer.DeserializeCollection(TypeInfo typeInfo)
+        => throw new InvalidDeserializeValueException("Found enumerable, expected scalar");
+
+    IDeserializeType IDeserializer.DeserializeType(TypeInfo typeInfo)
+        => throw new InvalidDeserializeValueException("Found type, expected scalar");
 }
