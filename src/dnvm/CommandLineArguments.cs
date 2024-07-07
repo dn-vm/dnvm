@@ -1,15 +1,55 @@
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel.Design;
-using System.Diagnostics;
 using Internal.CommandLine;
 using Semver;
 using Serde;
+using Serde.CmdLine;
 using StaticCs;
 
 namespace Dnvm;
+
+[GenerateDeserialize]
+public partial record DnvmCommand
+{
+    [CommandParameter(0, "command")]
+    public required DnvmSubCommand SubCommand { get; init; }
+}
+
+[Closed]
+public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
+{
+    private DnvmSubCommand() { }
+
+    static DnvmSubCommand IDeserialize<DnvmSubCommand>.Deserialize(IDeserializer deserializer)
+    {
+        var commandName = StringWrap.Deserialize(deserializer);
+        DnvmSubCommand subCommand = commandName switch
+        {
+            "list" => DeserializeSubCommand<ListCommand>(deserializer),
+            "select" => DeserializeSubCommand<SelectCommand>(deserializer),
+            _ => throw new InvalidDeserializeValueException($"Unknown command: {commandName}")
+        };
+        return subCommand;
+    }
+
+    private static T DeserializeSubCommand<T>(IDeserializer deserializer)
+        where T : DnvmSubCommand, IDeserialize<T>
+    {
+        return T.Deserialize(deserializer);
+    }
+
+    [GenerateDeserialize]
+    public sealed partial record ListCommand : DnvmSubCommand;
+
+    [GenerateDeserialize]
+    public sealed partial record SelectCommand : DnvmSubCommand
+    {
+        [CommandParameter(0, "sdkDirName")]
+        public required string SdkDirName { get; init; }
+    }
+
+}
 
 [Closed]
 public abstract record CommandArguments
@@ -117,6 +157,20 @@ public sealed record class CommandLineArguments(CommandArguments Command)
 
     public static CommandLineArguments Parse(bool handleErrors, string[] args)
     {
+        try
+        {
+            var dnvmCmd = CmdLine.Parse<DnvmCommand>(args);
+            return dnvmCmd.SubCommand switch {
+                DnvmSubCommand.ListCommand => new CommandLineArguments(new CommandArguments.ListArguments()),
+                DnvmSubCommand.SelectCommand s => new CommandLineArguments(new CommandArguments.SelectArguments { SdkDirName = s.SdkDirName }),
+                _ => throw new NotImplementedException("Command not implemented yet")
+            };
+        }
+        catch
+        {
+            // Continue normal parsing
+        }
+
         CommandArguments? command = default;
 
         var argSyntax = ArgumentSyntax.Parse(args, syntax =>

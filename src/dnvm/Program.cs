@@ -5,6 +5,8 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Semver;
+using Serde;
+using Serde.CmdLine;
 using Spectre.Console;
 using Zio.FileSystems;
 using static System.Environment;
@@ -23,13 +25,13 @@ public static class Program
         console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.Sha);
         console.WriteLine();
         var logger = new Logger(console);
+
         var options = CommandLineArguments.Parse(args);
         // Self-install is special, since we don't know the DNVM_HOME yet.
         if (options.Command is CommandArguments.SelfInstallArguments selfInstallArgs)
         {
             return (int)await SelfInstallCommand.Run(logger, selfInstallArgs);
         }
-
         using var env = DnvmEnv.CreateDefault();
         return await Dnvm(env, logger, options);
     }

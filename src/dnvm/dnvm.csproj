@@ -11,25 +11,24 @@
 
   <ItemGroup>
     <EmbeddedResource Include="env.sh" />
-    <PackageReference Include="GitVersion.MSBuild" Version="5.10.3">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Semver" Version="2.2.0" />
-
-    <PackageReference Include="Serde" Version="0.6.0" />
-
-    <PackageReference Include="Spectre.Console" Version="0.46.0" />
-    <PackageReference Include="StaticCs" Version="0.3.1" />
-    <PackageReference Include="StaticCs.Collections" Version="1.0.1" />
-    <PackageReference Include="zio" Version="0.16.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <AdditionalFiles Include="BannedSymbols.txt" />
+    <PackageReference Include="GitVersion.MSBuild">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Semver" />
+
+    <PackageReference Include="Serde" />
+
+    <PackageReference Include="Spectre.Console" />
+    <PackageReference Include="StaticCs" />
+    <PackageReference Include="StaticCs.Collections" />
+    <PackageReference Include="zio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Serde.CmdLine\Serde.CmdLine.csproj" />
   </ItemGroup>
 
 </Project>
