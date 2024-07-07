@@ -159,7 +159,7 @@ public sealed record class CommandLineArguments(CommandArguments Command)
     {
         try
         {
-            var dnvmCmd = CmdLine.Parse<DnvmCommand>(args);
+            var dnvmCmd = CmdLine.ParseRaw<DnvmCommand>(args);
             return dnvmCmd.SubCommand switch {
                 DnvmSubCommand.ListCommand => new CommandLineArguments(new CommandArguments.ListArguments()),
                 DnvmSubCommand.SelectCommand s => new CommandLineArguments(new CommandArguments.SelectArguments { SdkDirName = s.SdkDirName }),

@@ -9,13 +9,14 @@ internal sealed class Deserializer(string[] args) : IDeserializer, IDeserializeT
     private int _argIndex = 0;
     private int _paramIndex = 0;
 
+    private string? _helpText;
+    public string HelpText => _helpText ?? throw new InvalidOperationException("Help text not constructed. This should never happen.");
+
+    public bool HelpRequested { get; private set; }
+
     IDeserializeType IDeserializer.DeserializeType(TypeInfo typeInfo)
     {
-        if (args.Contains("-h") || args.Contains("--help"))
-        {
-            throw new HelpRequestedException(BuildHelpText(typeInfo));
-        }
-
+        _helpText = BuildHelpText(typeInfo);
         return this;
     }
 
@@ -34,9 +35,9 @@ internal sealed class Deserializer(string[] args) : IDeserializer, IDeserializeT
                     // Consider nullable boolean fields as flag options.
 #pragma warning disable SerdeExperimentalFieldType
                     var optionName = typeInfo.GetFieldType(fieldIndex) == typeof(bool?)
+#pragma warning restore SerdeExperimentalFieldType
                         ? null
                         : $"<{typeInfo.GetStringSerializeName(fieldIndex)}>";
-#pragma warning restore SerdeExperimentalFieldType
                     options.Add((flagNames.Split('|'), optionName));
                 }
                 else if (attr is { AttributeType: { Name: nameof(CommandParameterAttribute) },
@@ -44,8 +45,8 @@ internal sealed class Deserializer(string[] args) : IDeserializer, IDeserializeT
                                NamedArguments: var namedArgs })
                 {
                     string? desc = null;
-                    if (namedArgs[0] is { MemberName: nameof(CommandParameterAttribute.Description),
-                                         TypedValue: { Value: string attrDesc } })
+                    if (namedArgs is [ { MemberName: nameof(CommandParameterAttribute.Description),
+                                         TypedValue: { Value: string attrDesc } } ])
                     {
                         desc = attrDesc;
                     }
@@ -79,6 +80,15 @@ Options:
             return IDeserializeType.EndOfType;
         }
         var arg = args[_argIndex];
+
+        if (arg is "-h" or "--help")
+        {
+            HelpRequested = true;
+            _argIndex++;
+            errorName = arg;
+            return IDeserializeType.IndexNotFound;
+        }
+
         for (int fieldIndex = 0; fieldIndex < typeInfo.FieldCount; fieldIndex++)
         {
             var attrs = typeInfo.GetCustomAttributeData(fieldIndex);
@@ -133,6 +143,13 @@ Options:
 
     T IDeserializer.DeserializeString<T>(IDeserializeVisitor<T> v) => v.VisitString(args[_argIndex++]);
 
+    T IDeserializer.DeserializeNullableRef<T>(IDeserializeVisitor<T> v)
+    {
+        // Treat all nullable values as just being optional. Since we got here we must have a value
+        // in hand.
+        return v.VisitNotNull(this);
+    }
+
     T IDeserializer.DeserializeAny<T>(IDeserializeVisitor<T> v) => throw new NotImplementedException();
 
     T IDeserializer.DeserializeChar<T>(IDeserializeVisitor<T> v) => throw new NotImplementedException();
@@ -160,13 +177,6 @@ Options:
     T IDeserializer.DeserializeDecimal<T>(IDeserializeVisitor<T> v) => throw new NotImplementedException();
 
     T IDeserializer.DeserializeIdentifier<T>(IDeserializeVisitor<T> v) => throw new NotImplementedException();
-
-    T IDeserializer.DeserializeNullableRef<T>(IDeserializeVisitor<T> v)
-    {
-        // Treat all nullable values as just being optional. Since we got here we must have a value
-        // in hand.
-        return v.VisitNotNull(this);
-    }
 
     IDeserializeCollection IDeserializer.DeserializeCollection(TypeInfo typeInfo) => throw new NotImplementedException();
 }
