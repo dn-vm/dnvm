@@ -1,4 +1,6 @@
-﻿using Spectre.Console.Testing;
+﻿using System;
+using System.Linq;
+using Spectre.Console.Testing;
 using Xunit;
 
 namespace Serde.CmdLine.Test;
@@ -38,7 +40,7 @@ Options:
     --hidden
 
 """;
-        Assert.Equal(text, testConsole.Output);
+        Assert.Equal(text.NormalizeLineEndings(), string.Join(Environment.NewLine, testConsole.Output));
     }
 
     [GenerateDeserialize]
