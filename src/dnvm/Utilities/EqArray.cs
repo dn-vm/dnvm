@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Serde;
 
@@ -59,14 +60,11 @@ public readonly struct EqArray<T>(ImmutableArray<T> value) : IReadOnlyCollection
 
 public static class EqArraySerdeWrap
 {
-    private readonly static TypeInfo s_typeInfo = TypeInfo.Create(
-        nameof(EqArray),
-        TypeInfo.TypeKind.Enumerable,
-        []);
-
+    private static readonly ISerdeInfo s_typeInfo = Serde.SerdeInfo.MakeEnumerable(nameof(EqArray));
     public readonly record struct SerializeImpl<T, TWrap>(EqArray<T> Value) : ISerialize<EqArray<T>>
         where TWrap : struct, ISerialize<T>
     {
+        public static ISerdeInfo SerdeInfo => s_typeInfo;
         public void Serialize(ISerializer serializer)
         {
             EnumerableHelpers.SerializeSpan<T, TWrap>(s_typeInfo, Value.Array.AsSpan(), serializer);
@@ -80,6 +78,7 @@ public static class EqArraySerdeWrap
     public readonly record struct DeserializeImpl<T, TWrap> : IDeserialize<EqArray<T>>
         where TWrap : IDeserialize<T>
     {
+        public static ISerdeInfo SerdeInfo => s_typeInfo;
         static EqArray<T> IDeserialize<EqArray<T>>.Deserialize(IDeserializer deserializer)
         {
             return ImmutableArrayWrap.DeserializeImpl<T, TWrap>.Deserialize(deserializer).ToEq();

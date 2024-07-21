@@ -1,5 +1,8 @@
 
+using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Reflection;
 using Semver;
 using Serde;
 using StaticCs;
@@ -51,6 +54,9 @@ partial record Channel : ISerialize<Channel>
     public abstract string GetDisplayName();
     public sealed override string ToString() => GetDisplayName();
     public string GetLowerName() => GetDisplayName().ToLowerInvariant();
+
+    static ISerdeInfo ISerdeInfoProvider.SerdeInfo { get; } = SerdeInfo.MakePrimitive(nameof(Channel));
+
     void ISerialize<Channel>.Serialize(Channel channel, ISerializer serializer)
         => serializer.SerializeString(GetLowerName());
 
@@ -79,8 +85,10 @@ partial record Channel : ISerialize<Channel>
 partial record Channel : IDeserialize<Channel>
 {
     public static Channel Deserialize(IDeserializer deserializer)
+        => FromString(StringWrap.Deserialize(deserializer));
+
+    public static Channel FromString(string str)
     {
-        var str = StringWrap.Deserialize(deserializer);
         switch (str)
         {
             case "lts": return new Lts();

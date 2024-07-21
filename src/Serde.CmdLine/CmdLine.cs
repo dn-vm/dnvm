@@ -15,7 +15,8 @@ public static class CmdLine
         var cmd =  T.Deserialize(deserializer);
         if (throwOnHelpRequested && deserializer.HelpRequested)
         {
-            throw new HelpRequestedException(deserializer.HelpText);
+            var helpText = Deserializer.GetHelpText(SerdeInfoProvider.GetInfo<T>());
+            throw new HelpRequestedException(helpText);
         }
         return cmd;
     }
@@ -45,14 +46,16 @@ public static class CmdLine
             cmd = T.Deserialize(deserializer);
             if (options.ThrowOnHelpRequested && deserializer.HelpRequested)
             {
-                console.Write(deserializer.HelpText);
+                var helpText = Deserializer.GetHelpText(SerdeInfoProvider.GetInfo<T>());
+                console.Write(helpText);
             }
             return true;
         }
         catch (InvalidDeserializeValueException e) when (options.HandleErrors)
         {
             console.WriteLine("error: " + e.Message);
-            console.Write(deserializer.HelpText);
+            var helpText = Deserializer.GetHelpText(SerdeInfoProvider.GetInfo<T>());
+            console.Write(helpText);
         }
         cmd = default!;
         return false;

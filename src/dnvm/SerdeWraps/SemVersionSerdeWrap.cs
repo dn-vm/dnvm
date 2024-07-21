@@ -7,9 +7,9 @@ namespace Dnvm;
 /// <summary>
 /// Serializes as a string.
 /// </summary>
-internal readonly record struct SemVersionSerdeWrap(SemVersion Value) : ISerialize<SemVersion>, IDeserialize<SemVersion>
+internal readonly record struct SemVersionSerdeWrap : ISerialize<SemVersion>, IDeserialize<SemVersion>
 {
-    public static SemVersionSerdeWrap Create(SemVersion value) => new(value);
+    public static ISerdeInfo SerdeInfo { get; } = Serde.SerdeInfo.MakePrimitive(nameof(SemVersion));
 
     public static SemVersion Deserialize(IDeserializer deserializer)
     {
@@ -19,11 +19,6 @@ internal readonly record struct SemVersionSerdeWrap(SemVersion Value) : ISeriali
             return version;
         }
         throw new InvalidDeserializeValueException($"Version string '{str}' is not a valid SemVersion.");
-    }
-
-    public void Serialize(ISerializer serializer)
-    {
-        serializer.SerializeString(Value.ToString());
     }
 
     public void Serialize(SemVersion value, ISerializer serializer)

@@ -1,5 +1,6 @@
 
-using Internal.CommandLine;
+using Serde;
+using Spectre.Console.Testing;
 using Xunit;
 
 namespace Dnvm.Test;
@@ -11,7 +12,7 @@ public sealed class CommandLineTests
     {
         var options = CommandLineArguments.Parse([
             "list"
-        ]);
+        ], useSerdeCmdLine: true);
         Assert.True(options.Command is CommandArguments.ListArguments);
     }
 
@@ -21,7 +22,7 @@ public sealed class CommandLineTests
         var options = CommandLineArguments.Parse([
             "select",
             "preview"
-        ]);
+        ], useSerdeCmdLine: true);
         Assert.True(options.Command is CommandArguments.SelectArguments {
             SdkDirName: "preview"
         });
@@ -30,9 +31,9 @@ public sealed class CommandLineTests
     [Fact]
     public void TrackMissingChannel()
     {
-        Assert.Throws<ArgumentSyntaxException>(() => CommandLineArguments.Parse(handleErrors: false, [
+        Assert.Throws<InvalidDeserializeValueException>(() => CommandLineArguments.Parse(new TestConsole(), handleErrors: false, [
             "track"
-        ]));
+        ], useSerdeCmdLine: true));
     }
 
     [Fact]
@@ -41,10 +42,27 @@ public sealed class CommandLineTests
         var options = CommandLineArguments.Parse([
             "track",
             "99.99"
-        ]);
+        ], useSerdeCmdLine: true);
         Assert.True(options.Command is CommandArguments.TrackArguments {
             Channel: Channel.Versioned { Major: 99, Minor: 99 }
         });
+    }
+
+    [Fact]
+    public void TrackBadChannel()
+    {
+        var ex = Assert.Throws<FormatException>(() => CommandLineArguments.Parse(new TestConsole(), handleErrors: false, [
+            "track",
+            "badversion"
+        ], useSerdeCmdLine: true));
+        var tab = "\t";
+        Assert.Equal($"""
+Channel must be one of:
+{tab}- Latest
+{tab}- Preview
+{tab}- LTS
+{tab}- STS
+""", ex.Message);
     }
 
     [Fact]
@@ -52,8 +70,8 @@ public sealed class CommandLineTests
     {
         var options = CommandLineArguments.Parse([
             "install",
-            MockServer.DefaultLtsVersion.ToString()
-        ]);
+            MockServer.DefaultLtsVersion.ToString(),
+        ], useSerdeCmdLine: true);
         Assert.True(options.Command is CommandArguments.InstallArguments {
             SdkVersion: var sdkVersion
         } && sdkVersion == MockServer.DefaultLtsVersion);
@@ -80,10 +98,10 @@ public sealed class CommandLineTests
     [Fact]
     public void InstallBadVersion()
     {
-        Assert.Throws<ArgumentSyntaxException>(() => CommandLineArguments.Parse(handleErrors: false, [
+        Assert.Throws<InvalidDeserializeValueException>(() => CommandLineArguments.Parse(new TestConsole(), handleErrors: false, [
             "install",
             "badversion"
-        ]));
+        ], useSerdeCmdLine: true));
     }
 
     [Fact]
@@ -92,9 +110,29 @@ public sealed class CommandLineTests
         var options = CommandLineArguments.Parse([
             "track",
             "lTs"
-        ]);
+        ], useSerdeCmdLine: true);
         Assert.True(options.Command is CommandArguments.TrackArguments {
             Channel: Channel.Lts
         });
+    }
+
+    [Theory]
+    [InlineData("-h")]
+    [InlineData("--help")]
+    public void RunHelp(string param)
+    {
+        var console = new TestConsole();
+        Assert.Throws<Serde.CmdLine.HelpRequestedException>(() => CommandLineArguments.Parse(console, handleErrors: false, [ param ], useSerdeCmdLine: true));
+        Assert.Equal("""
+Usage: dnvm <command>
+
+Install and manage .NET SDKs.
+
+Commands:
+    list  List installed SDKs
+    select  Select the active SDK directory
+    install  Install an SDK
+
+""".NormalizeLineEndings(), console.Output);
     }
 }
