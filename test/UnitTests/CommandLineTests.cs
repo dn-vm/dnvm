@@ -122,16 +122,20 @@ Channel must be one of:
     public void RunHelp(string param)
     {
         var console = new TestConsole();
-        Assert.Throws<Serde.CmdLine.HelpRequestedException>(() => CommandLineArguments.Parse(console, handleErrors: false, [ param ], useSerdeCmdLine: true));
+        Assert.Throws<Serde.CmdLine.ArgumentSyntaxException>(() => CommandLineArguments.Parse(console, handleErrors: false, [ param ], useSerdeCmdLine: true));
         Assert.Equal("""
-Usage: dnvm <command>
+Usage: dnvm [-h | --help] <command>
 
 Install and manage .NET SDKs.
+
+Options:
+    -h, --help
 
 Commands:
     list  List installed SDKs
     select  Select the active SDK directory
     install  Install an SDK
+
 
 """.NormalizeLineEndings(), console.Output);
     }

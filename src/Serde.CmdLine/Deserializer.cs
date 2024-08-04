@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Serde.CmdLine;
 
@@ -9,152 +7,9 @@ internal sealed class Deserializer(string[] args) : IDeserializer, IDeserializeT
     private int _argIndex = 0;
     private int _paramIndex = 0;
 
-    public bool HelpRequested { get; private set; }
-
     IDeserializeType IDeserializer.DeserializeType(ISerdeInfo typeInfo)
     {
         return this;
-    }
-
-    public static string GetHelpText(ISerdeInfo serdeInfo)
-    {
-        var args = new List<(string Name, string? Description)>();
-        var options = new List<(string[] Patterns, string? Name)>();
-        string? commandsName = null;
-        var commands = new List<(string Name, string? Description)>();
-        for (int fieldIndex = 0; fieldIndex < serdeInfo.FieldCount; fieldIndex++)
-        {
-            var attrs = serdeInfo.GetFieldAttributes(fieldIndex);
-            foreach (var attr in attrs)
-            {
-                if (attr is { AttributeType: { Name: nameof(CommandOptionAttribute) },
-                              ConstructorArguments: [ { Value: string flagNames } ] })
-                {
-                    // Consider nullable boolean fields as flag options.
-#pragma warning disable SerdeExperimentalFieldInfo
-                    var optionName = serdeInfo.GetFieldInfo(fieldIndex).Name == "bool?"
-#pragma warning restore SerdeExperimentalFieldInfo
-                        ? null
-                        : $"<{serdeInfo.GetFieldStringName(fieldIndex)}>";
-                    options.Add((flagNames.Split('|'), optionName));
-                }
-                else if (attr is { AttributeType: { Name: nameof(CommandParameterAttribute) },
-                               ConstructorArguments: [ { Value: int paramIndex }, { Value: string paramName } ],
-                               NamedArguments: var namedArgs })
-                {
-                    string? desc = null;
-                    if (namedArgs is [ { MemberName: nameof(CommandParameterAttribute.Description),
-                                         TypedValue: { Value: string attrDesc } } ])
-                    {
-                        desc = attrDesc;
-                    }
-                    args.Add(($"<{paramName}>", desc));
-                }
-                else if (attr is { AttributeType: { Name: nameof(CommandAttribute) },
-                                   ConstructorArguments: [ { Value: string commandName }]
-                                 })
-                {
-                    commandsName ??= commandName;
-#pragma warning disable SerdeExperimentalFieldInfo
-                    var info = serdeInfo.GetFieldInfo(fieldIndex);
-#pragma warning restore SerdeExperimentalFieldInfo
-                    // The info should be either a nullable wrapper or a union. If it's a
-                    // nullable wrapper, unwrap it first.
-                    if (info.Kind != InfoKind.Union)
-                    {
-#pragma warning disable SerdeExperimentalFieldInfo
-                        info = info.GetFieldInfo(0);
-#pragma warning restore SerdeExperimentalFieldInfo
-                    }
-                    var unionInfo = (IUnionSerdeInfo)info;
-                    foreach (var unionField in unionInfo.CaseInfos)
-                    {
-                        var cmdName = unionField.Name;
-                        string? desc = null;
-                        foreach (var caseAttr in unionField.Attributes)
-                        {
-                            if (caseAttr is { AttributeType: { Name: nameof(CommandAttribute) },
-                                              ConstructorArguments: [ { Value: string caseCmdName } ],
-                                              NamedArguments: var namedCaseArgs })
-                            {
-                                cmdName = caseCmdName;
-                                if (namedCaseArgs is [ { MemberName: nameof(CommandAttribute.Description),
-                                                         TypedValue: { Value: string caseDesc } } ])
-                                {
-                                    desc = caseDesc;
-                                }
-                                break;
-                            }
-                        }
-                        commands.Add((cmdName, desc));
-                    }
-                }
-            }
-        }
-
-        const string Indent = "    ";
-
-        var commandsString = commands.Count == 0
-            ? ""
-            : $"""
-
-Commands:
-{Indent + string.Join(Environment.NewLine + Indent,
-    commands.Select(c => $"{c.Name}{c.Description?.Prepend("  ") ?? ""}"))}
-
-""";
-
-        var argsString = args.Count > 0
-            ? $"""
-
-Arguments:
-{Indent + string.Join(Environment.NewLine + Indent,
-    args.Select(a => $"{a.Name}{a.Description?.Prepend("  ") ?? ""}"))}
-
-"""
-            : "";
-
-        var optionsString = options.Count > 0
-            ? $"""
-
-Options:
-{Indent + string.Join(Environment.NewLine + Indent,
-    options.Select(o => $"{string.Join(", ", o.Patterns)}{o.Name?.Map(n => "  " + n) ?? "" }"))}
-
-"""
-            : "";
-
-        var optionsUsageShortString = options.Count > 0
-            ? " " + string.Join(" ",
-                options.Select(o => $"[{string.Join(" | ", o.Patterns)}{o.Name?.Map(n => " " + n) ?? "" }]"))
-            : "";
-
-        var topLevelName = serdeInfo.Name;
-        string topLevelDesc = "";
-        foreach (var attr in serdeInfo.Attributes)
-        {
-            if (attr is { AttributeType: { Name: nameof(CommandAttribute) },
-                          ConstructorArguments: [ { Value: string name } ],
-                          NamedArguments: var namedArgs })
-            {
-                topLevelName = name;
-                if (namedArgs is [ { MemberName: nameof(CommandAttribute.Description),
-                                    TypedValue: { Value: string desc } } ])
-                {
-                    topLevelDesc = Environment.NewLine + desc + Environment.NewLine;
-                }
-                break;
-            }
-        }
-
-        var argsShortString = args.Count > 0
-            ? " " + string.Join(" ", args.Select(a => a.Name))
-            : "";
-
-        return $"""
-Usage: {topLevelName}{optionsUsageShortString}{commandsName?.Map(n => $" <{n}>") ?? ""}{argsShortString}
-{topLevelDesc}{argsString}{optionsString}{commandsString}
-""";
     }
 
     int IDeserializeType.TryReadIndex(ISerdeInfo serdeInfo, out string? errorName)
@@ -165,14 +20,6 @@ Usage: {topLevelName}{optionsUsageShortString}{commandsName?.Map(n => $" <{n}>")
             return IDeserializeType.EndOfType;
         }
         var arg = args[_argIndex];
-
-        if (arg is "-h" or "--help")
-        {
-            HelpRequested = true;
-            _argIndex++;
-            errorName = arg;
-            return IDeserializeType.IndexNotFound;
-        }
 
         for (int fieldIndex = 0; fieldIndex < serdeInfo.FieldCount; fieldIndex++)
         {
@@ -211,7 +58,7 @@ Usage: {topLevelName}{optionsUsageShortString}{commandsName?.Map(n => $" <{n}>")
                 }
             }
         }
-        throw new InvalidDeserializeValueException($"Unexpected argument: '{arg}'");
+        throw new ArgumentSyntaxException($"Unexpected argument: '{arg}'");
     }
 
     V IDeserializeType.ReadValue<V, D>(int index)

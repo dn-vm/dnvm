@@ -27,21 +27,20 @@ public sealed partial class SubCommandTests
     [Fact]
     public void TopLevelHelp()
     {
-        string[] testArgs = [ "-h" ];
-        var testConsole = new TestConsole();
-        Assert.True(CmdLine.TryParse<TopCommand>(testArgs, testConsole, out _));
+        var help = CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<TopCommand>());
         var text = """
-Usage: TopCommand [-v | --verbose] <command>
+Usage: TopCommand [-v | --verbose] [-h | --help] <command>
 
 Options:
     -v, --verbose
+    -h, --help
 
 Commands:
     first
     second
 
 """;
-        Assert.Equal(text.NormalizeLineEndings(), testConsole.Output);
+        Assert.Equal(text.NormalizeLineEndings(), help.NormalizeLineEndings());
     }
 
     [GenerateDeserialize]
@@ -49,6 +48,9 @@ Commands:
     {
         [CommandOption("-v|--verbose")]
         public bool? Verbose { get; init; }
+
+        [CommandOption("-h|--help")]
+        public bool? Help { get; init; }
 
         [Command("command")]
         public SubCommand? SubCommand { get; init; }
@@ -73,7 +75,7 @@ Commands:
             {
                 "first" => new FirstCommand(),
                 "second" => new SecondCommand(),
-                _ => throw new InvalidDeserializeValueException($"Unknown subcommand '{subCmd}'.")
+                _ => throw new ArgumentSyntaxException($"Unknown subcommand '{subCmd}'.")
             };
         }
 

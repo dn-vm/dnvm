@@ -14,6 +14,9 @@ namespace Dnvm;
 [Command("dnvm", Description = "Install and manage .NET SDKs.")]
 public partial record DnvmCommand
 {
+    [CommandOption("-h|--help", Description = "Show help information.")]
+    public bool? Help { get; init; }
+
     [Command("command")]
     public DnvmSubCommand? Command { get; init; }
 }
@@ -336,6 +339,14 @@ public sealed record class CommandLineArguments(CommandArguments Command)
         try
         {
             var dnvmCmd = CmdLine.ParseRaw<DnvmCommand>(args);
+            if (dnvmCmd.Help == true)
+            {
+                console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<DnvmCommand>()));
+                if (useSerdeCmdLine)
+                {
+                    throw new Serde.CmdLine.ArgumentSyntaxException("Help requested");
+                }
+            }
             return dnvmCmd.Command switch
             {
                 DnvmSubCommand.ListCommand => new CommandLineArguments(new CommandArguments.ListArguments()),
@@ -359,15 +370,6 @@ public sealed record class CommandLineArguments(CommandArguments Command)
                 }),
                 _ => throw new NotImplementedException("Command not implemented yet")
             };
-        }
-        catch (HelpRequestedException e)
-        {
-            // Unless we're forcing Serde.CmdLine, let the original parser handle help requests
-            if (useSerdeCmdLine)
-            {
-                console.Write(e.HelpText);
-                throw;
-            }
         }
         catch
         {
