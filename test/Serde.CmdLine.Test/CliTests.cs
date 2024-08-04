@@ -23,16 +23,12 @@ public sealed partial class DeserializerTests
         Assert.Equal(new FileSizeCommand { SearchPath = "search-path", SearchPattern = null, IncludeHidden = null }, cmd);
     }
 
-    [Theory]
-    [InlineData("-h")]
-    [InlineData("--help")]
-    public void TestHelp(string arg)
+    [Fact]
+    public void TestHelp()
     {
-        string[] args = [ arg ];
-        var testConsole = new TestConsole();
-        Assert.True(CmdLine.TryParse<FileSizeCommand>(args, testConsole, out _));
+        var help = CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<FileSizeCommand>());
         var text = """
-Usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] <searchPath>
+Usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] [-h | --help] <searchPath>
 
 Arguments:
     <searchPath>  Path to search. Defaults to current directory.
@@ -40,9 +36,10 @@ Arguments:
 Options:
     -p, --pattern  <searchPattern>
     --hidden
+    -h, --help
 
 """;
-        Assert.Equal(text.NormalizeLineEndings(), string.Join(Environment.NewLine, testConsole.Output));
+        Assert.Equal(text.NormalizeLineEndings(), help.NormalizeLineEndings());
     }
 
     [Fact]
@@ -53,7 +50,8 @@ Options:
         Assert.False(CmdLine.TryParse<FileSizeCommand>(args, testConsole, out _));
         var text = """
 error: Unexpected argument: '--bad-option'
-Usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] <searchPath>
+Usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] [-h | --help]
+<searchPath>
 
 Arguments:
     <searchPath>  Path to search. Defaults to current directory.
@@ -61,9 +59,11 @@ Arguments:
 Options:
     -p, --pattern  <searchPattern>
     --hidden
+    -h, --help
+
 
 """;
-        Assert.Equal(text.NormalizeLineEndings(), string.Join(Environment.NewLine, testConsole.Output));
+        Assert.Equal(text.NormalizeLineEndings(), testConsole.Output);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ Options:
     {
         string[] args = [ "--bad-option" ];
         var testConsole = new TestConsole();
-        var ex = Assert.Throws<InvalidDeserializeValueException>(() => CmdLine.ParseRaw<FileSizeCommand>(args));
+        var ex = Assert.Throws<ArgumentSyntaxException>(() => CmdLine.ParseRaw<FileSizeCommand>(args));
         Assert.False(CmdLine.TryParse<FileSizeCommand>(args, testConsole, out _));
         Assert.Contains(ex.Message.NormalizeLineEndings(), testConsole.Output);
     }
@@ -88,6 +88,9 @@ Options:
 
         [CommandOption("--hidden")]
         public bool? IncludeHidden { get; init; }
+
+        [CommandOption("-h|--help")]
+        public bool? Help { get; init; }
     }
 
     [Fact]
