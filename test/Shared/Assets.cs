@@ -135,7 +135,7 @@ class Program {
     public static FileStream MakeFakeDnvmArchive()
     {
         // rather than use an actual copy of dnvm, we'll use an executable bash/powershell script
-        const string outputString = "Hello from dnvm test. This output must contain the string << usage: >>";
+        const string outputString = "Hello from dnvm test. This output must contain the string << Usage: >>";
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmPath = Path.Combine(tmpDir.Path, Utilities.DnvmExeName);
         MakeEchoExe(dnvmPath, outputString);
