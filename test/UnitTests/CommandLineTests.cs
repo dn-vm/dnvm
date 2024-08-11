@@ -163,7 +163,7 @@ Options:
     -h, --help  Show help information.
 
 
-""", console.Output);
+""".NormalizeLineEndings(), console.Output);
     }
 
     [Theory]
@@ -194,7 +194,7 @@ Options:
     -h, --help  Show help information.
 
 
-""", console.Output.TrimLines());
+""".NormalizeLineEndings(), console.Output.TrimLines());
     }
 
     [Theory]
@@ -223,7 +223,7 @@ given name.
     -h, --help  Show help information.
 
 
-""", console.Output.TrimLines());
+""".NormalizeLineEndings(), console.Output.TrimLines());
     }
 
     [Theory]
@@ -255,7 +255,7 @@ given name.
     -h, --help  Show help information.
 
 
-""", console.Output.TrimLines());
+""".NormalizeLineEndings(), console.Output.TrimLines());
     }
 
     [Theory]
@@ -283,7 +283,7 @@ Only intended to be called from dnvm.
     -h, --help  Show help information.
 
 
-""", console.Output.TrimLines());
+""".NormalizeLineEndings(), console.Output.TrimLines());
     }
 
     [Theory]
@@ -310,7 +310,7 @@ Options:
     -h, --help  Show help information.
 
 
-""", console.Output.TrimLines());
+""".NormalizeLineEndings(), console.Output.TrimLines());
     }
 
     [Theory]
@@ -335,7 +335,7 @@ Options:
     -h, --help  Show help information.
 
 
-""", console.Output.TrimLines());
+""".NormalizeLineEndings(), console.Output.TrimLines());
     }
 
     [Theory]
@@ -359,6 +359,6 @@ uninstall.
     -h, --help  Show help information.
 
 
-""", console.Output.TrimLines());
+""".NormalizeLineEndings(), console.Output.TrimLines());
     }
 }
