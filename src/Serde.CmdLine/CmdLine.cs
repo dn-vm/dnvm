@@ -14,9 +14,16 @@ public static class CmdLine
     public static T ParseRaw<T>(string[] args)
         where T : IDeserialize<T>
     {
-        var deserializer = new Deserializer(args);
-        var cmd =  T.Deserialize(deserializer);
-        return cmd;
+        try
+        {
+            var deserializer = new Deserializer(args);
+            var cmd = T.Deserialize(deserializer);
+            return cmd;
+        }
+        catch (InvalidDeserializeValueException e)
+        {
+            throw new ArgumentSyntaxException(e.Message, e);
+        }
     }
 
     /// <summary>
@@ -41,19 +48,20 @@ public static class CmdLine
         }
     }
 
-    public static string GetHelpText(ISerdeInfo serdeInfo)
+    public static string GetHelpText(ISerdeInfo serdeInfo, IEnumerable<ISerdeInfo>? parentCommandInfos = null)
     {
         var args = new List<(string Name, string? Description)>();
-        var options = new List<(string[] Patterns, string? Name)>();
+        var options = new List<(string[] Patterns, string? Name, string? Description)>();
         string? commandsName = null;
-        var commands = new List<(string Name, string? Description)>();
+        var commands = new List<(string Name, string? Summary, string? Description)>();
         for (int fieldIndex = 0; fieldIndex < serdeInfo.FieldCount; fieldIndex++)
         {
             var attrs = serdeInfo.GetFieldAttributes(fieldIndex);
             foreach (var attr in attrs)
             {
                 if (attr is { AttributeType: { Name: nameof(CommandOptionAttribute) },
-                              ConstructorArguments: [ { Value: string flagNames } ] })
+                              ConstructorArguments: [ { Value: string flagNames } ],
+                              NamedArguments: var namedArgs })
                 {
                     // Consider nullable boolean fields as flag options.
 #pragma warning disable SerdeExperimentalFieldInfo
@@ -61,14 +69,20 @@ public static class CmdLine
 #pragma warning restore SerdeExperimentalFieldInfo
                         ? null
                         : $"<{serdeInfo.GetFieldStringName(fieldIndex)}>";
-                    options.Add((flagNames.Split('|'), optionName));
+                    string? desc = null;
+                    if (namedArgs is [ { MemberName: nameof(CommandParameterAttribute.Description),
+                                         TypedValue: { Value: string attrDesc } } ])
+                    {
+                        desc = attrDesc;
+                    }
+                    options.Add((flagNames.Split('|'), optionName, desc));
                 }
                 else if (attr is { AttributeType: { Name: nameof(CommandParameterAttribute) },
                                ConstructorArguments: [ { Value: int paramIndex }, { Value: string paramName } ],
-                               NamedArguments: var namedArgs })
+                               NamedArguments: var namedArgs2 })
                 {
                     string? desc = null;
-                    if (namedArgs is [ { MemberName: nameof(CommandParameterAttribute.Description),
+                    if (namedArgs2 is [ { MemberName: nameof(CommandParameterAttribute.Description),
                                          TypedValue: { Value: string attrDesc } } ])
                     {
                         desc = attrDesc;
@@ -95,6 +109,7 @@ public static class CmdLine
                     foreach (var unionField in unionInfo.CaseInfos)
                     {
                         var cmdName = unionField.Name;
+                        string? summary = null;
                         string? desc = null;
                         foreach (var caseAttr in unionField.Attributes)
                         {
@@ -103,15 +118,25 @@ public static class CmdLine
                                               NamedArguments: var namedCaseArgs })
                             {
                                 cmdName = caseCmdName;
-                                if (namedCaseArgs is [ { MemberName: nameof(CommandAttribute.Description),
-                                                         TypedValue: { Value: string caseDesc } } ])
+                                foreach (var namedArg in namedCaseArgs)
                                 {
-                                    desc = caseDesc;
+                                    if (namedArg is {
+                                            MemberName: nameof(CommandAttribute.Summary),
+                                            TypedValue: { Value: string caseSummary } })
+                                    {
+                                        summary = caseSummary;
+                                    }
+                                    if (namedArg is {
+                                            MemberName: nameof(CommandAttribute.Description),
+                                            TypedValue: { Value: string caseDesc } })
+                                    {
+                                        desc = caseDesc.ReplaceLineEndings();
+                                    }
                                 }
                                 break;
                             }
                         }
-                        commands.Add((cmdName, desc));
+                        commands.Add((cmdName, summary, desc));
                     }
                 }
             }
@@ -122,30 +147,24 @@ public static class CmdLine
         var commandsString = commands.Count == 0
             ? ""
             : $"""
-
 Commands:
 {Indent + string.Join(Environment.NewLine + Indent,
-    commands.Select(c => $"{c.Name}{c.Description?.Prepend("  ") ?? ""}"))}
-
+    commands.Select(c => $"{c.Name}{c.Summary?.Prepend("  ") ?? ""}"))}
 """;
 
         var argsString = args.Count > 0
             ? $"""
-
 Arguments:
 {Indent + string.Join(Environment.NewLine + Indent,
     args.Select(a => $"{a.Name}{a.Description?.Prepend("  ") ?? ""}"))}
-
 """
             : "";
 
         var optionsString = options.Count > 0
             ? $"""
-
 Options:
 {Indent + string.Join(Environment.NewLine + Indent,
-    options.Select(o => $"{string.Join(", ", o.Patterns)}{o.Name?.Map(n => "  " + n) ?? "" }"))}
-
+    options.Select(o => $"{string.Join(", ", o.Patterns)}{o.Name?.Map(n => "  " + n) ?? "" }{o.Description?.Prepend("  ") ?? ""}"))}
 """
             : "";
 
@@ -163,24 +182,58 @@ Options:
                           NamedArguments: var namedArgs })
             {
                 topLevelName = name;
-                if (namedArgs is [ { MemberName: nameof(CommandAttribute.Description),
-                                    TypedValue: { Value: string desc } } ])
+                foreach (var named in namedArgs)
                 {
-                    topLevelDesc = Environment.NewLine + desc + Environment.NewLine;
+                    if (named is {
+                            MemberName: nameof(CommandAttribute.Summary),
+                            TypedValue: { Value: string summary } })
+                    {
+                        topLevelDesc = Environment.NewLine + summary + Environment.NewLine;
+                    }
+                    if (named is {
+                            MemberName: nameof(CommandAttribute.Description),
+                            TypedValue: { Value: string desc } })
+                    {
+                        topLevelDesc = Environment.NewLine + desc + Environment.NewLine;
+                    }
                 }
                 break;
             }
+        }
+
+        if (parentCommandInfos != null)
+        {
+            topLevelName = string.Join(" ", parentCommandInfos.Select(GetCommandName)) + " " + topLevelName;
         }
 
         var argsShortString = args.Count > 0
             ? " " + string.Join(" ", args.Select(a => a.Name))
             : "";
 
+        var remainingString = string.Join(Environment.NewLine + Environment.NewLine,
+            ((string[])[ argsString, optionsString, commandsString ]).Where(s => !string.IsNullOrWhiteSpace(s)));
+
         return $"""
 Usage: {topLevelName}{optionsUsageShortString}{commandsName?.Map(n => $" <{n}>") ?? ""}{argsShortString}
-{topLevelDesc}{argsString}{optionsString}{commandsString}
+{topLevelDesc}
+{remainingString}
+
 """;
     }
 
+    public static string GetCommandName(ISerdeInfo serdeInfo)
+    {
+        var name = serdeInfo.Name;
+        foreach (var attr in serdeInfo.Attributes)
+        {
+            if (attr is { AttributeType: { Name: nameof(CommandAttribute) },
+                          ConstructorArguments: [ { Value: string commandName } ] })
+            {
+                name = commandName;
+                break;
+            }
+        }
+        return name;
+    }
 
 }

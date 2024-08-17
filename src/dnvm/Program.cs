@@ -26,7 +26,18 @@ public static class Program
         console.WriteLine();
         var logger = new Logger(console);
 
-        var options = CommandLineArguments.Parse(args);
+        var options = CommandLineArguments.TryParse(console, args);
+        if (options is null)
+        {
+            // Error was already printed, exit with failure.
+            return 1;
+        }
+        if (options.Command is null)
+        {
+            // Help was requested, exit with success.
+            return 0;
+        }
+
         // Self-install is special, since we don't know the DNVM_HOME yet.
         if (options.Command is CommandArguments.SelfInstallArguments selfInstallArgs)
         {

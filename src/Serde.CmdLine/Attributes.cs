@@ -31,5 +31,14 @@ public sealed class CommandParameterAttribute(int ordinal, string name) : Attrib
 public sealed class CommandAttribute(string name) : Attribute
 {
     public string Name { get; } = name;
+
+    /// <summary>
+    /// Short summary of the command.
+    /// </summary>
+    public string? Summary { get; init; } = null;
+
+    /// <summary>
+    /// Detailed description of the command.
+    /// </summary>
     public string? Description { get; init; } = null;
 }
