@@ -132,12 +132,13 @@ Options:
     -h, --help  Show help information.
 
 Commands:
-    install  Install an SDK.
     track  Start tracking a new channel.
+    install  Install an SDK.
     selfinstall  Install dnvm to the local machine.
+    update  Update the installed SDKs or dnvm itself.
     list  List installed SDKs.
     select  Select the active SDK directory.
-    update  Update the installed SDKs or dnvm itself.
+    untrack  Remove a channel from the list of tracked channels.
     uninstall  Uninstall an SDK.
     prune  Remove all SDKs with older patch versions.
 
@@ -356,6 +357,30 @@ Options:
     -v, --verbose  Print extra debugging info to the console.
     --dry-run  Print the list of the SDKs to be uninstalled, but don't
 uninstall.
+    -h, --help  Show help information.
+
+
+""".NormalizeLineEndings(), console.Output.TrimLines());
+    }
+
+    [Theory]
+    [InlineData("-h")]
+    [InlineData("--help")]
+    public void UntrackHelp(string param)
+    {
+        var console = new TestConsole();
+        Assert.Null(CommandLineArguments.ParseRaw(
+            console,
+            [ "untrack", param ]).Command);
+        Assert.Equal("""
+Usage: dnvm untrack [-h | --help] <channel>
+
+Remove a channel from the list of tracked channels.
+
+Arguments:
+    <channel>  The channel to untrack.
+
+Options:
     -h, --help  Show help information.
 
 
