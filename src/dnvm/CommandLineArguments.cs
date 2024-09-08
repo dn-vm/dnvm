@@ -30,12 +30,13 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
         nameof(DnvmSubCommand),
         typeof(DnvmSubCommand).GetCustomAttributesData(),
         [
-            SerdeInfoProvider.GetInfo<InstallCommandProxy>(),
             SerdeInfoProvider.GetInfo<TrackCommandProxy>(),
+            SerdeInfoProvider.GetInfo<InstallCommandProxy>(),
             SerdeInfoProvider.GetInfo<SelfInstallCommandProxy>(),
+            SerdeInfoProvider.GetInfo<UpdateCommandProxy>(),
             SerdeInfoProvider.GetInfo<ListCommandProxy>(),
             SerdeInfoProvider.GetInfo<SelectCommandProxy>(),
-            SerdeInfoProvider.GetInfo<UpdateCommandProxy>(),
+            SerdeInfoProvider.GetInfo<UntrackCommandProxy>(),
             SerdeInfoProvider.GetInfo<UninstallCommandProxy>(),
             SerdeInfoProvider.GetInfo<PruneCommandProxy>()
         ]);
@@ -50,6 +51,8 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
     internal partial struct ListCommandProxy;
     [GenerateDeserialize(ThroughType = typeof(SelectCommand))]
     internal partial struct SelectCommandProxy;
+    [GenerateDeserialize(ThroughType = typeof(UntrackCommand))]
+    internal partial struct UntrackCommandProxy;
     [GenerateDeserialize(ThroughType = typeof(UpdateCommand))]
     internal partial struct UpdateCommandProxy;
     [GenerateDeserialize(ThroughType = typeof(UninstallCommand))]
@@ -68,6 +71,7 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
             "update" => DeserializeSubCommand<UpdateCommand, UpdateCommandProxy>(deserializer),
             "list" => DeserializeSubCommand<ListCommand, ListCommandProxy>(deserializer),
             "select" => DeserializeSubCommand<SelectCommand, SelectCommandProxy>(deserializer),
+            "untrack" => DeserializeSubCommand<UntrackCommand, UntrackCommandProxy>(deserializer),
             "uninstall" => DeserializeSubCommand<UninstallCommand, UninstallCommandProxy>(deserializer),
             "prune" => DeserializeSubCommand<PruneCommand, PruneCommandProxy>(deserializer),
             _ => throw new InvalidDeserializeValueException($"Unknown command: {commandName}")
@@ -210,12 +214,15 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
         public bool? Help { get; init; }
     }
 
-    [Command("untrack", Summary = "Remove a channel from the list of tracked channels")]
+    [Command("untrack", Summary = "Remove a channel from the list of tracked channels.")]
     public sealed partial record UntrackCommand : DnvmSubCommand
     {
-        [CommandParameter(0, "channel", Description = "Remove the given channel from the list of tracked channels.")]
-        [SerdeMemberOptions(WrapperDeserialize = typeof(CaseInsensitiveChannel))]
-        public required Channel Channel { get; init; }
+        [CommandParameter(0, "channel", Description = "The channel to untrack.")]
+        [SerdeMemberOptions(WrapperDeserialize = typeof(NullableRefWrap.DeserializeImpl<Channel, CaseInsensitiveChannel>))]
+        public Channel? Channel { get; init; }
+
+        [CommandOption("-h|--help", Description = "Show help information.")]
+        public bool? Help { get; init; }
     }
 
     [Command("uninstall", Summary = "Uninstall an SDK.")]
@@ -417,6 +424,16 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                     throw new Serde.CmdLine.ArgumentSyntaxException("Missing required parameter: sdkDirName");
                 }
                 return new CommandLineArguments(new CommandArguments.SelectArguments { SdkDirName = sdkDirName });
+            case DnvmSubCommand.UntrackCommand u:
+                if (CheckHelp<DnvmSubCommand.UntrackCommandProxy>(u.Help, console))
+                {
+                    return new CommandLineArguments(Command: null);
+                }
+                if (u.Channel is null)
+                {
+                    throw new Serde.CmdLine.ArgumentSyntaxException("Missing required parameter: channel");
+                }
+                return new CommandLineArguments(new CommandArguments.UntrackArguments { Channel = u.Channel });
             case DnvmSubCommand.InstallCommand i:
                 if (CheckHelp<DnvmSubCommand.InstallCommandProxy>(i.Help, console))
                 {
