@@ -29,7 +29,7 @@ public sealed partial class SubCommandTests
     {
         var help = CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<TopCommand>());
         var text = """
-Usage: TopCommand [-v | --verbose] [-h | --help] <command>
+usage: TopCommand [-v | --verbose] [-h | --help] <command>
 
 Options:
     -v, --verbose

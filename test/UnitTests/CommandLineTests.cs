@@ -124,7 +124,7 @@ Channel must be one of:
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(console, [ param ]).Command);
         Assert.Equal("""
-Usage: dnvm [-h | --help] <command>
+usage: dnvm [-h | --help] <command>
 
 Install and manage .NET SDKs.
 
@@ -156,7 +156,7 @@ Commands:
             console,
             [ "list", param ]).Command);
         Assert.Equal("""
-Usage: dnvm list [-h | --help]
+usage: dnvm list [-h | --help]
 
 List installed SDKs.
 
@@ -177,7 +177,7 @@ Options:
             console,
             [ "select", param ]).Command);
         Assert.Equal("""
-Usage: dnvm select [-h | --help] <sdkDirName>
+usage: dnvm select [-h | --help] <sdkDirName>
 
 Select the active SDK directory, meaning the directory that will be used when
 running `dotnet` commands. This is the same directory passed to the `-s` option
@@ -208,7 +208,7 @@ Options:
             console,
             [ "install", param ]).Command);
         Assert.Equal("""
-Usage: dnvm install [-f | --force] [-s | --sdk-dir <sdkDir>] [-v | --verbose]
+usage: dnvm install [-f | --force] [-s | --sdk-dir <sdkDir>] [-v | --verbose]
 [-h | --help] <version>
 
 Install an SDK.
@@ -237,7 +237,7 @@ given name.
             console,
             [ "track", param ]).Command);
         Assert.Equal("""
-Usage: dnvm track [--feed-url <feedUrl>] [-v | --verbose] [-f | --force] [-y]
+usage: dnvm track [--feed-url <feedUrl>] [-v | --verbose] [-f | --force] [-y]
 [--prereqs] [-s | --sdk-dir <sdkDir>] [-h | --help] <channel>
 
 Start tracking a new channel.
@@ -269,7 +269,7 @@ given name.
             console,
             [ "selfinstall", param ]).Command);
         Assert.Equal("""
-Usage: dnvm selfinstall [-v | --verbose] [-f | --force] [--feed-url <feedUrl>]
+usage: dnvm selfinstall [-v | --verbose] [-f | --force] [--feed-url <feedUrl>]
 [-y] [--update] [-h | --help]
 
 Install dnvm to the local machine.
@@ -297,7 +297,7 @@ Only intended to be called from dnvm.
             console,
             [ "update", param ]).Command);
         Assert.Equal("""
-Usage: dnvm update [--dnvm-url <dnvmReleasesUrl>] [--feed-url <feedUrl>] [-v |
+usage: dnvm update [--dnvm-url <dnvmReleasesUrl>] [--feed-url <feedUrl>] [-v |
 --verbose] [--self] [-y] [-h | --help]
 
 Update the installed SDKs or dnvm itself.
@@ -324,7 +324,7 @@ Options:
             console,
             [ "uninstall", param ]).Command);
         Assert.Equal("""
-Usage: dnvm uninstall [-s | --sdk-dir <sdkDir>] [-h | --help] <sdkVersion>
+usage: dnvm uninstall [-s | --sdk-dir <sdkDir>] [-h | --help] <sdkVersion>
 
 Uninstall an SDK.
 
@@ -349,7 +349,7 @@ Options:
             console,
             [ "prune", param ]).Command);
         Assert.Equal("""
-Usage: dnvm prune [-v | --verbose] [--dry-run] [-h | --help]
+usage: dnvm prune [-v | --verbose] [--dry-run] [-h | --help]
 
 Remove all SDKs with older patch versions.
 
@@ -373,7 +373,7 @@ uninstall.
             console,
             [ "untrack", param ]).Command);
         Assert.Equal("""
-Usage: dnvm untrack [-h | --help] <channel>
+usage: dnvm untrack [-h | --help] <channel>
 
 Remove a channel from the list of tracked channels.
 
