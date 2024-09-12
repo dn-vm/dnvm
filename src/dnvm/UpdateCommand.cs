@@ -337,7 +337,7 @@ public sealed partial class UpdateCommand
             await testProc.WaitForExitAsync();
             var output = await ps.StandardOutput.ReadToEndAsync();
             string error = await ps.StandardError.ReadToEndAsync();
-            const string usageString = "Usage: ";
+            const string usageString = "usage: ";
             if (ps.ExitCode != 0)
             {
                 logger?.Error("Could not run downloaded dnvm:");

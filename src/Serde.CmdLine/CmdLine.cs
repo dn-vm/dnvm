@@ -214,7 +214,7 @@ Options:
             ((string[])[ argsString, optionsString, commandsString ]).Where(s => !string.IsNullOrWhiteSpace(s)));
 
         return $"""
-Usage: {topLevelName}{optionsUsageShortString}{commandsName?.Map(n => $" <{n}>") ?? ""}{argsShortString}
+usage: {topLevelName}{optionsUsageShortString}{commandsName?.Map(n => $" <{n}>") ?? ""}{argsShortString}
 {topLevelDesc}
 {remainingString}
 

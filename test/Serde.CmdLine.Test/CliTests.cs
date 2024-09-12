@@ -28,7 +28,7 @@ public sealed partial class DeserializerTests
     {
         var help = CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<FileSizeCommand>());
         var text = """
-Usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] [-h | --help] <searchPath>
+usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] [-h | --help] <searchPath>
 
 Arguments:
     <searchPath>  Path to search. Defaults to current directory.
@@ -50,7 +50,7 @@ Options:
         Assert.False(CmdLine.TryParse<FileSizeCommand>(args, testConsole, out _));
         var text = """
 error: Unexpected argument: '--bad-option'
-Usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] [-h | --help]
+usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] [-h | --help]
 <searchPath>
 
 Arguments:
