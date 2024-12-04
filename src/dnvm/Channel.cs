@@ -99,7 +99,7 @@ partial record Channel : IDeserialize<Channel>
                 var components = str.Split('.');
                 if (components.Length != 2)
                 {
-                    throw new InvalidDeserializeValueException($"Invalid channel version: {str}");
+                    throw new DeserializeException($"Invalid channel version: {str}");
                 }
                 var major = int.Parse(components[0]);
                 var minor = int.Parse(components[1]);

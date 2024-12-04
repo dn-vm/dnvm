@@ -74,7 +74,7 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
             "untrack" => DeserializeSubCommand<UntrackCommand, UntrackCommandProxy>(deserializer),
             "uninstall" => DeserializeSubCommand<UninstallCommand, UninstallCommandProxy>(deserializer),
             "prune" => DeserializeSubCommand<PruneCommand, PruneCommandProxy>(deserializer),
-            _ => throw new InvalidDeserializeValueException($"Unknown command: {commandName}")
+            _ => throw new DeserializeException($"Unknown command: {commandName}")
         };
         return subCommand;
     }
@@ -267,11 +267,11 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
             {
                 return Channel.FromString(StringWrap.Deserialize(deserializer).ToLowerInvariant());
             }
-            catch (InvalidDeserializeValueException)
+            catch (DeserializeException)
             {
                 var sep = Environment.NewLine + "\t- ";
                 IEnumerable<Channel> channels = [new Channel.Latest(), new Channel.Preview(), new Channel.Lts(), new Channel.Sts()];
-                throw new InvalidDeserializeValueException(
+                throw new DeserializeException(
                     "Channel must be one of:"
                     + sep + string.Join(sep, channels));
             }
@@ -523,7 +523,7 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                 return new CommandLineArguments(Command: null);
         }
 
-        throw new InvalidOperationException("Unknown command");
+        throw new DeserializeException("Unknown command");
 
         static bool CheckHelp<TCmdProxy>(bool? help, IAnsiConsole console)
             where TCmdProxy : ISerdeInfoProvider

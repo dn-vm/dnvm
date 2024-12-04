@@ -20,7 +20,7 @@ public static class CmdLine
             var cmd = T.Deserialize(deserializer);
             return cmd;
         }
-        catch (InvalidDeserializeValueException e)
+        catch (DeserializeException e)
         {
             throw new ArgumentSyntaxException(e.Message, e);
         }

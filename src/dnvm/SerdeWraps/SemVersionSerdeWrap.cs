@@ -1,4 +1,5 @@
 
+using System;
 using Semver;
 using Serde;
 
@@ -18,7 +19,7 @@ internal readonly record struct SemVersionSerdeWrap : ISerialize<SemVersion>, ID
         {
             return version;
         }
-        throw new InvalidDeserializeValueException($"Version string '{str}' is not a valid SemVersion.");
+        throw new DeserializeException($"Version string '{str}' is not a valid SemVersion.");
     }
 
     public void Serialize(SemVersion value, ISerializer serializer)
