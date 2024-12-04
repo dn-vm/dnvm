@@ -1,4 +1,5 @@
 
+using Serde;
 using Serde.CmdLine;
 using Spectre.Console.Testing;
 using Xunit;
@@ -7,6 +8,37 @@ namespace Dnvm.Test;
 
 public sealed class CommandLineTests
 {
+    private static readonly string ExpectedHelpText = """
+        usage: dnvm [-h | --help] <command>
+
+        Install and manage .NET SDKs.
+
+        Options:
+            -h, --help  Show help information.
+
+        Commands:
+            track  Start tracking a new channel.
+            install  Install an SDK.
+            selfinstall  Install dnvm to the local machine.
+            update  Update the installed SDKs or dnvm itself.
+            list  List installed SDKs.
+            select  Select the active SDK directory.
+            untrack  Remove a channel from the list of tracked channels.
+            uninstall  Uninstall an SDK.
+            prune  Remove all SDKs with older patch versions.
+
+
+        """.NormalizeLineEndings();
+
+    [Fact]
+    public void NoCommand()
+    {
+        var console = new TestConsole();
+        var options = CommandLineArguments.ParseRaw(console, []);
+        Assert.Null(options.Command);
+        Assert.Equal(ExpectedHelpText, console.Output);
+    }
+
     [Fact]
     public void List()
     {
@@ -123,27 +155,7 @@ Channel must be one of:
     {
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(console, [ param ]).Command);
-        Assert.Equal("""
-usage: dnvm [-h | --help] <command>
-
-Install and manage .NET SDKs.
-
-Options:
-    -h, --help  Show help information.
-
-Commands:
-    track  Start tracking a new channel.
-    install  Install an SDK.
-    selfinstall  Install dnvm to the local machine.
-    update  Update the installed SDKs or dnvm itself.
-    list  List installed SDKs.
-    select  Select the active SDK directory.
-    untrack  Remove a channel from the list of tracked channels.
-    uninstall  Uninstall an SDK.
-    prune  Remove all SDKs with older patch versions.
-
-
-""".NormalizeLineEndings(), console.Output);
+        Assert.Equal(ExpectedHelpText, console.Output);
     }
 
     [Theory]

@@ -518,6 +518,9 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                     Verbose = p.Verbose ?? false,
                     DryRun = p.DryRun ?? false,
                 });
+            case null:
+                console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<DnvmCommand>()));
+                return new CommandLineArguments(Command: null);
         }
 
         throw new InvalidOperationException("Unknown command");
