@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Spectre.Console;
+using Zio;
 
 namespace Dnvm;
 
@@ -24,13 +25,15 @@ public static class ListCommand
             return 1;
         }
 
-        PrintSdks(logger, manifest);
+        PrintSdks(logger, manifest, home.RealPath(UPath.Root));
 
         return 0;
     }
 
-    public static void PrintSdks(Logger logger, Manifest manifest)
+    public static void PrintSdks(Logger logger, Manifest manifest, string homePath)
     {
+        logger.Log($"DNVM_HOME: {homePath}");
+        logger.Log();
         logger.Log("Installed SDKs:");
         logger.Log();
         var table = new Table();
