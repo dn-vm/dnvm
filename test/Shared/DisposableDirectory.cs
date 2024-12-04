@@ -2,7 +2,7 @@ using IOPath = System.IO.Path;
 
 namespace Dnvm.Test;
 
-public readonly record struct TempDirectory(string Path) : IDisposable
+public sealed record TempDirectory(string Path) : IDisposable
 {
     public static TempDirectory CreateSubDirectory(string basePath)
     {

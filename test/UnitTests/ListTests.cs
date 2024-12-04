@@ -34,8 +34,11 @@ public sealed class ListTests
                 ReleaseVersion = previewVersion,
                 SdkDirName = new("preview") }, new Channel.Preview());
 
-        ListCommand.PrintSdks(_logger, manifest);
-        var output = """
+        const string fakeHome = "/home";
+        ListCommand.PrintSdks(_logger, manifest, fakeHome);
+        var output = $"""
+DNVM_HOME: {fakeHome}
+
 Installed SDKs:
 
 ┌───┬────────────────┬─────────┬──────────┐
@@ -66,11 +69,13 @@ Tracked channels:
             }, new Channel.Latest());
 
         var env = new Dictionary<string, string>();
-        using var userHome = new TempDirectory();
+        using var userHome = TestUtils.CreateTempDirectory();
+        using var dnvmHome = TestUtils.CreateTempDirectory();
+        var physicalFs = DnvmEnv.PhysicalFs;
         var home = new DnvmEnv(
             userHome.Path,
-            new MemoryFileSystem(),
-            isPhysical: false,
+            new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(dnvmHome.Path)),
+            isPhysical: true,
             getUserEnvVar: s => env[s],
             setUserEnvVar: (name, val) => env[name] = val
         );
@@ -78,7 +83,9 @@ Tracked channels:
 
         var ret = await ListCommand.Run(_logger, home);
         Assert.Equal(0, ret);
-        var output = """
+        var output = $"""
+DNVM_HOME: {dnvmHome.Path}
+
 Installed SDKs:
 
 ┌───┬──────────┬─────────┬──────────┐
@@ -103,7 +110,7 @@ Tracked channels:
             .AddSdk(new SemVersion(10, 10, 10), new Channel.Lts());
 
         var env = new Dictionary<string, string>();
-        using var userHome = new TempDirectory();
+        using var userHome = TestUtils.CreateTempDirectory();
         var home = new DnvmEnv(
             userHome.Path,
             new MemoryFileSystem(),
@@ -116,6 +123,8 @@ Tracked channels:
         var ret = await ListCommand.Run(_logger, home);
         Assert.Equal(0, ret);
         var output = """
+DNVM_HOME: /
+
 Installed SDKs:
 
 ┌───┬──────────┬─────────┬──────────┐
@@ -142,6 +151,8 @@ Tracked channels:
         home.WriteManifest(newManifest);
         ret = await ListCommand.Run(logger, home);
         output = """
+DNVM_HOME: /
+
 Installed SDKs:
 
 ┌───┬──────────┬─────────┬──────────┐
