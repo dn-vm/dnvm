@@ -1,11 +1,9 @@
 
 using System;
 using System.Collections.Immutable;
-using System.IO;
 using System.Linq;
 using Dnvm;
 using Serde;
-using Serde.Json;
 using StaticCs.Collections;
 
 [GenerateSerde]
@@ -51,15 +49,16 @@ public sealed partial record ManifestV3
 }
 
 [GenerateSerde]
-public readonly partial record struct TrackedChannelV3()
+public sealed partial record TrackedChannelV3
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
     public ImmutableArray<string> InstalledSdkVersions { get; init; } = ImmutableArray<string>.Empty;
 
-    public bool Equals(TrackedChannelV3 other)
+    public bool Equals(TrackedChannelV3? other)
     {
-        return ChannelName == other.ChannelName &&
+        return other is not null &&
+            ChannelName == other.ChannelName &&
             SdkDirName == other.SdkDirName &&
             InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions);
     }
@@ -78,8 +77,9 @@ public readonly partial record struct TrackedChannelV3()
 }
 
 [GenerateSerde]
-public readonly partial record struct InstalledSdkV3(string Version)
+public sealed partial record InstalledSdkV3
 {
+    public required string Version { get; init; }
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 }
 
@@ -88,7 +88,7 @@ static class ManifestConvertV3
     internal static ManifestV3 Convert(this ManifestV2 v2)
     {
         return new ManifestV3 {
-            InstalledSdkVersions = v2.InstalledSdkVersions.Select(v => new InstalledSdkV3() {
+            InstalledSdkVersions = v2.InstalledSdkVersions.Select(v => new InstalledSdkV3 {
                 Version = v,
                 // Before V3, all SDKs were installed to the default dir
                 SdkDirName = DnvmEnv.DefaultSdkDirName

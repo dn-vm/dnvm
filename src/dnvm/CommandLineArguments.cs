@@ -106,7 +106,7 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
         public bool? Force { get; init; } = null;
 
         [CommandOption("-s|--sdk-dir", Description = "Install the SDK into a separate directory with the given name.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
 
         [CommandOption("-v|--verbose", Description = "Print debugging messages to the console.")]
@@ -242,7 +242,7 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
         public SemVersion? SdkVersion { get; init; } = null;
 
         [CommandOption("-s|--sdk-dir", Description = "Uninstall the SDK from the given directory.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
 
         [CommandOption("-h|--help", Description = "Show help information.")]

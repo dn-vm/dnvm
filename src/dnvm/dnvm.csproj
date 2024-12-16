@@ -7,8 +7,6 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <PublishAot>true</PublishAot>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <IlcGenerateMstatFile>true</IlcGenerateMstatFile>
-    <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>
   </PropertyGroup>
 
   <ItemGroup>

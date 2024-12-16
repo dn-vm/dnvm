@@ -1,12 +1,8 @@
 
 using System;
 using System.Collections.Immutable;
-using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using Serde;
-using Serde.Json;
-using StaticCs;
 using StaticCs.Collections;
 
 namespace Dnvm;
@@ -63,15 +59,16 @@ public sealed partial record ManifestV4
 }
 
 [GenerateSerde]
-public readonly partial record struct TrackedChannelV4()
+public sealed partial record TrackedChannelV4
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
     public ImmutableArray<string> InstalledSdkVersions { get; init; } = ImmutableArray<string>.Empty;
 
-    public bool Equals(TrackedChannelV4 other)
+    public bool Equals(TrackedChannelV4? other)
     {
-        return ChannelName == other.ChannelName &&
+        return other is not null &&
+            ChannelName == other.ChannelName &&
             SdkDirName == other.SdkDirName &&
             InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions);
     }
@@ -90,8 +87,9 @@ public readonly partial record struct TrackedChannelV4()
 }
 
 [GenerateSerde]
-public readonly partial record struct InstalledSdkV4(string Version)
+public sealed partial record InstalledSdkV4
 {
+    public required string Version { get; init; }
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 }
 

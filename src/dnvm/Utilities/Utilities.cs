@@ -176,34 +176,6 @@ public static class Utilities
         return new(builder.MoveToImmutable());
     }
 
-    public static async Task<ImmutableArray<U>> SelectAsArray<T, U>(this ImmutableArray<T> e, Func<T, Task<U>> f)
-    {
-        var builder = ImmutableArray.CreateBuilder<U>(e.Length);
-        foreach (var item in e)
-        {
-            builder.Add(await f(item));
-        }
-        return builder.MoveToImmutable();
-    }
-
-    public static T? SingleOrNull<T>(this ImmutableArray<T> e, Func<T, bool> func)
-        where T : struct
-    {
-        T? result = null;
-        foreach (var elem in e)
-        {
-            if (func(elem))
-            {
-                if (result is not null)
-                {
-                    return null;
-                }
-                result = elem;
-            }
-        }
-        return result;
-    }
-
     public static readonly RID CurrentRID = new RID(
         GetCurrentOSPlatform(),
         RuntimeInformation.OSArchitecture,
