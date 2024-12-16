@@ -71,14 +71,16 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
 
     public string ReadString() => args[_argIndex++];
 
-    public T ReadNullableRef<T>(IDeserializeVisitor<T> v)
+    public T ReadNullableRef<T, D>(D d)
+        where T : class
+        where D : IDeserialize<T>
     {
         // Treat all nullable values as just being optional. Since we got here we must have a value
         // in hand.
-        return v.VisitNotNull(this);
+        return d.Deserialize(this);
     }
 
-    public T ReadAny<T>(IDeserializeVisitor<T> v) => throw new NotImplementedException();
+    public T ReadAny<T>(IDeserializeVisitor<T> v) where T : class => throw new NotImplementedException();
 
     public char ReadChar() => throw new NotImplementedException();
 

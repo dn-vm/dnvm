@@ -44,21 +44,21 @@ public partial record TrackedChannelV5
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
     [SerdeMemberOptions(
-        WrapperSerialize = typeof(EqArraySerdeWrap.SerializeImpl<SemVersion, SemVersionSerdeWrap>),
-        WrapperDeserialize = typeof(EqArraySerdeWrap.DeserializeImpl<SemVersion, SemVersionSerdeWrap>))]
+        SerializeProxy = typeof(EqArrayProxy.Serialize<SemVersion, SemVersionProxy>),
+        DeserializeProxy = typeof(EqArrayProxy.Deserialize<SemVersion, SemVersionProxy>))]
     public EqArray<SemVersion> InstalledSdkVersions { get; init; } = EqArray<SemVersion>.Empty;
 }
 
 [GenerateSerde]
 public partial record InstalledSdkV5
 {
-    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion ReleaseVersion { get; init; }
-    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion SdkVersion { get; init; }
-    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion RuntimeVersion { get; init; }
-    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion AspNetVersion { get; init; }
 
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;

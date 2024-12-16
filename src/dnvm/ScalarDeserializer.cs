@@ -45,9 +45,9 @@ public struct ScalarDeserializer(string s) : IDeserializer
     IDeserializeCollection IDeserializer.ReadCollection(ISerdeInfo typeInfo)
         => throw new DeserializeException("Found nullable ref, expected scalar");
 
-    T IDeserializer.ReadNullableRef<T>(IDeserializeVisitor<T> v)
+    T IDeserializer.ReadNullableRef<T, D>(D deserialize)
     {
-        return v.VisitString(ReadString());
+        return deserialize.Deserialize(this);
     }
 
     IDeserializeType IDeserializer.ReadType(ISerdeInfo typeInfo)

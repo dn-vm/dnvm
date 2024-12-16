@@ -8,13 +8,20 @@ namespace Dnvm;
 /// <summary>
 /// Serializes as a string.
 /// </summary>
-internal readonly record struct SemVersionSerdeWrap : ISerialize<SemVersion>, IDeserialize<SemVersion>
+internal sealed class SemVersionProxy : ISerialize<SemVersion>, IDeserialize<SemVersion>,
+    ISerializeProvider<SemVersion>, IDeserializeProvider<SemVersion>
 {
+    public static readonly SemVersionProxy Instance = new();
+    static ISerialize<SemVersion> ISerializeProvider<SemVersion>.SerializeInstance => Instance;
+    static IDeserialize<SemVersion> IDeserializeProvider<SemVersion>.DeserializeInstance => Instance;
+
+    private SemVersionProxy() { }
+
     public static ISerdeInfo SerdeInfo { get; } = Serde.SerdeInfo.MakePrimitive(nameof(SemVersion));
 
-    public static SemVersion Deserialize(IDeserializer deserializer)
+    public SemVersion Deserialize(IDeserializer deserializer)
     {
-        var str = StringWrap.Deserialize(deserializer);
+        var str = StringProxy.Instance.Deserialize(deserializer);
         if (SemVersion.TryParse(str, SemVersionStyles.Strict, out var version))
         {
             return version;
