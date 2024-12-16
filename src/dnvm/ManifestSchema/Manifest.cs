@@ -1,12 +1,8 @@
 
 using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
-using System.Threading.Tasks;
 using Semver;
 using Serde;
-using Serde.Json;
 using StaticCs.Collections;
 
 namespace Dnvm;
@@ -74,8 +70,8 @@ public partial record RegisteredChannel
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
     [SerdeMemberOptions(
-        WrapperSerialize = typeof(EqArraySerdeWrap.SerializeImpl<SemVersion, SemVersionSerdeWrap>),
-        WrapperDeserialize = typeof(EqArraySerdeWrap.DeserializeImpl<SemVersion, SemVersionSerdeWrap>))]
+        SerializeProxy = typeof(EqArrayProxy.Serialize<SemVersion, SemVersionProxy>),
+        DeserializeProxy = typeof(EqArrayProxy.Deserialize<SemVersion, SemVersionProxy>))]
     public EqArray<SemVersion> InstalledSdkVersions { get; init; } = EqArray<SemVersion>.Empty;
     public bool Untracked { get; init; } = false;
 }
@@ -83,13 +79,13 @@ public partial record RegisteredChannel
 [GenerateSerde]
 public partial record InstalledSdk
 {
-    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion ReleaseVersion { get; init; }
-    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion SdkVersion { get; init; }
-    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion RuntimeVersion { get; init; }
-    [SerdeWrap(typeof(SemVersionSerdeWrap))]
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion AspNetVersion { get; init; }
 
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;

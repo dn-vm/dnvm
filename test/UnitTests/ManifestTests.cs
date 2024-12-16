@@ -97,9 +97,8 @@ public sealed class ManifestTests
     public Task ManifestV3Convert() => TestUtils.RunWithServer(async server =>
     {
         var v3 = ManifestV3.Empty
-            .AddSdk(new InstalledSdkV3("42.42.42"), new Channel.Latest())
-            .AddSdk(new InstalledSdkV3("99.99.99-preview")
-                    { SdkDirName = new("preview") },
+            .AddSdk(new InstalledSdkV3 { Version = "42.42.42" }, new Channel.Latest())
+            .AddSdk(new InstalledSdkV3 { Version = "99.99.99-preview", SdkDirName = new("preview") },
                     new Channel.Preview());
         var v5 = await v3.Convert().Convert(server.ReleasesIndexJson);
         Assert.Equal(new Channel.Latest(), v5.InstalledSdkVersions[0].Channel);

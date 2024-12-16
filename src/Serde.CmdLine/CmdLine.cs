@@ -12,12 +12,12 @@ public static class CmdLine
     /// No errors are handled, so exceptions will be thrown if the arguments are invalid.
     /// </summary>
     public static T ParseRaw<T>(string[] args)
-        where T : IDeserialize<T>
+        where T : IDeserializeProvider<T>
     {
         try
         {
             var deserializer = new Deserializer(args);
-            var cmd = T.Deserialize(deserializer);
+            var cmd = T.DeserializeInstance.Deserialize(deserializer);
             return cmd;
         }
         catch (DeserializeException e)
@@ -32,7 +32,7 @@ public static class CmdLine
     /// for the top-level command.
     /// </summary>
     public static bool TryParse<T>(string[] args, IAnsiConsole console, out T cmd)
-        where T : IDeserialize<T>
+        where T : IDeserializeProvider<T>
     {
         try
         {

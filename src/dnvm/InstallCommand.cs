@@ -171,7 +171,7 @@ public static partial class InstallCommand
         [GenerateDeserialize]
         public partial record Component
         {
-            [SerdeMemberOptions(WrapperDeserialize = typeof(SemVersionSerdeWrap))]
+            [SerdeMemberOptions(DeserializeProxy = typeof(SemVersionProxy))]
             public required SemVersion Version { get; init;  }
         }
     }

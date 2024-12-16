@@ -49,16 +49,23 @@ public abstract partial record Channel
     public sealed partial record Preview : Channel;
 }
 
-partial record Channel : ISerialize<Channel>
+partial record Channel : ISerializeProvider<Channel>
 {
     public abstract string GetDisplayName();
     public sealed override string ToString() => GetDisplayName();
     public string GetLowerName() => GetDisplayName().ToLowerInvariant();
 
     static ISerdeInfo ISerdeInfoProvider.SerdeInfo { get; } = SerdeInfo.MakePrimitive(nameof(Channel));
+    static ISerialize<Channel> ISerializeProvider<Channel>.SerializeInstance => Serialize.Instance;
 
-    void ISerialize<Channel>.Serialize(Channel channel, ISerializer serializer)
-        => serializer.SerializeString(GetLowerName());
+    private sealed class Serialize : ISerialize<Channel>
+    {
+        public static readonly Serialize Instance = new();
+        private Serialize() { }
+
+        void ISerialize<Channel>.Serialize(Channel channel, ISerializer serializer)
+            => serializer.SerializeString(channel.GetLowerName());
+    }
 
     partial record Versioned
     {
@@ -82,10 +89,9 @@ partial record Channel : ISerialize<Channel>
     }
 }
 
-partial record Channel : IDeserialize<Channel>
+partial record Channel : IDeserializeProvider<Channel>
 {
-    public static Channel Deserialize(IDeserializer deserializer)
-        => FromString(StringWrap.Deserialize(deserializer));
+    static IDeserialize<Channel> IDeserializeProvider<Channel>.DeserializeInstance => DeserializeProxy.Instance;
 
     public static Channel FromString(string str)
     {
@@ -105,5 +111,12 @@ partial record Channel : IDeserialize<Channel>
                 var minor = int.Parse(components[1]);
                 return new Versioned(major, minor);
         }
+    }
+
+    private sealed class DeserializeProxy : IDeserialize<Channel>
+    {
+        public static readonly DeserializeProxy Instance = new();
+        public Channel Deserialize(IDeserializer deserializer)
+            => FromString(StringProxy.Instance.Deserialize(deserializer));
     }
 }

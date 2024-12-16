@@ -22,9 +22,11 @@ public partial record DnvmCommand
 }
 
 [Closed]
-public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
+public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubCommand>
 {
     private DnvmSubCommand() { }
+
+    static IDeserialize<DnvmSubCommand> IDeserializeProvider<DnvmSubCommand>.DeserializeInstance => Deserialize.Instance;
 
     static ISerdeInfo ISerdeInfoProvider.SerdeInfo { get; } = new UnionSerdeInfo(
         nameof(DnvmSubCommand),
@@ -41,63 +43,70 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
             SerdeInfoProvider.GetInfo<PruneCommandProxy>()
         ]);
 
-    [GenerateDeserialize(ThroughType = typeof(InstallCommand))]
+    [GenerateDeserialize(ForType = typeof(InstallCommand))]
     internal partial struct InstallCommandProxy;
-    [GenerateDeserialize(ThroughType = typeof(TrackCommand))]
+    [GenerateDeserialize(ForType = typeof(TrackCommand))]
     internal partial struct TrackCommandProxy;
-    [GenerateDeserialize(ThroughType = typeof(SelfInstallCommand))]
+    [GenerateDeserialize(ForType = typeof(SelfInstallCommand))]
     internal partial struct SelfInstallCommandProxy;
-    [GenerateDeserialize(ThroughType = typeof(ListCommand))]
+    [GenerateDeserialize(ForType = typeof(ListCommand))]
     internal partial struct ListCommandProxy;
-    [GenerateDeserialize(ThroughType = typeof(SelectCommand))]
+    [GenerateDeserialize(ForType = typeof(SelectCommand))]
     internal partial struct SelectCommandProxy;
-    [GenerateDeserialize(ThroughType = typeof(UntrackCommand))]
+    [GenerateDeserialize(ForType = typeof(UntrackCommand))]
     internal partial struct UntrackCommandProxy;
-    [GenerateDeserialize(ThroughType = typeof(UpdateCommand))]
+    [GenerateDeserialize(ForType = typeof(UpdateCommand))]
     internal partial struct UpdateCommandProxy;
-    [GenerateDeserialize(ThroughType = typeof(UninstallCommand))]
+    [GenerateDeserialize(ForType = typeof(UninstallCommand))]
     internal partial struct UninstallCommandProxy;
-    [GenerateDeserialize(ThroughType = typeof(PruneCommand))]
+    [GenerateDeserialize(ForType = typeof(PruneCommand))]
     internal partial struct PruneCommandProxy;
 
-    static DnvmSubCommand IDeserialize<DnvmSubCommand>.Deserialize(IDeserializer deserializer)
+    private sealed class Deserialize : IDeserialize<DnvmSubCommand>
     {
-        var commandName = StringWrap.Deserialize(deserializer);
-        DnvmSubCommand subCommand = commandName switch
+        public static readonly Deserialize Instance = new();
+
+        private Deserialize() { }
+
+        DnvmSubCommand IDeserialize<DnvmSubCommand>.Deserialize(IDeserializer deserializer)
         {
-            "install" => DeserializeSubCommand<InstallCommand, InstallCommandProxy>(deserializer),
-            "track" => DeserializeSubCommand<TrackCommand, TrackCommandProxy>(deserializer),
-            "selfinstall" => DeserializeSubCommand<SelfInstallCommand, SelfInstallCommandProxy>(deserializer),
-            "update" => DeserializeSubCommand<UpdateCommand, UpdateCommandProxy>(deserializer),
-            "list" => DeserializeSubCommand<ListCommand, ListCommandProxy>(deserializer),
-            "select" => DeserializeSubCommand<SelectCommand, SelectCommandProxy>(deserializer),
-            "untrack" => DeserializeSubCommand<UntrackCommand, UntrackCommandProxy>(deserializer),
-            "uninstall" => DeserializeSubCommand<UninstallCommand, UninstallCommandProxy>(deserializer),
-            "prune" => DeserializeSubCommand<PruneCommand, PruneCommandProxy>(deserializer),
-            _ => throw new DeserializeException($"Unknown command: {commandName}")
-        };
-        return subCommand;
+            var commandName = StringProxy.Instance.Deserialize(deserializer);
+            DnvmSubCommand subCommand = commandName switch
+            {
+                "install" => DeserializeSubCommand<InstallCommand, InstallCommandProxy>(deserializer),
+                "track" => DeserializeSubCommand<TrackCommand, TrackCommandProxy>(deserializer),
+                "selfinstall" => DeserializeSubCommand<SelfInstallCommand, SelfInstallCommandProxy>(deserializer),
+                "update" => DeserializeSubCommand<UpdateCommand, UpdateCommandProxy>(deserializer),
+                "list" => DeserializeSubCommand<ListCommand, ListCommandProxy>(deserializer),
+                "select" => DeserializeSubCommand<SelectCommand, SelectCommandProxy>(deserializer),
+                "untrack" => DeserializeSubCommand<UntrackCommand, UntrackCommandProxy>(deserializer),
+                "uninstall" => DeserializeSubCommand<UninstallCommand, UninstallCommandProxy>(deserializer),
+                "prune" => DeserializeSubCommand<PruneCommand, PruneCommandProxy>(deserializer),
+                _ => throw new DeserializeException($"Unknown command: {commandName}")
+            };
+            return subCommand;
+        }
     }
 
-    private static T DeserializeSubCommand<T, TProxy>(IDeserializer deserializer)
+    private static T DeserializeSubCommand<T, TProvider>(IDeserializer deserializer)
         where T : DnvmSubCommand
-        where TProxy : IDeserialize<T>
+        where TProvider : IDeserializeProvider<T>
     {
-        return TProxy.Deserialize(deserializer);
+        return TProvider.DeserializeInstance.Deserialize(deserializer);
     }
 
     [Command("install", Summary = "Install an SDK.")]
     public sealed partial record InstallCommand : DnvmSubCommand
     {
         [CommandParameter(0, "version", Description = "The version of the SDK to install.")]
-        [SerdeMemberOptions(WrapperDeserialize = typeof(NullableRefWrap.DeserializeImpl<SemVersion, SemVersionSerdeWrap>))]
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SemVersion, SemVersionProxy>))]
         public SemVersion? SdkVersion { get; init; }
 
         [CommandOption("-f|--force", Description = "Force install the given SDK, even if already installed")]
         public bool? Force { get; init; } = null;
 
         [CommandOption("-s|--sdk-dir", Description = "Install the SDK into a separate directory with the given name.")]
-        [SerdeMemberOptions(WrapperDeserialize = typeof(NullableWrap.DeserializeImpl<SdkDirName, SdkDirNameProxy>))] // Treat as string
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
 
         [CommandOption("-v|--verbose", Description = "Print debugging messages to the console.")]
@@ -111,7 +120,7 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
     public sealed partial record TrackCommand : DnvmSubCommand
     {
         [CommandParameter(0, "channel", Description = "Track the channel specified. Defaults to 'latest'.")]
-        [SerdeMemberOptions(WrapperDeserialize = typeof(NullableRefWrap.DeserializeImpl<Channel, CaseInsensitiveChannel>))]
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<Channel, CaseInsensitiveChannel>))]
         public Channel? Channel { get; init; } = null;
 
         /// <summary>
@@ -218,7 +227,7 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
     public sealed partial record UntrackCommand : DnvmSubCommand
     {
         [CommandParameter(0, "channel", Description = "The channel to untrack.")]
-        [SerdeMemberOptions(WrapperDeserialize = typeof(NullableRefWrap.DeserializeImpl<Channel, CaseInsensitiveChannel>))]
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<Channel, CaseInsensitiveChannel>))]
         public Channel? Channel { get; init; }
 
         [CommandOption("-h|--help", Description = "Show help information.")]
@@ -229,11 +238,11 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
     public sealed partial record UninstallCommand : DnvmSubCommand
     {
         [CommandParameter(0, "sdkVersion", Description = "The version of the SDK to uninstall.")]
-        [SerdeMemberOptions(WrapperDeserialize = typeof(NullableRefWrap.DeserializeImpl<SemVersion, SemVersionSerdeWrap>))]
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SemVersion, SemVersionProxy>))]
         public SemVersion? SdkVersion { get; init; } = null;
 
         [CommandOption("-s|--sdk-dir", Description = "Uninstall the SDK from the given directory.")]
-        [SerdeMemberOptions(WrapperDeserialize = typeof(NullableWrap.DeserializeImpl<SdkDirName, SdkDirNameProxy>))] // Treat as string
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
 
         [CommandOption("-h|--help", Description = "Show help information.")]
@@ -257,15 +266,17 @@ public abstract partial record DnvmSubCommand : IDeserialize<DnvmSubCommand>
     /// Deserialize a named channel case-insensitively. Produces a user-friendly error message if the
     /// channel is not recognized.
     /// </summary>
-    private readonly struct CaseInsensitiveChannel : IDeserialize<Channel>
+    private sealed class CaseInsensitiveChannel : IDeserializeProvider<Channel>, IDeserialize<Channel>
     {
         public static ISerdeInfo SerdeInfo => Serde.SerdeInfo.MakePrimitive(nameof(Channel));
+        static IDeserialize<Channel> IDeserializeProvider<Channel>.DeserializeInstance { get; } = new CaseInsensitiveChannel();
+        private CaseInsensitiveChannel() { }
 
-        public static Channel Deserialize(IDeserializer deserializer)
+        public Channel Deserialize(IDeserializer deserializer)
         {
             try
             {
-                return Channel.FromString(StringWrap.Deserialize(deserializer).ToLowerInvariant());
+                return Channel.FromString(StringProxy.Instance.Deserialize(deserializer).ToLowerInvariant());
             }
             catch (DeserializeException)
             {

@@ -124,7 +124,7 @@ public partial record ChannelReleaseIndex
     [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]
     public partial record Release()
     {
-        [SerdeWrap(typeof(SemVersionSerdeWrap))]
+        [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
         public required SemVersion ReleaseVersion { get; init; }
         public required Component Runtime { get; init; }
         public required Component Sdk { get; init; }
@@ -139,7 +139,7 @@ public partial record ChannelReleaseIndex
     [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]
     public partial record Component
     {
-        [SerdeWrap(typeof(SemVersionSerdeWrap))]
+        [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
         public required SemVersion Version { get; init; }
 
         public required EqArray<File> Files { get; init; }

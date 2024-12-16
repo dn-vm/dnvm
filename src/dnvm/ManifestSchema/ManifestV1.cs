@@ -1,6 +1,5 @@
 
 using System.Collections.Immutable;
-using Internal.CommandLine;
 using Serde;
 
 namespace Dnvm;

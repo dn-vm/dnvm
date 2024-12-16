@@ -56,8 +56,9 @@ Commands:
         public SubCommand? SubCommand { get; init; }
     }
 
-    private partial record SubCommand : IDeserialize<SubCommand>
+    private partial record SubCommand : IDeserializeProvider<SubCommand>
     {
+        static IDeserialize<SubCommand> IDeserializeProvider<SubCommand>.DeserializeInstance => Deserialize.Instance;
         private SubCommand() { }
 
         public static ISerdeInfo SerdeInfo { get; } = new UnionSerdeInfo(
@@ -68,22 +69,28 @@ Commands:
                 SerdeInfoProvider.GetInfo<SecondCommandProxy>()
             ]);
 
-        static SubCommand IDeserialize<SubCommand>.Deserialize(IDeserializer deserializer)
+        private sealed class Deserialize : IDeserialize<SubCommand>
         {
-            var subCmd = StringWrap.Deserialize(deserializer);
-            return subCmd switch
+            public static readonly Deserialize Instance = new Deserialize();
+            private Deserialize() { }
+
+            SubCommand IDeserialize<SubCommand>.Deserialize(IDeserializer deserializer)
             {
-                "first" => new FirstCommand(),
-                "second" => new SecondCommand(),
-                _ => throw new ArgumentSyntaxException($"Unknown subcommand '{subCmd}'.")
-            };
+                var subCmd = StringProxy.Instance.Deserialize(deserializer);
+                return subCmd switch
+                {
+                    "first" => new FirstCommand(),
+                    "second" => new SecondCommand(),
+                    _ => throw new ArgumentSyntaxException($"Unknown subcommand '{subCmd}'.")
+                };
+            }
         }
 
         // Use proxies for deserialization as we want to avoid exposing deserialization for the
         // union types themselves. We want all deserialization to go through the parent type.
-        [GenerateDeserialize(ThroughType = typeof(FirstCommand))]
+        [GenerateDeserialize(ForType = typeof(FirstCommand))]
         private sealed partial record FirstCommandProxy;
-        [GenerateDeserialize(ThroughType = typeof(SecondCommand))]
+        [GenerateDeserialize(ForType = typeof(SecondCommand))]
         private sealed partial record SecondCommandProxy;
 
         [Command("first")]

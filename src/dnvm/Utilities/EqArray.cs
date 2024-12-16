@@ -18,7 +18,7 @@ public static class EqArray
     public static EqArray<T> Create<T>(ReadOnlySpan<T> span) => ImmutableArray.Create(span).ToEq();
 }
 
-[SerdeWrap(typeof(EqArraySerdeWrap))]
+[SerdeTypeOptions(Proxy = typeof(EqArrayProxy))]
 [CollectionBuilder(typeof(EqArray), nameof(EqArray.Create))]
 public readonly struct EqArray<T>(ImmutableArray<T> value) : IReadOnlyCollection<T>, IEquatable<EqArray<T>>
 {
@@ -58,30 +58,33 @@ public readonly struct EqArray<T>(ImmutableArray<T> value) : IReadOnlyCollection
     public EqArray<T> Replace(T oldItem, T newItem) => new(value.Replace(oldItem, newItem));
 }
 
-public static class EqArraySerdeWrap
+public static class EqArrayProxy
 {
     private static readonly ISerdeInfo s_typeInfo = Serde.SerdeInfo.MakeEnumerable(nameof(EqArray));
-    public readonly record struct SerializeImpl<T, TWrap>(EqArray<T> Value) : ISerialize<EqArray<T>>
-        where TWrap : struct, ISerialize<T>
+    public sealed class Serialize<T, TProvider> : ISerializeProvider<EqArray<T>>, ISerialize<EqArray<T>>
+        where TProvider : ISerializeProvider<T>
     {
-        public static ISerdeInfo SerdeInfo => s_typeInfo;
-        public void Serialize(ISerializer serializer)
-        {
-            EnumerableHelpers.SerializeSpan<T, TWrap>(s_typeInfo, Value.Array.AsSpan(), serializer);
-        }
+        public static readonly Serialize<T, TProvider> Instance = new();
+        static ISerialize<EqArray<T>> ISerializeProvider<EqArray<T>>.SerializeInstance => Instance;
 
-        public void Serialize(EqArray<T> value, ISerializer serializer)
+        public static ISerdeInfo SerdeInfo => s_typeInfo;
+
+        void ISerialize<EqArray<T>>.Serialize(EqArray<T> value, ISerializer serializer)
         {
-            EnumerableHelpers.SerializeSpan<T, TWrap>(s_typeInfo, value.Array.AsSpan(), serializer);
+            EnumerableHelpers.SerializeSpan(s_typeInfo, value.Array.AsSpan(), TProvider.SerializeInstance, serializer);
         }
     }
-    public readonly record struct DeserializeImpl<T, TWrap> : IDeserialize<EqArray<T>>
-        where TWrap : IDeserialize<T>
+
+    public readonly record struct Deserialize<T, TProvider> : IDeserializeProvider<EqArray<T>>, IDeserialize<EqArray<T>>
+        where TProvider : IDeserializeProvider<T>
     {
+        public static readonly Deserialize<T, TProvider> Instance = new();
+        static IDeserialize<EqArray<T>> IDeserializeProvider<EqArray<T>>.DeserializeInstance => Instance;
+
         public static ISerdeInfo SerdeInfo => s_typeInfo;
-        static EqArray<T> IDeserialize<EqArray<T>>.Deserialize(IDeserializer deserializer)
+        EqArray<T> IDeserialize<EqArray<T>>.Deserialize(IDeserializer deserializer)
         {
-            return ImmutableArrayWrap.DeserializeImpl<T, TWrap>.Deserialize(deserializer).ToEq();
+            return ImmutableArrayProxy.Deserialize<T, TProvider>.Instance.Deserialize(deserializer).ToEq();
         }
     }
 }

@@ -46,20 +46,21 @@ internal sealed partial record ManifestV2
 }
 
 [GenerateSerde]
-internal partial record struct TrackedChannelV2
+internal sealed partial record TrackedChannelV2
 {
-    public Channel ChannelName { get; init; }
+    public required Channel ChannelName { get; init; }
     public ImmutableArray<string> InstalledSdkVersions { get; init; }
 
-    public bool Equals(TrackedChannelV2 other)
+    public bool Equals(TrackedChannelV2? other)
     {
-        return this.ChannelName == other.ChannelName &&
+        return other is not null &&
+            this.ChannelName == other.ChannelName &&
             this.InstalledSdkVersions.SequenceEqual(other.InstalledSdkVersions);
     }
 
     public override int GetHashCode()
     {
-        int code = 0;
+        int code = ChannelName.GetHashCode();
         foreach (var item in InstalledSdkVersions)
         {
             code = HashCode.Combine(code, item);
