@@ -4,6 +4,8 @@ on:
   push:
     branches: [ "main" ]
     tags: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
 
 permissions:
   contents: write
@@ -34,7 +36,7 @@ jobs:
       if: matrix.rid == 'linux-arm64'
       run: |
         sudo dpkg --add-architecture arm64
-        sudo bash -c 'cat > /etc/apt/sources.list.d/arm64.list <<EOF
+        sudo bash -c 'cat > /etc/apt/sources.list.d/arm64.sources <<EOF
         Types: deb
         URIs: http://ports.ubuntu.com/ubuntu-ports/
         Suites: noble noble-updates noble-backports
