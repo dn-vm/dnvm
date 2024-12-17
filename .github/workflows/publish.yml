@@ -44,7 +44,7 @@ jobs:
         Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
         Architectures: arm64
         EOF'
-        sudo sed -i -e 's/\(Signed-By:.*$\)/\1\nArchitectures: amd64 arm64/g' /etc/apt/sources.list.d/ubuntu.sources
+        sudo sed -i -e 's/\(Signed-By:.*$\)/\1\nArchitectures: amd64/g' /etc/apt/sources.list.d/ubuntu.sources
         sudo apt update
         sudo apt install -y clang llvm binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu zlib1g-dev:arm64
     - uses: actions/checkout@v3
