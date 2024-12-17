@@ -4,7 +4,7 @@ using Serde;
 
 namespace Dnvm;
 
-public struct ScalarDeserializer(string s) : IDeserializer
+public sealed class ScalarDeserializer(string s) : IDeserializer
 {
     public bool ReadBool()
         => bool.Parse(s);

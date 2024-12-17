@@ -54,18 +54,13 @@ public sealed class MockServer : IAsyncDisposable
         }
         RegisterReleaseVersion(DefaultLtsVersion, "lts", "active");
         RegisterReleaseVersion(DefaultPreviewVersion, "sts", "preview");
-        DnvmReleases = new()
-        {
-            LatestVersion = new()
-            {
-                Version = "24.24.24",
-                Artifacts = new() {
-                    ["linux-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
-                    ["osx-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
-                    ["win-x64"] = $"{PrefixString}dnvm/dnvm.zip"
-                }
-            }
-        };
+        DnvmReleases = new(new(
+            Version: "24.24.24",
+            Artifacts: new() {
+                ["linux-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                ["osx-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                ["win-x64"] = $"{PrefixString}dnvm/dnvm.zip"
+        }));
     }
 
     [MemberNotNull(nameof(ReleasesIndexJson))]

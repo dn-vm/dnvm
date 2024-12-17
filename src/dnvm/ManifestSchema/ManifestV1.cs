@@ -10,8 +10,5 @@ internal sealed partial record ManifestV1
     public ImmutableArray<Workload> Workloads { get; init; } = ImmutableArray<Workload>.Empty;
 
     [GenerateSerde]
-    internal partial record struct Workload
-    {
-        public string Version { get; init; }
-    }
+    internal sealed partial record Workload(string Version);
 }

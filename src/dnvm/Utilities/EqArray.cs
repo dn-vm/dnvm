@@ -75,7 +75,7 @@ public static class EqArrayProxy
         }
     }
 
-    public readonly record struct Deserialize<T, TProvider> : IDeserializeProvider<EqArray<T>>, IDeserialize<EqArray<T>>
+    public sealed class Deserialize<T, TProvider> : IDeserializeProvider<EqArray<T>>, IDeserialize<EqArray<T>>
         where TProvider : IDeserializeProvider<T>
     {
         public static readonly Deserialize<T, TProvider> Instance = new();
