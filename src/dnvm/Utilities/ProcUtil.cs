@@ -59,5 +59,5 @@ public static class ProcUtil
             await error.ConfigureAwait(false));
     }
 
-    public readonly record struct ProcResult(int ExitCode, string Out, string Error);
+    public sealed record ProcResult(int ExitCode, string Out, string Error);
 }

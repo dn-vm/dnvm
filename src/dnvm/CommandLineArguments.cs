@@ -44,23 +44,23 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
         ]);
 
     [GenerateDeserialize(ForType = typeof(InstallCommand))]
-    internal partial struct InstallCommandProxy;
+    internal sealed partial class InstallCommandProxy;
     [GenerateDeserialize(ForType = typeof(TrackCommand))]
-    internal partial struct TrackCommandProxy;
+    internal sealed partial class TrackCommandProxy;
     [GenerateDeserialize(ForType = typeof(SelfInstallCommand))]
-    internal partial struct SelfInstallCommandProxy;
+    internal sealed partial class SelfInstallCommandProxy;
     [GenerateDeserialize(ForType = typeof(ListCommand))]
-    internal partial struct ListCommandProxy;
+    internal sealed partial class ListCommandProxy;
     [GenerateDeserialize(ForType = typeof(SelectCommand))]
-    internal partial struct SelectCommandProxy;
+    internal sealed partial class SelectCommandProxy;
     [GenerateDeserialize(ForType = typeof(UntrackCommand))]
-    internal partial struct UntrackCommandProxy;
+    internal sealed partial class UntrackCommandProxy;
     [GenerateDeserialize(ForType = typeof(UpdateCommand))]
-    internal partial struct UpdateCommandProxy;
+    internal sealed partial class UpdateCommandProxy;
     [GenerateDeserialize(ForType = typeof(UninstallCommand))]
-    internal partial struct UninstallCommandProxy;
+    internal sealed partial class UninstallCommandProxy;
     [GenerateDeserialize(ForType = typeof(PruneCommand))]
-    internal partial struct PruneCommandProxy;
+    internal sealed partial class PruneCommandProxy;
 
     private sealed class Deserialize : IDeserialize<DnvmSubCommand>
     {

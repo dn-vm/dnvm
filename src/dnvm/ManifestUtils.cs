@@ -21,14 +21,9 @@ namespace Dnvm;
 /// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
 /// This is a wrapper to prevent being used directly as a path.
 /// </summary>
-public sealed partial record SdkDirName
+public sealed partial record SdkDirName(string Name)
 {
-    public SdkDirName() { Name = null!; }
-    public SdkDirName(string name)
-    {
-        Name = name.ToLowerInvariant();
-    }
-    public string Name { get; init; }
+    public string Name { get; init; } = Name.ToLower();
 }
 
 public static partial class ManifestUtils
@@ -137,7 +132,7 @@ public static partial class ManifestUtils
     }
 
     [GenerateDeserialize]
-    private readonly partial struct ManifestVersionOnly
+    private sealed partial class ManifestVersionOnly
     {
         public int? Version { get; init; }
     }

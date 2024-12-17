@@ -1,11 +1,8 @@
-using Serde;
-using Spectre.Console;
-
 namespace Serde.CmdLine;
 
 internal sealed partial class Deserializer : IDeserializeType
 {
-    V IDeserializeType.ReadValue<V>(int index, IDeserialize<V> deserialize) => deserialize.Deserialize(this);
+    V IDeserializeType.ReadValue<V, D>(int index, D deserialize) => deserialize.Deserialize(this);
 
     bool IDeserializeType.ReadBool(int index) => ReadBool();
 

@@ -31,7 +31,7 @@ namespace Dnvm;
 /// <summary>
 /// Deletes the given directory on disposal.
 /// </summary>
-public readonly record struct DirectoryResource(
+public sealed record DirectoryResource(
     string Path,
     bool Recursive = true) : IDisposable
 {
@@ -301,7 +301,7 @@ public enum Libc
     Musl
 }
 
-public readonly record struct RID(
+public sealed record RID(
     OSPlatform OS,
     Architecture Arch,
     Libc Libc = Libc.Default)
