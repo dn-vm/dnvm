@@ -78,7 +78,7 @@ public sealed class UninstallCommand
 
             logger.Log($"Deleting SDK {verString} from {dir.Name}");
 
-            env.Vfs.DeleteDirectory(sdkDir, isRecursive: true);
+            env.HomeFs.DeleteDirectory(sdkDir, isRecursive: true);
         }
     }
 
@@ -93,9 +93,9 @@ public sealed class UninstallCommand
 
             logger.Log($"Deleting Runtime {verString} from {dir.Name}");
 
-            env.Vfs.DeleteDirectory(netcoreappDir, isRecursive: true);
-            env.Vfs.DeleteDirectory(hostfxrDir, isRecursive: true);
-            env.Vfs.DeleteDirectory(packsHostDir, isRecursive: true);
+            env.HomeFs.DeleteDirectory(netcoreappDir, isRecursive: true);
+            env.HomeFs.DeleteDirectory(hostfxrDir, isRecursive: true);
+            env.HomeFs.DeleteDirectory(packsHostDir, isRecursive: true);
         }
     }
 
@@ -109,8 +109,8 @@ public sealed class UninstallCommand
 
             logger.Log($"Deleting ASP.NET pack {verString} from {dir.Name}");
 
-            env.Vfs.DeleteDirectory(aspnetDir, isRecursive: true);
-            env.Vfs.DeleteDirectory(templatesDir, isRecursive: true);
+            env.HomeFs.DeleteDirectory(aspnetDir, isRecursive: true);
+            env.HomeFs.DeleteDirectory(templatesDir, isRecursive: true);
         }
     }
 
@@ -121,11 +121,11 @@ public sealed class UninstallCommand
             var verString = version.ToString();
             var winDir = DnvmEnv.GetSdkPath(dir) / "shared" / "Microsoft.WindowsDesktop.App" / verString;
 
-            if (env.Vfs.DirectoryExists(winDir))
+            if (env.HomeFs.DirectoryExists(winDir))
             {
                 logger.Log($"Deleting Windows Desktop pack {verString} from {dir.Name}");
 
-                env.Vfs.DeleteDirectory(winDir, isRecursive: true);
+                env.HomeFs.DeleteDirectory(winDir, isRecursive: true);
             }
         }
     }

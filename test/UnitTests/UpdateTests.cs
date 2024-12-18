@@ -137,7 +137,7 @@ public sealed class UpdateTests
         {
             mockServer.ReleasesIndexJson = new()
             {
-                Releases = [ new() {
+                ChannelIndices = [ new() {
                         LatestRelease = version.ToString(),
                         LatestSdk = version.ToString(),
                         MajorMinorVersion = version.ToMajorMinor(),
@@ -198,7 +198,7 @@ public sealed class UpdateTests
             ChannelReleaseIndexUrl = null!
         };
         var releasesIndex = new DotnetReleasesIndex {
-            Releases = [ltsRelease, stsRelease, ltsPreview, stsPreview]
+            ChannelIndices = [ltsRelease, stsRelease, ltsPreview, stsPreview]
         };
 
         var actual = releasesIndex.GetChannelIndex(new Channel.Latest());
@@ -230,7 +230,7 @@ public sealed class UpdateTests
         };
 
         var releasesIndex = new DotnetReleasesIndex {
-            Releases = [previewRelease]
+            ChannelIndices = [previewRelease]
         };
 
         var actual = releasesIndex.GetChannelIndex(new Channel.Preview());
@@ -264,7 +264,7 @@ public sealed class UpdateTests
         result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Lts() });
         Assert.Equal(TrackCommand.Result.Success , result);
 
-        var oldRelease = server.ReleasesIndexJson.Releases.Single(r => r.ReleaseType == "lts");
+        var oldRelease = server.ReleasesIndexJson.ChannelIndices.Single(r => r.ReleaseType == "lts");
         var newSdkVersion = new SemVersion(42, 42, 43);
         var newRelease = server.RegisterReleaseVersion(newSdkVersion, "lts", "active");
         var updateResult = await UpdateCommand.Run(env, _logger, new() { Yes = true });

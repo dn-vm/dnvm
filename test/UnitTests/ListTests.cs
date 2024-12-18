@@ -68,23 +68,13 @@ Tracked channels:
                 ReleaseVersion = new(42, 42, 42),
             }, new Channel.Latest());
 
-        var env = new Dictionary<string, string>();
-        using var userHome = TestUtils.CreateTempDirectory();
-        using var dnvmHome = TestUtils.CreateTempDirectory();
-        var physicalFs = DnvmEnv.PhysicalFs;
-        var home = new DnvmEnv(
-            userHome.Path,
-            new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(dnvmHome.Path)),
-            isPhysical: true,
-            getUserEnvVar: s => env[s],
-            setUserEnvVar: (name, val) => env[name] = val
-        );
-        home.WriteManifest(manifest);
+        using var testEnv = new TestEnv(DnvmEnv.DefaultDotnetFeedUrls[0], DnvmEnv.DefaultReleasesUrl);
+        testEnv.DnvmEnv.WriteManifest(manifest);
 
-        var ret = await ListCommand.Run(_logger, home);
+        var ret = await ListCommand.Run(_logger, testEnv.DnvmEnv);
         Assert.Equal(0, ret);
         var output = $"""
-DNVM_HOME: {dnvmHome.Path}
+DNVM_HOME: {testEnv.DnvmEnv.RealPath(UPath.Root)}
 
 Installed SDKs:
 
@@ -114,6 +104,8 @@ Tracked channels:
         var home = new DnvmEnv(
             userHome.Path,
             new MemoryFileSystem(),
+            new MemoryFileSystem(),
+            UPath.Root,
             isPhysical: false,
             getUserEnvVar: s => env[s],
             setUserEnvVar: (name, val) => env[name] = val

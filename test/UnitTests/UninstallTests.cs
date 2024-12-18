@@ -26,8 +26,8 @@ public sealed class UninstallTests
             SdkDir = "preview"
         });
         Assert.Equal(TrackCommand.Result.Success, result);
-        var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[0].LatestSdk, SemVersionStyles.Strict);
-        var previewVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[1].LatestSdk, SemVersionStyles.Strict);
+        var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[0].LatestSdk, SemVersionStyles.Strict);
+        var previewVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[1].LatestSdk, SemVersionStyles.Strict);
         var expectedManifest = Manifest.Empty
             .AddSdk(ltsVersion, new Channel.Latest(), DnvmEnv.DefaultSdkDirName)
             .AddSdk(previewVersion, new Channel.Preview(), new SdkDirName("preview"));
@@ -46,16 +46,16 @@ public sealed class UninstallTests
         };
         Assert.Equal(previewOnly, manifest);
 
-        Assert.False(env.Vfs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.NETCore.App" / ltsVersion.ToString()));
-        Assert.False(env.Vfs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.AspNetCore.App" / ltsVersion.ToString()));
-        Assert.False(env.Vfs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.AspNetCore.App" / ltsVersion.ToString()));
-        Assert.False(env.Vfs.DirectoryExists(UPath.Root / "dn" / "host" / "fxr" / ltsVersion.ToString()));
+        Assert.False(env.HomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.NETCore.App" / ltsVersion.ToString()));
+        Assert.False(env.HomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.AspNetCore.App" / ltsVersion.ToString()));
+        Assert.False(env.HomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.AspNetCore.App" / ltsVersion.ToString()));
+        Assert.False(env.HomeFs.DirectoryExists(UPath.Root / "dn" / "host" / "fxr" / ltsVersion.ToString()));
 
-        Assert.True(env.Vfs.DirectoryExists(UPath.Root / "preview" / "shared" / "Microsoft.NETCore.App" / previewVersion.ToString()));
-        Assert.True(env.Vfs.DirectoryExists(UPath.Root / "preview" / "shared" / "Microsoft.AspNetCore.App" / previewVersion.ToString()));
-        Assert.True(env.Vfs.DirectoryExists(UPath.Root / "preview" / "host" / "fxr" / previewVersion.ToString()));
-        Assert.True(env.Vfs.DirectoryExists(UPath.Root / "preview" / "packs" / $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}" / previewVersion.ToString()));
-        Assert.True(env.Vfs.DirectoryExists(UPath.Root / "preview" / "templates" / previewVersion.ToString()));
+        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "shared" / "Microsoft.NETCore.App" / previewVersion.ToString()));
+        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "shared" / "Microsoft.AspNetCore.App" / previewVersion.ToString()));
+        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "host" / "fxr" / previewVersion.ToString()));
+        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "packs" / $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}" / previewVersion.ToString()));
+        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "templates" / previewVersion.ToString()));
     });
 
     [Fact]
@@ -73,8 +73,8 @@ public sealed class UninstallTests
         });
         Assert.Equal(TrackCommand.Result.Success, result);
 
-        var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[0].LatestSdk, SemVersionStyles.Strict);
-        var previewVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[1].LatestSdk, SemVersionStyles.Strict);
+        var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[0].LatestSdk, SemVersionStyles.Strict);
+        var previewVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[1].LatestSdk, SemVersionStyles.Strict);
 
         var uninstallConsole = new TestConsole();
         var unResult = await UninstallCommand.Run(env, new Logger(uninstallConsole), new CommandArguments.UninstallArguments

@@ -1,8 +1,10 @@
 
 using System;
+using StaticCs;
 
 namespace Dnvm;
 
+[Closed]
 public abstract record Result<TOk, TErr>
 {
     private Result() { }

@@ -198,60 +198,17 @@ public static partial class InstallCommand
 
         var ridString = Utilities.CurrentRID.ToString();
         var sdkInstallPath = UPath.Root / sdkDir.Name;
-
-        // The Release name does not contain a version
-        string archiveName = ConstructArchiveName(versionString: null, Utilities.CurrentRID, Utilities.ZipSuffix);
-
-        // Download and extract into a temp directory
-        using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
-        string archivePath = Path.Combine(tempDir.Path, archiveName);
-        logger.Info("Archive path: " + archivePath);
-
         var downloadFile = release.Sdk.Files.Single(f => f.Rid == ridString && f.Url.EndsWith(Utilities.ZipSuffix));
         var link = downloadFile.Url;
         logger.Info("Download link: " + link);
 
+        logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
+        var error = await InstallSdkToDir(link, env.HomeFs, sdkInstallPath, env.TempFs, logger);
+
+        CreateSymlinkIfMissing(env, sdkDir);
+
         var result = JsonSerializer.Serialize(manifest);
         logger.Info("Existing manifest: " + result);
-
-        logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
-
-        var downloadError = await logger.DownloadWithProgress(
-            Program.HttpClient,
-            archivePath,
-            link,
-            "Downloading SDK");
-
-        if (downloadError is not null)
-        {
-            logger.Error(downloadError);
-            return InstallError.DownloadFailed;
-        }
-
-        logger.Log($"Installing to {sdkInstallPath}");
-        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, env, sdkInstallPath);
-        File.Delete(archivePath);
-        if (extractResult != null)
-        {
-            logger.Error("Extract failed: " + extractResult);
-            return InstallError.ExtractFailed;
-        }
-
-        var dotnetExePath = sdkInstallPath / Utilities.DotnetExeName;
-        if (!OperatingSystem.IsWindows())
-        {
-            logger.Info("chmoding downloaded host");
-            try
-            {
-                Utilities.ChmodExec(env.Vfs, dotnetExePath);
-            }
-            catch (Exception e)
-            {
-                logger.Error("chmod failed: " + e.Message);
-                return InstallError.ExtractFailed;
-            }
-        }
-        CreateSymlinkIfMissing(env, sdkDir);
 
         if (!manifest.InstalledSdks.Any(s => s.SdkVersion == sdkVersion && s.SdkDirName == sdkDir))
         {
@@ -273,10 +230,63 @@ public static partial class InstallCommand
         return manifest;
     }
 
+    internal static async Task<InstallError?> InstallSdkToDir(
+        string downloadUrl,
+        IFileSystem destFs,
+        UPath destPath,
+        IFileSystem tempFs,
+        Logger logger)
+    {
+        // The Release name does not contain a version
+        string archiveName = ConstructArchiveName(versionString: null, Utilities.CurrentRID, Utilities.ZipSuffix);
+
+        // Download and extract into a temp directory
+        using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
+        string archivePath = Path.Combine(tempDir.Path, archiveName);
+        logger.Info("Archive path: " + archivePath);
+
+        var downloadError = await logger.DownloadWithProgress(
+            Program.HttpClient,
+            archivePath,
+            downloadUrl,
+            "Downloading SDK");
+
+        if (downloadError is not null)
+        {
+            logger.Error(downloadError);
+            return InstallError.DownloadFailed;
+        }
+
+        logger.Log($"Installing to {destPath}");
+        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, tempFs, destFs, destPath);
+        File.Delete(archivePath);
+        if (extractResult != null)
+        {
+            logger.Error("Extract failed: " + extractResult);
+            return InstallError.ExtractFailed;
+        }
+
+        var dotnetExePath = destPath / Utilities.DotnetExeName;
+        if (!OperatingSystem.IsWindows())
+        {
+            logger.Info("chmoding downloaded host");
+            try
+            {
+                Utilities.ChmodExec(destFs, dotnetExePath);
+            }
+            catch (Exception e)
+            {
+                logger.Error("chmod failed: " + e.Message);
+                return InstallError.ExtractFailed;
+            }
+        }
+
+        return null;
+    }
 
     internal static void CreateSymlinkIfMissing(DnvmEnv dnvmFs, SdkDirName sdkDirName)
     {
-        var symlinkPath = dnvmFs.Vfs.ConvertPathToInternal(UPath.Root + Utilities.DotnetSymlinkName);
+        var symlinkPath = dnvmFs.HomeFs.ConvertPathToInternal(UPath.Root + Utilities.DotnetSymlinkName);
         if (!File.Exists(symlinkPath))
         {
             RetargetSymlink(dnvmFs, sdkDirName);
@@ -303,7 +313,7 @@ public static partial class InstallCommand
     /// </remarks>
     internal static void RetargetSymlink(DnvmEnv dnvmFs, SdkDirName sdkDirName)
     {
-        var dnvmHome = dnvmFs.Vfs.ConvertPathToInternal(UPath.Root);
+        var dnvmHome = dnvmFs.HomeFs.ConvertPathToInternal(UPath.Root);
         RetargetSymlink(dnvmHome, sdkDirName);
 
         static void RetargetSymlink(string dnvmHome, SdkDirName sdkDirName)

@@ -16,7 +16,7 @@ public sealed class InstallTests
     {
         var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
         var dotnetFile = sdkInstallDir / Utilities.DotnetExeName;
-        Assert.False(env.Vfs.FileExists(dotnetFile));
+        Assert.False(env.HomeFs.FileExists(dotnetFile));
 
         var logger = new Logger(new TestConsole());
         var options = new CommandArguments.InstallArguments()
@@ -25,8 +25,8 @@ public sealed class InstallTests
         };
         var installResult = await InstallCommand.Run(env, logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
-        Assert.True(env.Vfs.FileExists(dotnetFile));
-        Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
+        Assert.True(env.HomeFs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, env.HomeFs.ReadAllText(dotnetFile));
 
         var manifest = await env.ReadManifest();
         var expectedManifest = Manifest.Empty.AddSdk(MockServer.DefaultLtsVersion);

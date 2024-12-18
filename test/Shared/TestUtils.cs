@@ -1,6 +1,7 @@
 
 using System.Runtime.CompilerServices;
 using Semver;
+using Zio;
 
 namespace Dnvm.Test;
 
@@ -32,6 +33,14 @@ public static class TestUtils
         {
             await using var mockServer = new MockServer(taskScope);
             using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
+            await test(mockServer, testOptions.DnvmEnv);
+        });
+
+    public static Task RunWithServer(UPath cwd, Func<MockServer, DnvmEnv, Task> test)
+        => TaskScope.With(async taskScope =>
+        {
+            await using var mockServer = new MockServer(taskScope);
+            using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl, cwd);
             await test(mockServer, testOptions.DnvmEnv);
         });
 
