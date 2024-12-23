@@ -227,10 +227,13 @@ public static class Utilities
         return null;
     }
 
-    public static async Task<string?> ExtractArchiveToDir(string archivePath, DnvmEnv dnvmFs, UPath dest)
+    public static async Task<string?> ExtractArchiveToDir(
+        string archivePath,
+        IFileSystem tempFs,
+        IFileSystem destFs,
+        UPath dest)
     {
-        dnvmFs.Vfs.CreateDirectory(dest);
-        var tempFs = dnvmFs.TempFs;
+        destFs.CreateDirectory(dest);
         var tempExtractDir = UPath.Root / Path.GetRandomFileName();
         tempFs.CreateDirectory(tempExtractDir);
         using var tempRealPath = new DirectoryResource(tempFs.ConvertPathToInternal(tempExtractDir));
@@ -269,11 +272,11 @@ public static class Utilities
 
                 if (fsItem.IsDirectory)
                 {
-                    dnvmFs.Vfs.CreateDirectory(destPath);
+                    destFs.CreateDirectory(destPath);
                 }
                 else
                 {
-                    ForceReplaceFile(tempFs, fsItem.Path, dnvmFs.Vfs, destPath);
+                    ForceReplaceFile(tempFs, fsItem.Path, destFs, destPath);
                 }
             }
         }

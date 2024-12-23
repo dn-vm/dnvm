@@ -43,7 +43,7 @@ public sealed class SelfInstallTests
 
         var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
         var dotnetPath = sdkInstallDir / Utilities.DotnetExeName;
-        Assert.True(env.Vfs.FileExists(dotnetPath));
+        Assert.True(env.HomeFs.FileExists(dotnetPath));
 
         var result = await ProcUtil.RunWithOutput(env.RealPath(dotnetPath), "-h");
         Assert.Contains(Assets.ArchiveToken, result.Out);
@@ -142,7 +142,7 @@ Log: Checking for file: {env.UserHome}/.profile
 Log: Checking for file: {env.UserHome}/.bashrc
 Log: Checking for file: {env.UserHome}/.zshrc
 """.RemoveWhitespace(), lines.RemoveWhitespace());
-        Assert.Contains(env.RealPath(UPath.Root), env.Vfs.ReadAllText(DnvmEnv.EnvPath));
+        Assert.Contains(env.RealPath(UPath.Root), env.HomeFs.ReadAllText(DnvmEnv.EnvPath));
     });
 
     [ConditionalFact(typeof(UnixOnly))]
@@ -161,7 +161,7 @@ Log: Checking for file: {env.UserHome}/.zshrc
         await proc!.WaitForExitAsync();
         Assert.Equal(0, proc.ExitCode);
 
-        Assert.True(env.Vfs.FileExists(DnvmEnv.EnvPath));
+        Assert.True(env.HomeFs.FileExists(DnvmEnv.EnvPath));
         var envPath = env.RealPath(DnvmEnv.EnvPath);
         // source the sh script and confirm that dnvm and dotnet are on the path
         var src = $"""
@@ -263,7 +263,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     {
         using var srcTmpDir = TestUtils.CreateTempDirectory();
         using var dnvmHome = TestUtils.CreateTempDirectory();
-        using var dnvmFs = DnvmEnv.CreateDefault(dnvmHome.Path);
+        using var env = DnvmEnv.CreateDefault(dnvmHome.Path);
         var dnvmTmpPath = srcTmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
         // Create a dest dnvm home that looks like a previous install
@@ -297,15 +297,15 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             Assert.Equal(newFileHash, oldFileHash);
         }
         // Self-install update does not modify the manifest (or create one if it doesn't exist)
-        Assert.False(dnvmFs.Vfs.FileExists(DnvmEnv.ManifestPath));
+        Assert.False(env.HomeFs.FileExists(DnvmEnv.ManifestPath));
         if (!OperatingSystem.IsWindows())
         {
             // Updated env file should be created
-            Assert.True(dnvmFs.Vfs.FileExists(DnvmEnv.EnvPath));
+            Assert.True(env.HomeFs.FileExists(DnvmEnv.EnvPath));
             // source the sh script and confirm that dnvm and dotnet are on the path
             var src = $"""
 set -e
-. "{dnvmFs.Vfs.ConvertPathToInternal(DnvmEnv.EnvPath)}"
+. "{env.HomeFs.ConvertPathToInternal(DnvmEnv.EnvPath)}"
 echo "dnvm: `which dnvm`"
 echo "dotnet: `which dotnet`"
 echo "DOTNET_ROOT: $DOTNET_ROOT"

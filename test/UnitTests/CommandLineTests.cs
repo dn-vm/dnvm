@@ -40,6 +40,15 @@ public sealed class CommandLineTests
     }
 
     [Fact]
+    public void Restore()
+    {
+        var options = CommandLineArguments.ParseRaw(new TestConsole(), [
+            "restore"
+        ]);
+        Assert.True(options!.Command is CommandArguments.RestoreArguments);
+    }
+
+    [Fact]
     public void List()
     {
         var options = CommandLineArguments.ParseRaw(new TestConsole(), [
@@ -391,6 +400,28 @@ Remove a channel from the list of tracked channels.
 
 Arguments:
     <channel>  The channel to untrack.
+
+Options:
+    -h, --help  Show help information.
+
+
+""".NormalizeLineEndings(), console.Output.TrimLines());
+    }
+
+    [Theory]
+    [InlineData("-h")]
+    [InlineData("--help")]
+    public void RestoreHelp(string param)
+    {
+        var console = new TestConsole();
+        Assert.Null(CommandLineArguments.ParseRaw(
+            console,
+            [ "restore", param ]).Command);
+        Assert.Equal("""
+usage: dnvm restore [-h | --help]
+
+Restore the SDK listed in the global.json file in or above the current directory
+to the .dotnet folder in the same directory.
 
 Options:
     -h, --help  Show help information.

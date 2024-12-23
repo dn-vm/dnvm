@@ -32,11 +32,11 @@ public sealed class TrackTests
         Assert.Equal(Result.Success, retVal);
         var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
         var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
-        Assert.True(env.Vfs.FileExists(dotnetFile));
-        Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
+        Assert.True(env.HomeFs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, env.HomeFs.ReadAllText(dotnetFile));
 
         var manifest = await env.ReadManifest();
-        var installedVersion = SemVersion.Parse(server.ReleasesIndexJson.Releases[0].LatestSdk, SemVersionStyles.Strict);
+        var installedVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[0].LatestSdk, SemVersionStyles.Strict);
         EqArray<InstalledSdk> installedVersions = [ new InstalledSdk {
             SdkVersion = installedVersion,
             AspNetVersion = installedVersion,
@@ -65,7 +65,7 @@ public sealed class TrackTests
             Channel = new Channel.Lts(),
             Verbose = true,
         };
-        var homeFs = env.Vfs;
+        var homeFs = env.HomeFs;
         var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
         Assert.False(homeFs.DirectoryExists(sdkInstallDir));
         Assert.True(homeFs.DirectoryExists(UPath.Root));
@@ -79,7 +79,7 @@ public sealed class TrackTests
     public Task PreviewNotIsolated() => RunWithServer(async (server, env) =>
     {
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
-            Releases = server.ReleasesIndexJson.Releases.Select(r => r with { SupportPhase = "preview" }).ToImmutableArray()
+            ChannelIndices = server.ReleasesIndexJson.ChannelIndices.Select(r => r with { SupportPhase = "preview" }).ToImmutableArray()
         };
 
         var args = new CommandArguments.TrackArguments()
@@ -88,19 +88,19 @@ public sealed class TrackTests
         };
         // Preview used to be isolated, but it shouldn't be anymore
         var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
-        Assert.False(env.Vfs.DirectoryExists(sdkInstallDir));
-        Assert.True(env.Vfs.DirectoryExists(UPath.Root));
+        Assert.False(env.HomeFs.DirectoryExists(sdkInstallDir));
+        Assert.True(env.HomeFs.DirectoryExists(UPath.Root));
         Assert.Equal(Result.Success, await TrackCommand.Run(env, _logger, args));
         var dotnetFile = sdkInstallDir / Utilities.DotnetExeName;
-        Assert.True(env.Vfs.FileExists(dotnetFile));
-        Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
+        Assert.True(env.HomeFs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, env.HomeFs.ReadAllText(dotnetFile));
     });
 
     [Fact]
     public Task InstallStsToSubdir() => RunWithServer(async (server, env) =>
     {
         server.ReleasesIndexJson = server.ReleasesIndexJson with {
-            Releases = server.ReleasesIndexJson.Releases.Select(r => r with { ReleaseType = "sts" }).ToImmutableArray()
+            ChannelIndices = server.ReleasesIndexJson.ChannelIndices.Select(r => r with { ReleaseType = "sts" }).ToImmutableArray()
         };
         const string dirName = "sts";
         var args = new CommandArguments.TrackArguments()
@@ -110,12 +110,12 @@ public sealed class TrackTests
         };
         // Check that the SDK is installed is isolated into the "sts" subdirectory
         var sdkInstallDir = DnvmEnv.GetSdkPath(new SdkDirName(dirName));
-        Assert.False(env.Vfs.DirectoryExists(sdkInstallDir));
-        Assert.True(env.Vfs.DirectoryExists(UPath.Root));
+        Assert.False(env.HomeFs.DirectoryExists(sdkInstallDir));
+        Assert.True(env.HomeFs.DirectoryExists(UPath.Root));
         Assert.Equal(Result.Success, await TrackCommand.Run(env, _logger, args));
         var dotnetFile = sdkInstallDir / (Utilities.DotnetExeName);
-        Assert.True(env.Vfs.FileExists(dotnetFile));
-        Assert.Contains(Assets.ArchiveToken, env.Vfs.ReadAllText(dotnetFile));
+        Assert.True(env.HomeFs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, env.HomeFs.ReadAllText(dotnetFile));
     });
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class TrackTests
         result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Lts() });
         Assert.Equal(TrackCommand.Result.Success , result);
 
-        var ltsRelease = server.ReleasesIndexJson.Releases.Single(r => r.ReleaseType == "lts");
+        var ltsRelease = server.ReleasesIndexJson.ChannelIndices.Single(r => r.ReleaseType == "lts");
         var releaseVersion = SemVersion.Parse(ltsRelease.LatestRelease, SemVersionStyles.Strict);
         var sdkVersion = SemVersion.Parse(ltsRelease.LatestSdk, SemVersionStyles.Strict);
         var manifest = await env.ReadManifest();

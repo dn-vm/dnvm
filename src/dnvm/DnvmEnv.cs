@@ -74,14 +74,18 @@ public sealed class DnvmEnv : IDisposable
         return new DnvmEnv(
             userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
             new SubFileSystem(PhysicalFs, PhysicalFs.ConvertPathFromInternal(realPath)),
+            PhysicalFs,
+            new UPath(Environment.CurrentDirectory),
             isPhysical: true,
             getUserEnvVar,
             setUserEnvVar);
     }
 
     public bool IsPhysicalDnvmHome { get; }
-    public readonly IFileSystem Vfs;
-    public string RealPath(UPath path) => Vfs.ConvertPathToInternal(path);
+    public readonly IFileSystem HomeFs;
+    public readonly IFileSystem CwdFs;
+    public readonly UPath Cwd;
+    public string RealPath(UPath path) => HomeFs.ConvertPathToInternal(path);
     public SubFileSystem TempFs { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
@@ -92,7 +96,9 @@ public sealed class DnvmEnv : IDisposable
 
     public DnvmEnv(
         string userHome,
-        IFileSystem vfs,
+        IFileSystem homeFs,
+        IFileSystem cwdFs,
+        UPath cwd,
         bool isPhysical,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
@@ -100,7 +106,9 @@ public sealed class DnvmEnv : IDisposable
         string releasesUrl = DefaultReleasesUrl)
     {
         UserHome = userHome;
-        Vfs = vfs;
+        HomeFs = homeFs;
+        CwdFs = cwdFs;
+        Cwd = cwd;
         IsPhysicalDnvmHome = isPhysical;
         // TempFs must be a physical file system because we pass the path to external
         // commands that will not be able to write to shared memory
@@ -120,14 +128,14 @@ public sealed class DnvmEnv : IDisposable
     /// </summary>
     public async Task<Manifest> ReadManifest()
     {
-        var text = Vfs.ReadAllText(ManifestPath);
+        var text = HomeFs.ReadAllText(ManifestPath);
         return await ManifestUtils.DeserializeNewOrOldManifest(text, DotnetFeedUrls);
     }
 
     public void WriteManifest(Manifest manifest)
     {
         var text = JsonSerializer.Serialize(manifest);
-        Vfs.WriteAllText(ManifestPath, text, Encoding.UTF8);
+        HomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
     }
 
     public void Dispose()

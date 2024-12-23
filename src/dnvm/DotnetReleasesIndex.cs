@@ -39,7 +39,7 @@ public partial record DotnetReleasesIndex
     public ChannelIndex? GetChannelIndex(Channel c)
     {
         (ChannelIndex Release, SemVersion Version)? latestRelease = null;
-        foreach (var release in this.Releases)
+        foreach (var release in this.ChannelIndices)
         {
             var supportPhase = release.SupportPhase.ToLowerInvariant();
             var releaseType = release.ReleaseType.ToLowerInvariant();
@@ -71,10 +71,10 @@ public partial record DotnetReleasesIndex
 [GenerateSerde]
 public partial record DotnetReleasesIndex
 {
-    public static readonly DotnetReleasesIndex Empty = new() { Releases = [ ] };
+    public static readonly DotnetReleasesIndex Empty = new() { ChannelIndices = [ ] };
 
     [SerdeMemberOptions(Rename = "releases-index")]
-    public required ImmutableArray<ChannelIndex> Releases { get; init; }
+    public required ImmutableArray<ChannelIndex> ChannelIndices { get; init; }
 
     [GenerateSerde]
     [SerdeTypeOptions(MemberFormat = MemberFormat.KebabCase)]

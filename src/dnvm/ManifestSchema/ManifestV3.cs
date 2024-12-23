@@ -2,9 +2,10 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
-using Dnvm;
 using Serde;
 using StaticCs.Collections;
+
+namespace Dnvm;
 
 [GenerateSerde]
 public sealed partial record ManifestV3

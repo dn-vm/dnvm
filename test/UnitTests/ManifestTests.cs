@@ -39,7 +39,7 @@ public sealed class ManifestTests
 }
 """;
         server.ReleasesIndexJson = new() {
-            Releases = [
+            ChannelIndices = [
                 new DotnetReleasesIndex.ChannelIndex {
                     ReleaseType = "lts",
                     SupportPhase = "active",

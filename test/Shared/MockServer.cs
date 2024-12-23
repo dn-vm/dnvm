@@ -67,17 +67,35 @@ public sealed class MockServer : IAsyncDisposable
     public ChannelReleaseIndex.Release RegisterReleaseVersion(SemVersion version, string releaseType, string supportPhase)
     {
         var majorMinor = version.ToMajorMinor();
-        ReleasesIndexJson ??= new DotnetReleasesIndex{ Releases = [ ] };
-        ReleasesIndexJson = ReleasesIndexJson with {
-            Releases = ReleasesIndexJson.Releases.Add(new() {
+        ReleasesIndexJson ??= new DotnetReleasesIndex{ ChannelIndices = [ ] };
+        var channel = ReleasesIndexJson.ChannelIndices.SingleOrDefault(c => c.MajorMinorVersion == majorMinor);
+        if (channel is null)
+        {
+            ReleasesIndexJson = ReleasesIndexJson with
+            {
+                ChannelIndices = ReleasesIndexJson.ChannelIndices.Add(new()
+                {
+                    LatestRelease = version.ToString(),
+                    LatestSdk = version.ToString(),
+                    MajorMinorVersion = majorMinor,
+                    ReleaseType = releaseType,
+                    SupportPhase = supportPhase,
+                    ChannelReleaseIndexUrl = GetChannelIndexUrl(majorMinor)
+                })
+            };
+        }
+        else if (SemVersion.Parse(channel.LatestRelease, SemVersionStyles.Strict).ComparePrecedenceTo(version) < 0)
+        {
+            var newChannel = channel with
+            {
                 LatestRelease = version.ToString(),
-                LatestSdk = version.ToString(),
-                MajorMinorVersion = majorMinor,
-                ReleaseType = releaseType,
-                SupportPhase = supportPhase,
-                ChannelReleaseIndexUrl = GetChannelIndexUrl(majorMinor)
-            })
-        };
+                LatestSdk = version.ToString()
+            };
+            ReleasesIndexJson = ReleasesIndexJson with
+            {
+                ChannelIndices = ReleasesIndexJson.ChannelIndices.Replace(channel, newChannel)
+            };
+        }
         var newRelease = TestUtils.CreateRelease(PrefixString, version);
         newRelease = newRelease with {
             Sdk = newRelease.Sdk with {
@@ -127,7 +145,7 @@ public sealed class MockServer : IAsyncDisposable
             {
                 try
                 {
-                action(ctx.Response);
+                    action(ctx.Response);
                 }
                 catch {}
             }
@@ -152,10 +170,19 @@ public sealed class MockServer : IAsyncDisposable
             foreach (var (version, index) in ChannelIndexMap)
             {
                 routes["/" + GetChannelIndexPath(version)] = GetChannelIndexJson(index);
+                foreach (var release in index.Releases)
+                {
+                    routes[$"/sdk/{release.ReleaseVersion}/dotnet-sdk-{CurrentRID}{ZipSuffix}"] = GetSdk(
+                        release.Sdk.Version,
+                        release.Runtime.Version,
+                        release.AspNetCore.Version,
+                        release.WindowsDesktop.Version
+                    );
+                }
             }
-            foreach (var r in ReleasesIndexJson.Releases)
+            foreach (var channelIndex in ReleasesIndexJson.ChannelIndices)
             {
-                var sdkVersion = SemVersion.Parse(r.LatestSdk, SemVersionStyles.Strict);
+                var sdkVersion = SemVersion.Parse(channelIndex.LatestSdk, SemVersionStyles.Strict);
                 var route = $"/sdk/{sdkVersion}/dotnet-sdk-{sdkVersion}-{CurrentRID}{ZipSuffix}";
                 var unversioned = $"/sdk/{sdkVersion}/dotnet-sdk-{CurrentRID}{ZipSuffix}";
                 routes[route] = routes[unversioned] = GetSdk(sdkVersion, sdkVersion, sdkVersion, sdkVersion);

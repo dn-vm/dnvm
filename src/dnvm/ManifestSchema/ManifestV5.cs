@@ -77,7 +77,7 @@ public static partial class ManifestV5Convert
                 return channelReleaseIndex;
             }
 
-            var channelRelease = releasesIndex.Releases.Single(r => r.MajorMinorVersion == majorMinor.ToMajorMinor());
+            var channelRelease = releasesIndex.ChannelIndices.Single(r => r.MajorMinorVersion == majorMinor.ToMajorMinor());
             channelReleaseIndex = JsonSerializer.Deserialize<ChannelReleaseIndex>(
                 await Program.HttpClient.GetStringAsync(channelRelease.ChannelReleaseIndexUrl));
             channelMemo[majorMinor] = channelReleaseIndex;
