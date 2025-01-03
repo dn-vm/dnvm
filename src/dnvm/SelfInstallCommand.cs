@@ -113,10 +113,7 @@ public class SelfInstallCommand
         {
             Console.WriteLine("One or more paths are missing from the user environment. Attempt to update the user environment?");
             Console.Write("[Y/n]> ");
-            if (Console.ReadLine()?.Trim().ToLowerInvariant() == "y")
-            {
-                updateUserEnv = true;
-            }
+            updateUserEnv = Console.ReadLine()?.Trim().ToLowerInvariant() is not "n";
         }
 
         logger.Log("Proceeding with installation.");
