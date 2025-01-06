@@ -42,3 +42,14 @@ public sealed class CommandAttribute(string name) : Attribute
     /// </summary>
     public string? Description { get; init; } = null;
 }
+
+/// <summary>
+/// Represents one of a group of commands, also known as a discriminated union.
+/// </summary>
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field,
+    AllowMultiple = false,
+    Inherited = false)]
+public sealed class CommandGroupAttribute(string name) : Attribute
+{
+    public string Name { get; } = name;
+}

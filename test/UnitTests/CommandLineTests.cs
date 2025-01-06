@@ -17,8 +17,8 @@ public sealed class CommandLineTests
             -h, --help  Show help information.
 
         Commands:
-            track  Start tracking a new channel.
             install  Install an SDK.
+            track  Start tracking a new channel.
             selfinstall  Install dnvm to the local machine.
             update  Update the installed SDKs or dnvm itself.
             list  List installed SDKs.
@@ -26,6 +26,7 @@ public sealed class CommandLineTests
             untrack  Remove a channel from the list of tracked channels.
             uninstall  Uninstall an SDK.
             prune  Remove all SDKs with older patch versions.
+            restore  Restore the SDK listed in the global.json file.
 
 
         """.NormalizeLineEndings();
@@ -264,7 +265,7 @@ usage: dnvm track [--feed-url <feedUrl>] [-v | --verbose] [-f | --force] [-y]
 Start tracking a new channel.
 
 Arguments:
-    <channel>  Track the channel specified. Defaults to 'latest'.
+    <channel>  Track the channel specified.
 
 Options:
     --feed-url  <feedUrl>  Set the feed URL to download the SDK from.
@@ -420,8 +421,8 @@ Options:
         Assert.Equal("""
 usage: dnvm restore [-h | --help]
 
-Restore the SDK listed in the global.json file in or above the current directory
-to the .dotnet folder in the same directory.
+Downloads the SDK in the global.json in or above the current directory to the
+.dotnet folder in the same directory.
 
 Options:
     -h, --help  Show help information.
