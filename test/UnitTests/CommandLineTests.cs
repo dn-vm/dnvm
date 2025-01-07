@@ -9,11 +9,12 @@ namespace Dnvm.Test;
 public sealed class CommandLineTests
 {
     private static readonly string ExpectedHelpText = """
-        usage: dnvm [-h | --help] <command>
+        usage: dnvm [--enable-dnvm-previews] [-h | --help] <command>
 
         Install and manage .NET SDKs.
 
         Options:
+            --enable-dnvm-previews  Enable dnvm previews.
             -h, --help  Show help information.
 
         Commands:
@@ -158,6 +159,15 @@ Channel must be one of:
         });
     }
 
+    [Fact]
+    public void EnableDnvmPreviews()
+    {
+        var options = CommandLineArguments.ParseRaw(new TestConsole(), [
+            "--enable-dnvm-previews",
+        ]);
+        Assert.True(options!.EnableDnvmPreviews);
+    }
+
     [Theory]
     [InlineData("-h")]
     [InlineData("--help")]
@@ -292,7 +302,7 @@ given name.
             [ "selfinstall", param ]).Command);
         Assert.Equal("""
 usage: dnvm selfinstall [-v | --verbose] [-f | --force] [--feed-url <feedUrl>]
-[-y] [--update] [-h | --help]
+[-y] [--update] [--dest-path <destPath>] [-h | --help]
 
 Install dnvm to the local machine.
 
@@ -301,8 +311,9 @@ Options:
     -f, --force  Force install the given SDK, even if already installed
     --feed-url  <feedUrl>  Set the feed URL to download the SDK from.
     -y  Answer yes to all prompts.
-    --update  [internal] Update the dnvm installation in the current location.
-Only intended to be called from dnvm.
+    --update  [internal] Update the current dnvm installation. Only intended to
+be called from dnvm.
+    --dest-path  <destPath>  Set the destination path for the dnvm executable.
     -h, --help  Show help information.
 
 

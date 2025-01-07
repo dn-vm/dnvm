@@ -8,22 +8,21 @@ using StaticCs.Collections;
 namespace Dnvm;
 
 [GenerateSerde]
-public sealed partial record Manifest
+public sealed partial record ManifestV7
 {
-    public static readonly Manifest Empty = new();
+    public static readonly ManifestV7 Empty = new();
 
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
-    public const int VersionField = 8;
+    public const int VersionField = 7;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
 
-    public bool PreviewsEnabled { get; init; } = false;
     public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
-    public EqArray<InstalledSdk> InstalledSdks { get; init; } = [];
-    public EqArray<RegisteredChannel> RegisteredChannels { get; init; } = [];
+    public EqArray<InstalledSdkV7> InstalledSdks { get; init; } = [];
+    public EqArray<RegisteredChannelV7> RegisteredChannels { get; init; } = [];
 
-    internal Manifest TrackChannel(RegisteredChannel channel)
+    internal ManifestV7 TrackChannel(RegisteredChannelV7 channel)
     {
         var existing = RegisteredChannels.FirstOrNull(c =>
             c.ChannelName == channel.ChannelName && c.SdkDirName == channel.SdkDirName);
@@ -49,7 +48,7 @@ public sealed partial record Manifest
         throw new InvalidOperationException("Channel already tracked");
     }
 
-    internal Manifest UntrackChannel(Channel channel)
+    internal ManifestV7 UntrackChannel(Channel channel)
     {
         return this with
         {
@@ -66,7 +65,7 @@ public sealed partial record Manifest
 }
 
 [GenerateSerde]
-public partial record RegisteredChannel
+public partial record RegisteredChannelV7
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
@@ -78,7 +77,7 @@ public partial record RegisteredChannel
 }
 
 [GenerateSerde]
-public partial record InstalledSdk
+public partial record InstalledSdkV7
 {
     [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion ReleaseVersion { get; init; }
@@ -92,26 +91,26 @@ public partial record InstalledSdk
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 }
 
-public static partial class ManifestConvert
+public static partial class ManifestV7Convert
 {
-    public static Manifest Convert(this ManifestV7 v7) => new Manifest
+    public static ManifestV7 Convert(this ManifestV6 v6) => new ManifestV7
     {
-        InstalledSdks = v7.InstalledSdks.SelectAsArray(v => v.Convert()).ToEq(),
-        RegisteredChannels = v7.RegisteredChannels.SelectAsArray(c => c.Convert()).ToEq(),
+        InstalledSdks = v6.InstalledSdks.SelectAsArray(v => v.Convert()).ToEq(),
+        RegisteredChannels = v6.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
     };
 
-    public static InstalledSdk Convert(this InstalledSdkV7 v7) => new InstalledSdk {
-        ReleaseVersion = v7.ReleaseVersion,
-        SdkVersion = v7.SdkVersion,
-        RuntimeVersion = v7.RuntimeVersion,
-        AspNetVersion = v7.AspNetVersion,
-        SdkDirName = v7.SdkDirName,
+    public static InstalledSdkV7 Convert(this InstalledSdkV6 v6) => new InstalledSdkV7 {
+        ReleaseVersion = v6.ReleaseVersion,
+        SdkVersion = v6.SdkVersion,
+        RuntimeVersion = v6.RuntimeVersion,
+        AspNetVersion = v6.AspNetVersion,
+        SdkDirName = v6.SdkDirName,
     };
 
-    public static RegisteredChannel Convert(this RegisteredChannelV7 v7) => new RegisteredChannel {
-        ChannelName = v7.ChannelName,
-        SdkDirName = v7.SdkDirName,
-        InstalledSdkVersions = v7.InstalledSdkVersions,
-        Untracked = v7.Untracked,
+    public static RegisteredChannelV7 Convert(this TrackedChannelV6 v6) => new RegisteredChannelV7 {
+        ChannelName = v6.ChannelName,
+        SdkDirName = v6.SdkDirName,
+        InstalledSdkVersions = v6.InstalledSdkVersions,
+        Untracked = v6.Untracked,
     };
 }

@@ -55,9 +55,10 @@ public sealed partial class UpdateCommand
 
     public async Task<Result> Run()
     {
+        var manifest = await ManifestUtils.ReadOrCreateManifest(_env);
         if (_args.Self)
         {
-            return await UpdateSelf();
+            return await UpdateSelf(manifest);
         }
 
         DotnetReleasesIndex releaseIndex;
@@ -72,7 +73,6 @@ public sealed partial class UpdateCommand
             return CouldntFetchIndex;
         }
 
-        var manifest = await _env.ReadManifest();
         return await UpdateSdks(
             _env,
             _logger,
@@ -92,7 +92,7 @@ public sealed partial class UpdateCommand
     {
         logger.Log("Looking for available updates");
         // Check for dnvm updates
-        if (await CheckForSelfUpdates(env.HttpClient, logger, releasesUrl) is (true, _))
+        if (await CheckForSelfUpdates(env.HttpClient, logger, releasesUrl, manifest.PreviewsEnabled) is (true, _))
         {
             logger.Log("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
         }
@@ -197,7 +197,7 @@ public sealed partial class UpdateCommand
         return list;
     }
 
-    private async Task<Result> UpdateSelf()
+    public async Task<Result> UpdateSelf(Manifest manifest)
     {
         if (!Utilities.IsSingleFile)
         {
@@ -205,21 +205,21 @@ public sealed partial class UpdateCommand
             return Result.NotASingleFile;
         }
 
-        DnvmReleases releases;
-        switch (await CheckForSelfUpdates(_env.HttpClient, _logger, _releasesUrl))
+        DnvmReleases.Release release;
+        switch (await CheckForSelfUpdates(_env.HttpClient, _logger, _releasesUrl, manifest.PreviewsEnabled))
         {
             case (false, null):
                 return Result.SelfUpdateFailed;
             case (false, _):
                 return Result.Success;
             case (true, {} r):
-                releases = r;
+                release = r;
                 break;
             default:
                 throw ExceptionUtilities.Unreachable;
         }
 
-        string artifactDownloadLink = GetReleaseLink(releases);
+        string artifactDownloadLink = GetReleaseLink(release);
 
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         async Task HandleDownload(string tempDownloadPath)
@@ -241,14 +241,15 @@ public sealed partial class UpdateCommand
         {
             return SelfUpdateFailed;
         }
-        var exitCode = RunSelfInstall(dnvmTmpPath);
+        var exitCode = RunSelfInstall(dnvmTmpPath, Utilities.ProcessPath);
         return exitCode == 0 ? Success : SelfUpdateFailed;
     }
 
-    private static async Task<(bool UpdateAvailable, DnvmReleases? Releases)> CheckForSelfUpdates(
+    private static async Task<(bool UpdateAvailable, DnvmReleases.Release? Releases)> CheckForSelfUpdates(
         ScopedHttpClient httpClient,
         Logger logger,
-        string releasesUrl)
+        string releasesUrl,
+        bool previewsEnabled)
     {
         logger.Log("Checking for updates to dnvm");
         logger.Info("Using dnvm releases URL: " + releasesUrl);
@@ -277,28 +278,39 @@ public sealed partial class UpdateCommand
             return (false, null);
         }
 
-        var current = Program.SemVer;
+        var currentVersion = Program.SemVer;
+        var release = releases.LatestVersion;
         var newest = SemVersion.Parse(releases.LatestVersion.Version, SemVersionStyles.Strict);
+        var preview = releases.LatestPreview is not null
+            ? SemVersion.Parse(releases.LatestPreview.Version, SemVersionStyles.Strict)
+            : null;
 
-        if (current.ComparePrecedenceTo(newest) < 0)
+        if (previewsEnabled && preview is not null && newest.ComparePrecedenceTo(preview) < 0)
+        {
+            logger.Log($"Preview version '{preview}' is newer than latest version '{newest}'");
+            newest = preview;
+            release = releases.LatestPreview;
+        }
+
+        if (currentVersion.ComparePrecedenceTo(newest) < 0)
         {
             logger.Log("Found newer version: " + newest);
-            return (true, releases);
+            return (true, release);
         }
         else
         {
             logger.Log("No newer version found. Dnvm is up-to-date.");
-            return (false, releases);
+            return (false, release);
         }
     }
 
-    private string GetReleaseLink(DnvmReleases releases)
+    private string GetReleaseLink(DnvmReleases.Release release)
     {
         // Dnvm doesn't currently publish ARM64 binaries for any platform
         var rid = (Utilities.CurrentRID with {
             Arch = Architecture.X64
         }).ToString();
-        var artifactDownloadLink = releases.LatestVersion.Artifacts[rid];
+        var artifactDownloadLink = release.Artifacts[rid];
         _logger.Info("Artifact download link: " + artifactDownloadLink);
         return artifactDownloadLink;
     }
@@ -362,7 +374,7 @@ public sealed partial class UpdateCommand
         return false;
     }
 
-    public static int RunSelfInstall(string newFileName)
+    public static int RunSelfInstall(string newFileName, string oldPath)
     {
         var psi = new ProcessStartInfo
         {

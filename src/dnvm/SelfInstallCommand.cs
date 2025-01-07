@@ -46,11 +46,11 @@ public class SelfInstallCommand
         }
 
         DnvmEnv? env = null;
-        if (args.Update)
+        if (args.Update is true)
         {
             logger.Log("Running self-update install");
             env = DnvmEnv.CreateDefault();
-            return await SelfUpdate(logger, env);
+            return await SelfUpdate(args.DestPath, logger, env);
         }
 
         logger.Log("Starting dnvm install");
@@ -182,9 +182,8 @@ public class SelfInstallCommand
     /// <summary>
     /// Install the running binary to the specified location.
     /// </summary>
-    internal static async Task<Result> SelfUpdate(Logger logger, DnvmEnv dnvmEnv)
+    internal static async Task<Result> SelfUpdate(string? destPath, Logger logger, DnvmEnv dnvmEnv)
     {
-        logger.Log("SDK install directory: ");
         SdkDirName sdkDirName;
         try
         {
@@ -198,7 +197,11 @@ public class SelfInstallCommand
 
         var dnvmHome = dnvmEnv.HomeFs.ConvertPathToInternal(UPath.Root);
         var SdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
-        if (!ReplaceBinary(dnvmHome, logger))
+        if (destPath is null)
+        {
+            destPath = dnvmEnv.RealPath(DnvmEnv.DnvmExePath);
+        }
+        if (!ReplaceBinary(dnvmHome, destPath, logger))
         {
             return Result.SelfInstallFailed;
         }
@@ -216,9 +219,8 @@ public class SelfInstallCommand
 
         return Result.Success;
 
-        static bool ReplaceBinary(string dnvmHome, Logger logger)
+        static bool ReplaceBinary(string dnvmHome, string destPath, Logger logger)
         {
-            var destPath = Path.Combine(dnvmHome, Utilities.DnvmExeName);
             var srcPath = Utilities.ProcessPath;
             try
             {
