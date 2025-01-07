@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
 using Serde;
@@ -182,7 +183,7 @@ public static partial class RestoreCommand
         DotnetReleasesIndex versionIndex;
         try
         {
-            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(env.DotnetFeedUrls);
+            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(env.HttpClient, env.DotnetFeedUrls);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -195,7 +196,7 @@ public static partial class RestoreCommand
 
         var installDir = globalJsonPath.GetDirectory() / ".dotnet";
 
-        var sdks = await GetSortedSdks(versionIndex, allowPrerelease, sdk.Version.ToMajorMinor());
+        var sdks = await GetSortedSdks(env.HttpClient, versionIndex, allowPrerelease, sdk.Version.ToMajorMinor());
 
         ChannelReleaseIndex.Component? Search(Comparison<SemVersion> comparer, bool preferExact)
         {
@@ -227,7 +228,7 @@ public static partial class RestoreCommand
 
         var downloadUrl = component.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString() && f.Url.EndsWith(Utilities.ZipSuffix)).Url;
 
-        var error = await InstallCommand.InstallSdkToDir(downloadUrl, env.CwdFs, installDir, env.TempFs, logger);
+        var error = await InstallCommand.InstallSdkToDir(env.HttpClient, downloadUrl, env.CwdFs, installDir, env.TempFs, logger);
         if (error is not null)
         {
             return Error.IoError;
@@ -359,6 +360,7 @@ public static partial class RestoreCommand
     /// null, only SDKs for that major+minor version are returned.
     /// </summary>
     private static async Task<List<ChannelReleaseIndex.Component>> GetSortedSdks(
+        ScopedHttpClient httpClient,
         DotnetReleasesIndex versionIndex,
         bool allowPrerelease,
         string minMajorMinor)
@@ -370,7 +372,7 @@ public static partial class RestoreCommand
             {
                 continue;
             }
-            var index = JsonSerializer.Deserialize<ChannelReleaseIndex>(await Program.HttpClient.GetStringAsync(releaseIndex.ChannelReleaseIndexUrl));
+            var index = JsonSerializer.Deserialize<ChannelReleaseIndex>(await httpClient.GetStringAsync(releaseIndex.ChannelReleaseIndexUrl));
             foreach (var release in index.Releases)
             {
                 foreach (var sdk in release.Sdks)

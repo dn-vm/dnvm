@@ -57,7 +57,7 @@ public static partial class InstallCommand
         DotnetReleasesIndex versionIndex;
         try
         {
-            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(env.DotnetFeedUrls);
+            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(env.HttpClient, env.DotnetFeedUrls);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -66,7 +66,7 @@ public static partial class InstallCommand
             return Result.CouldntFetchReleaseIndex;
         }
 
-        var result = await TryGetReleaseFromIndex(versionIndex, channel, sdkVersion)
+        var result = await TryGetReleaseFromIndex(env.HttpClient, versionIndex, channel, sdkVersion)
             ?? await TryGetReleaseFromServer(env, sdkVersion);
         if (result is not ({ } sdkComponent, { } release))
         {
@@ -84,14 +84,15 @@ public static partial class InstallCommand
     }
 
     internal static async Task<(ChannelReleaseIndex.Component, ChannelReleaseIndex.Release)?> TryGetReleaseFromIndex(
+        ScopedHttpClient httpClient,
         DotnetReleasesIndex versionIndex,
         Channel channel,
         SemVersion sdkVersion)
     {
         if (versionIndex.GetChannelIndex(channel) is { } channelIndex)
         {
-            var releaseIndex = JsonSerializer.Deserialize<ChannelReleaseIndex>(
-                await Program.HttpClient.GetStringAsync(channelIndex.ChannelReleaseIndexUrl));
+            var channelReleaseIndexText = await httpClient.GetStringAsync(channelIndex.ChannelReleaseIndexUrl);
+            var releaseIndex = JsonSerializer.Deserialize<ChannelReleaseIndex>(channelReleaseIndexText);
             var result =
                 from r in releaseIndex.Releases
                 from sdk in r.Sdks
@@ -113,7 +114,7 @@ public static partial class InstallCommand
             var downloadUrl = $"/Sdk/{sdkVersion}/productCommit-{Utilities.CurrentRID}.json";
             try
             {
-                var productCommitData = JsonSerializer.Deserialize<CommitData>(await Program.HttpClient.GetStringAsync(feedUrl.TrimEnd('/') + downloadUrl));
+                var productCommitData = JsonSerializer.Deserialize<CommitData>(await env.HttpClient.GetStringAsync(feedUrl.TrimEnd('/') + downloadUrl));
                 if (productCommitData.Installer.Version != sdkVersion)
                 {
                     throw new InvalidOperationException("Fetched product commit data does not match requested SDK version");
@@ -211,7 +212,7 @@ public static partial class InstallCommand
         logger.Info("Download link: " + link);
 
         logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
-        var error = await InstallSdkToDir(link, env.HomeFs, sdkInstallPath, env.TempFs, logger);
+        var error = await InstallSdkToDir(env.HttpClient, link, env.HomeFs, sdkInstallPath, env.TempFs, logger);
 
         CreateSymlinkIfMissing(env, sdkDir);
 
@@ -239,6 +240,7 @@ public static partial class InstallCommand
     }
 
     internal static async Task<InstallError?> InstallSdkToDir(
+        ScopedHttpClient httpClient,
         string downloadUrl,
         IFileSystem destFs,
         UPath destPath,
@@ -254,7 +256,7 @@ public static partial class InstallCommand
         logger.Info("Archive path: " + archivePath);
 
         var downloadError = await logger.DownloadWithProgress(
-            Program.HttpClient,
+            httpClient,
             archivePath,
             downloadUrl,
             "Downloading SDK");

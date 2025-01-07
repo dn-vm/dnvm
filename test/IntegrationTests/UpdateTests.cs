@@ -55,7 +55,7 @@ public sealed class UpdateTests
         };
         var result = await ProcUtil.RunWithOutput(
             dnvmTmpPath,
-            $"update --self -v --feed-url {mockServer.DnvmReleasesUrl}",
+            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}",
             new() { ["DNVM_HOME"] = dnvmHome.Path });
         var output = result.Out;
         var error = result.Error;

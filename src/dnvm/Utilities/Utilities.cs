@@ -45,7 +45,7 @@ public static class SpectreUtil
 {
     public static Task<string?> DownloadWithProgress(
         this Logger logger,
-        HttpClient client,
+        ScopedHttpClient client,
         string filePath,
         string url,
         string description,
@@ -60,10 +60,12 @@ public static class SpectreUtil
                 new PercentageColumn())
             .StartAsync(async ctx =>
         {
-            using var archiveResponse = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            using var archiveResponse = await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
+                _ => client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead));
             if (!archiveResponse.IsSuccessStatusCode)
             {
-                return await archiveResponse.Content.ReadAsStringAsync();
+                return await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
+                    _ => archiveResponse.Content.ReadAsStringAsync());
             }
 
             if (archiveResponse.Content.Headers.ContentLength is not { } contentLength)
@@ -87,21 +89,27 @@ public static class SpectreUtil
                 64 * 1024, // 64kB
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-            using var archiveHttpStream = await archiveResponse.Content.ReadAsStreamAsync();
-            var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+            using var archiveHttpStream = await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
+                _ => archiveResponse.Content.ReadAsStreamAsync());
 
+            var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
             while (true)
             {
+                // We could have a timeout for downloading the file, but this is heavily dependent
+                // on the user's download speed and if they suspend/resume the process. Instead
+                // we'll rely on the user to cancel the download if it's taking too long.
                 var read = await archiveHttpStream.ReadAsync(buffer);
                 if (read == 0)
                 {
                     break;
                 }
-                await tempArchiveFile.WriteAsync(buffer.AsMemory(0, read));
+                // Writing to disk shouldn't time out, but we'll check for cancellation
+                await tempArchiveFile.WriteAsync(buffer.AsMemory(0, read), CancelScope.Current.Token);
                 progressTask.Increment(read);
                 ctx.Refresh();
             }
-            await tempArchiveFile.FlushAsync();
+            await tempArchiveFile.FlushAsync(CancelScope.Current.Token);
+            ArrayPool<byte>.Shared.Return(buffer);
             progressTask.StopTask();
             return null;
         });

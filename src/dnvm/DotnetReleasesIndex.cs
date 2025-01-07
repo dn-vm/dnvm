@@ -16,16 +16,25 @@ namespace Dnvm;
 public partial record DotnetReleasesIndex
 {
     public const string ReleasesUrlSuffix = "/release-metadata/releases-index.json";
-    public async static Task<DotnetReleasesIndex> FetchLatestIndex(IEnumerable<string> feeds, string urlSuffix = ReleasesUrlSuffix)
+    public async static Task<DotnetReleasesIndex> FetchLatestIndex(
+        ScopedHttpClient client,
+        IEnumerable<string> feeds,
+        string urlSuffix = ReleasesUrlSuffix)
     {
-        HttpResponseMessage? lastResponse = null;
+        ScopedHttpResponseMessage? lastResponse = null;
         foreach (var feed in feeds)
         {
             var adjustedUrl = feed.TrimEnd('/') + urlSuffix;
-            var response = await Program.HttpClient.GetAsync(adjustedUrl);
+            var response = await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
+                _ => client.GetAsync(adjustedUrl)
+            );
             if (response.IsSuccessStatusCode)
             {
-                return JsonSerializer.Deserialize<DotnetReleasesIndex>(await response.Content.ReadAsStringAsync());
+                return JsonSerializer.Deserialize<DotnetReleasesIndex>(
+                    await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
+                        async _ => await response.Content.ReadAsStringAsync()
+                    )
+                );
             }
             else
             {

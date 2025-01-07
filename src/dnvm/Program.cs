@@ -1,23 +1,13 @@
-﻿
-using System;
-using System.IO;
-using System.Net.Http;
-using System.Security.Cryptography;
+﻿using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
-using Serde;
-using Serde.CmdLine;
 using Spectre.Console;
-using Zio.FileSystems;
-using static System.Environment;
 
 namespace Dnvm;
 
 public static class Program
 {
     public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.MajorMinorPatch, SemVersionStyles.Strict);
-
-    internal static readonly HttpClient HttpClient = new();
 
     public static async Task<int> Main(string[] args)
     {

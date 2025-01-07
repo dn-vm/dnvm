@@ -63,8 +63,7 @@ public sealed class UpdateTests
             releasesIndex,
             manifest,
             yes: false,
-            env.DnvmReleasesUrl!,
-            cancellationToken);
+            env.DnvmReleasesUrl!);
         Assert.Contains("dnvm is out of date", console.Output);
     });
 

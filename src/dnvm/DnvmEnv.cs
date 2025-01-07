@@ -1,10 +1,10 @@
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.IO;
+using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Serde.Json;
 using Zio;
@@ -13,10 +13,58 @@ using static System.Environment;
 
 namespace Dnvm;
 
+public sealed partial class DnvmEnv
+{
+    public bool IsPhysicalDnvmHome { get; }
+    public readonly IFileSystem HomeFs;
+    public readonly IFileSystem CwdFs;
+    public readonly UPath Cwd;
+    public string RealPath(UPath path) => HomeFs.ConvertPathToInternal(path);
+    public SubFileSystem TempFs { get; }
+    public Func<string, string?> GetUserEnvVar { get; }
+    public Action<string, string> SetUserEnvVar { get; }
+    public IEnumerable<string> DotnetFeedUrls { get; }
+    public string DnvmReleasesUrl { get; }
+    public string UserHome { get; }
+    public ScopedHttpClient HttpClient { get; }
+
+    public DnvmEnv(
+         string userHome,
+        IFileSystem homeFs,
+        IFileSystem cwdFs,
+        UPath cwd,
+        bool isPhysical,
+        Func<string, string?> getUserEnvVar,
+        Action<string, string> setUserEnvVar,
+        IEnumerable<string>? dotnetFeedUrls = null,
+        string releasesUrl = DefaultReleasesUrl,
+        HttpClient? httpClient = null)
+    {
+        UserHome = userHome;
+        HomeFs = homeFs;
+        CwdFs = cwdFs;
+        Cwd = cwd;
+        IsPhysicalDnvmHome = isPhysical;
+        // TempFs must be a physical file system because we pass the path to external
+        // commands that will not be able to write to shared memory
+        TempFs = new SubFileSystem(
+            PhysicalFs,
+            PhysicalFs.ConvertPathFromInternal(Path.GetTempPath()),
+            owned: false);
+        GetUserEnvVar = getUserEnvVar;
+        SetUserEnvVar = setUserEnvVar;
+        DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
+        DnvmReleasesUrl = releasesUrl;
+        HttpClient = new ScopedHttpClient(httpClient ?? new HttpClient() {
+            Timeout = Timeout.InfiniteTimeSpan
+        });
+    }
+}
+
 /// <summary>
 /// Represents the environment of a dnvm process.
 /// <summary>
-public sealed class DnvmEnv : IDisposable
+public sealed partial class DnvmEnv : IDisposable
 {
     public const string ManifestFileName = "dnvmManifest.json";
     public static EqArray<string> DefaultDotnetFeedUrls => [
@@ -29,7 +77,6 @@ public sealed class DnvmEnv : IDisposable
     public static UPath DnvmExePath => UPath.Root / Utilities.DnvmExeName;
     public static UPath SymlinkPath => UPath.Root / Utilities.DotnetSymlinkName;
     public static UPath GetSdkPath(SdkDirName sdkDirName) => UPath.Root / sdkDirName.Name;
-
     /// <summary>
     /// Default DNVM_HOME is
     ///  ~/.local/share/dnvm on Linux
@@ -39,14 +86,12 @@ public sealed class DnvmEnv : IDisposable
     public static readonly string DefaultDnvmHome = Path.Combine(
         GetFolderPath(SpecialFolder.LocalApplicationData, SpecialFolderOption.DoNotVerify),
         "dnvm");
-
     /// <summary>
     /// The location of the SDK install directory, relative to <see cref="DnvmHome" />
     /// </summary>
     public static readonly SdkDirName DefaultSdkDirName = new("dn");
-
     public static readonly PhysicalFileSystem PhysicalFs = new();
-
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Get the path to DNVM_HOME, which is the location of the dnvm manifest
@@ -80,47 +125,6 @@ public sealed class DnvmEnv : IDisposable
             setUserEnvVar);
     }
 
-    public bool IsPhysicalDnvmHome { get; }
-    public readonly IFileSystem HomeFs;
-    public readonly IFileSystem CwdFs;
-    public readonly UPath Cwd;
-    public string RealPath(UPath path) => HomeFs.ConvertPathToInternal(path);
-    public SubFileSystem TempFs { get; }
-    public Func<string, string?> GetUserEnvVar { get; }
-    public Action<string, string> SetUserEnvVar { get; }
-    public IEnumerable<string> DotnetFeedUrls { get; }
-    public string DnvmReleasesUrl { get; }
-    public string UserHome { get; }
-
-
-    public DnvmEnv(
-        string userHome,
-        IFileSystem homeFs,
-        IFileSystem cwdFs,
-        UPath cwd,
-        bool isPhysical,
-        Func<string, string?> getUserEnvVar,
-        Action<string, string> setUserEnvVar,
-        IEnumerable<string>? dotnetFeedUrls = null,
-        string releasesUrl = DefaultReleasesUrl)
-    {
-        UserHome = userHome;
-        HomeFs = homeFs;
-        CwdFs = cwdFs;
-        Cwd = cwd;
-        IsPhysicalDnvmHome = isPhysical;
-        // TempFs must be a physical file system because we pass the path to external
-        // commands that will not be able to write to shared memory
-        TempFs = new SubFileSystem(
-            PhysicalFs,
-            PhysicalFs.ConvertPathFromInternal(Path.GetTempPath()),
-            owned: false);
-        GetUserEnvVar = getUserEnvVar;
-        SetUserEnvVar = setUserEnvVar;
-        DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
-        DnvmReleasesUrl = releasesUrl;
-    }
-
     /// <summary>
     /// Reads a manifest (any version) from the given path and returns an up-to-date <see
     /// cref="Manifest" /> (latest version).  Throws if the manifest is invalid.
@@ -128,7 +132,7 @@ public sealed class DnvmEnv : IDisposable
     public async Task<Manifest> ReadManifest()
     {
         var text = HomeFs.ReadAllText(ManifestPath);
-        return await ManifestUtils.DeserializeNewOrOldManifest(text, DotnetFeedUrls);
+        return await ManifestUtils.DeserializeNewOrOldManifest(HttpClient, text, DotnetFeedUrls);
     }
 
     public void WriteManifest(Manifest manifest)

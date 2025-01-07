@@ -66,7 +66,7 @@ public partial record InstalledSdkV5
 
 public static partial class ManifestV5Convert
 {
-    public static async Task<ManifestV5> Convert(this ManifestV4 v4, DotnetReleasesIndex releasesIndex)
+    public static async Task<ManifestV5> Convert(this ManifestV4 v4, ScopedHttpClient httpClient, DotnetReleasesIndex releasesIndex)
     {
         var channelMemo = new SortedDictionary<SemVersion, ChannelReleaseIndex>(SemVersion.SortOrderComparer);
 
@@ -79,7 +79,7 @@ public static partial class ManifestV5Convert
 
             var channelRelease = releasesIndex.ChannelIndices.Single(r => r.MajorMinorVersion == majorMinor.ToMajorMinor());
             channelReleaseIndex = JsonSerializer.Deserialize<ChannelReleaseIndex>(
-                await Program.HttpClient.GetStringAsync(channelRelease.ChannelReleaseIndexUrl));
+                await httpClient.GetStringAsync(channelRelease.ChannelReleaseIndexUrl));
             channelMemo[majorMinor] = channelReleaseIndex;
             return channelReleaseIndex;
         };
