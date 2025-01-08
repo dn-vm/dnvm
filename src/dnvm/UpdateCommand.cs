@@ -83,7 +83,7 @@ public sealed partial class UpdateCommand
     }
 
     public static async Task<Result> UpdateSdks(
-        DnvmEnv dnvmFs,
+        DnvmEnv env,
         Logger logger,
         DotnetReleasesIndex releasesIndex,
         Manifest manifest,
@@ -118,24 +118,29 @@ public sealed partial class UpdateCommand
                 if (response?.Trim().ToLowerInvariant() == "y")
                 {
                     // Find releases
-                    var releasesToInstall = new HashSet<(ChannelReleaseIndex.Release, SdkDirName)>();
+                    var releasesToInstall = new HashSet<(ChannelReleaseIndex.Component, ChannelReleaseIndex.Release, SdkDirName)>();
                     foreach (var (c, _, newestAvailable, sdkDir) in updateResults)
                     {
                         var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
 
-                        var releases = JsonSerializer.Deserialize<ChannelReleaseIndex>(
-                            await Program.HttpClient.GetStringAsync(newestAvailable.ChannelReleaseIndexUrl)).Releases;
-                        var release = releases.Single(r => r.Sdk.Version == latestSdkVersion);
-                        releasesToInstall.Add((release, sdkDir));
+                        var result = await InstallCommand.TryGetReleaseFromIndex(releasesIndex, c, latestSdkVersion);
+                        if (result is not ({} component, {} release))
+                        {
+                            logger.Error($"Index does not contain release for channel '{c}' with version '{latestSdkVersion}'."
+                                + "This is either a bug or the .NET index is incorrect. Please a file a bug at https://github.com/dn-vm/dnvm.");
+                            return UpdateFailed;
+                        }
+                        releasesToInstall.Add((component, release, sdkDir));
                     }
 
                     // Install releases
-                    foreach (var (release, sdkDir) in releasesToInstall)
+                    foreach (var (component, release, sdkDir) in releasesToInstall)
                     {
                         var latestSdkVersion = release.Sdk.Version;
                         var result = await InstallCommand.InstallSdk(
-                            dnvmFs,
+                            env,
                             manifest,
+                            component,
                             release,
                             sdkDir,
                             logger);
@@ -166,7 +171,7 @@ public sealed partial class UpdateCommand
         finally
         {
             logger.Info("Writing manifest");
-            dnvmFs.WriteManifest(manifest);
+            env.WriteManifest(manifest);
         }
 
         logger.Log("Successfully installed");

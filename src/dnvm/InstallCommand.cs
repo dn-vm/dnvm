@@ -66,15 +66,15 @@ public static partial class InstallCommand
             return Result.CouldntFetchReleaseIndex;
         }
 
-        var release = await TryGetReleaseFromIndex(versionIndex, channel, sdkVersion) ??
-            await TryGetReleaseFromServer(env, sdkVersion);
-        if (release is null)
+        var result = await TryGetReleaseFromIndex(versionIndex, channel, sdkVersion)
+            ?? await TryGetReleaseFromServer(env, sdkVersion);
+        if (result is not ({ } sdkComponent, { } release))
         {
             logger.Error($"SDK version '{sdkVersion}' could not be found in .NET releases index or server.");
             return Result.UnknownChannel;
         }
 
-        var installError = await InstallSdk(env, manifest, release, sdkDir, logger);
+        var installError = await InstallSdk(env, manifest, sdkComponent, release, sdkDir, logger);
         if (installError is not Result<Manifest, InstallError>.Ok)
         {
             return Result.InstallError;
@@ -83,22 +83,28 @@ public static partial class InstallCommand
         return Result.Success;
     }
 
-    private static async Task<ChannelReleaseIndex.Release?> TryGetReleaseFromIndex(
+    internal static async Task<(ChannelReleaseIndex.Component, ChannelReleaseIndex.Release)?> TryGetReleaseFromIndex(
         DotnetReleasesIndex versionIndex,
         Channel channel,
         SemVersion sdkVersion)
     {
         if (versionIndex.GetChannelIndex(channel) is { } channelIndex)
         {
-            return JsonSerializer.Deserialize<ChannelReleaseIndex>(
-                await Program.HttpClient.GetStringAsync(channelIndex.ChannelReleaseIndexUrl))
-                .Releases.SingleOrDefault(r => r.Sdk.Version == sdkVersion);
+            var releaseIndex = JsonSerializer.Deserialize<ChannelReleaseIndex>(
+                await Program.HttpClient.GetStringAsync(channelIndex.ChannelReleaseIndexUrl));
+            var result =
+                from r in releaseIndex.Releases
+                from sdk in r.Sdks
+                where sdk.Version == sdkVersion
+                select (sdk, r);
+
+            return result.FirstOrDefault();
         }
 
         return null;
     }
 
-    private static async Task<ChannelReleaseIndex.Release?> TryGetReleaseFromServer(
+    private static async Task<(ChannelReleaseIndex.Component, ChannelReleaseIndex.Release)?> TryGetReleaseFromServer(
         DnvmEnv env,
         SemVersion sdkVersion)
     {
@@ -124,7 +130,7 @@ public static partial class InstallCommand
                     }]
                 };
 
-                return new ChannelReleaseIndex.Release
+                var release = new ChannelReleaseIndex.Release
                 {
                     Sdk = sdk,
                     AspNetCore = new ChannelReleaseIndex.Component
@@ -145,6 +151,7 @@ public static partial class InstallCommand
                         Files = []
                     },
                 };
+                return (sdk, release);
             }
             catch
             {
@@ -190,15 +197,16 @@ public static partial class InstallCommand
     internal static async Task<Result<Manifest, InstallError>> InstallSdk(
         DnvmEnv env,
         Manifest manifest,
+        ChannelReleaseIndex.Component sdkComponent,
         ChannelReleaseIndex.Release release,
         SdkDirName sdkDir,
         Logger logger)
     {
-        var sdkVersion = release.Sdk.Version;
+        var sdkVersion = sdkComponent.Version;
 
         var ridString = Utilities.CurrentRID.ToString();
         var sdkInstallPath = UPath.Root / sdkDir.Name;
-        var downloadFile = release.Sdk.Files.Single(f => f.Rid == ridString && f.Url.EndsWith(Utilities.ZipSuffix));
+        var downloadFile = sdkComponent.Files.Single(f => f.Rid == ridString && f.Url.EndsWith(Utilities.ZipSuffix));
         var link = downloadFile.Url;
         logger.Info("Download link: " + link);
 
