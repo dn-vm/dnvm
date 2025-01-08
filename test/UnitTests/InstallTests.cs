@@ -101,7 +101,7 @@ public sealed class InstallTests
     {
         var console = new TestConsole();
         var logger = new Logger(console);
-        var previewVersion = SemVersion.Parse("192.192.192-preview", SemVersionStyles.Strict);
+        var previewVersion = SemVersion("192.192.192-preview");
         server.RegisterDailyBuild(previewVersion);
         var options = new CommandArguments.InstallArguments()
         {
@@ -153,7 +153,7 @@ public sealed class InstallTests
         {
             var console = new TestConsole();
             var logger = new Logger(console);
-            var previewVersion = SemVersion.Parse("192.192.192-preview", SemVersionStyles.Strict);
+            var previewVersion = SemVersion("192.192.192-preview");
             server.RegisterDailyBuild(previewVersion);
             var options = new CommandArguments.InstallArguments()
             {
@@ -174,4 +174,114 @@ public sealed class InstallTests
             Assert.True(proc.HasExited);
         }
     });
+
+    [Fact]
+    public Task MultipleSdksInRelease() => RunWithServer(async (server, env) =>
+    {
+        // Tests that if we have multiple SDKs in one release and it still works if try to grab the
+        // old one
+        server.ReleasesIndexJson = new DotnetReleasesIndex
+        {
+            ChannelIndices = [
+                new DotnetReleasesIndex.ChannelIndex
+                {
+                    SupportPhase = "active",
+                    LatestRelease = "42.42.0",
+                    LatestSdk = "42.42.101",
+                    MajorMinorVersion = "42.42",
+                    ReleaseType = "lts",
+                    ChannelReleaseIndexUrl = server.GetChannelIndexUrl("42.42")
+                }
+            ]
+        };
+        var sdk100 = new ChannelReleaseIndex.Component
+        {
+            Version = SemVersion("42.42.100"),
+            Files = [
+                new ChannelReleaseIndex.File
+                {
+                    Name = $"dotnet-sdk-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                    Rid = Utilities.CurrentRID.ToString(),
+                    Url = $"{server.PrefixString}sdk/42.42.100/dotnet-sdk-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                    Hash = ""
+                }
+            ]
+        };
+        var sdk101 = new ChannelReleaseIndex.Component
+        {
+            Version = SemVersion("42.42.101"),
+            Files = [
+                new ChannelReleaseIndex.File
+                {
+                    Name = $"dotnet-sdk-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                    Rid = Utilities.CurrentRID.ToString(),
+                    Url = $"{server.PrefixString}sdk/42.42.101/dotnet-sdk-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                    Hash = ""
+                }
+            ]
+        };
+        server.ChannelIndexMap["42.42"] = new ChannelReleaseIndex
+        {
+            Releases = [
+                new ChannelReleaseIndex.Release
+                {
+                    ReleaseVersion = SemVersion("42.42.0"),
+                    Sdk = sdk101, // N.B. 101 is the latest but we're looking for 100
+                    Sdks = [
+                        sdk101,
+                        sdk100 // 100 is here
+                    ],
+                    AspNetCore = new ChannelReleaseIndex.Component
+                    {
+                        Version = SemVersion("42.42.0"),
+                        Files = [
+                            new ChannelReleaseIndex.File
+                            {
+                                Name = $"aspnetcore-runtime-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                                Rid = Utilities.CurrentRID.ToString(),
+                                Url = $"{server.PrefixString}aspnetcore-runtime/42.42.0/aspnetcore-runtime-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                                Hash = ""
+                            }
+                        ]
+                    },
+                    WindowsDesktop = new ChannelReleaseIndex.Component
+                    {
+                        Version = SemVersion("42.42.0"),
+                        Files = [
+                            new ChannelReleaseIndex.File
+                            {
+                                Name = $"windowsdesktop-runtime-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                                Rid = Utilities.CurrentRID.ToString(),
+                                Url = $"{server.PrefixString}windowsdesktop-runtime/42.42.0/windowsdesktop-runtime-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                                Hash = ""
+                            }
+                        ]
+                    },
+                    Runtime = new ChannelReleaseIndex.Component
+                    {
+                        Version = SemVersion("42.42.0"),
+                        Files = [
+                            new ChannelReleaseIndex.File
+                            {
+                                Name = $"dotnet-runtime-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                                Rid = Utilities.CurrentRID.ToString(),
+                                Url = $"{server.PrefixString}runtime/42.42.0/dotnet-runtime-{Utilities.CurrentRID}{Utilities.ZipSuffix}",
+                                Hash = ""
+                            }
+                        ]
+                    }
+                }
+            ]
+        };
+
+        var console = new TestConsole();
+        var logger = new Logger(console);
+        var result = await InstallCommand.Run(env, logger, new()
+        {
+            SdkVersion = SemVersion("42.42.100")
+        });
+        Assert.Equal(InstallCommand.Result.Success, result);
+    });
+
+    static SemVersion SemVersion(string version) => Semver.SemVersion.Parse(version, SemVersionStyles.Strict);
 }

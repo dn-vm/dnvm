@@ -170,9 +170,11 @@ Proceeding without SDK installation.
         var latestSdkVersion = SemVersion.Parse(latestChannelIndex.LatestSdk, SemVersionStyles.Strict);
         logger.Log("Found latest version: " + latestSdkVersion);
 
-        var release = JsonSerializer.Deserialize<ChannelReleaseIndex>(
-            await Program.HttpClient.GetStringAsync(latestChannelIndex.ChannelReleaseIndexUrl))
-            .Releases.Single(r => r.Sdk.Version == latestSdkVersion);
+        var result = await InstallCommand.TryGetReleaseFromIndex(versionIndex, channel, latestSdkVersion);
+        if (result is not ({} component, {} release))
+        {
+            throw new InvalidOperationException($"Could not find release {latestSdkVersion} in index. This is a bug.");
+        }
 
         if (!force && manifest.InstalledSdks.Any(s => s.SdkVersion == latestSdkVersion && s.SdkDirName == sdkDir))
         {
@@ -184,6 +186,7 @@ Proceeding without SDK installation.
             var installResult = await InstallCommand.InstallSdk(
                 dnvmEnv,
                 manifest,
+                component,
                 release,
                 sdkDir,
                 logger);

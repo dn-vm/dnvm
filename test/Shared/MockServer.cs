@@ -28,6 +28,9 @@ public sealed class MockServer : IAsyncDisposable
 
     public DnvmReleases DnvmReleases { get; set; }
 
+    /// <summary>
+    /// Map from major.minor version to the channel index for that version.
+    /// </summary>
     public Dictionary<string, ChannelReleaseIndex> ChannelIndexMap { get; } = new();
 
     private string GetChannelIndexPath(string majorMinor) => $"release-metadata/{majorMinor}/index.json";
@@ -151,7 +154,8 @@ public sealed class MockServer : IAsyncDisposable
             }
             else
             {
-                throw new ArgumentException($"No handler for {ctx.Request.Url.LocalPath}");
+                ctx.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                ctx.Response.Close();
             }
         }
     }
@@ -172,12 +176,15 @@ public sealed class MockServer : IAsyncDisposable
                 routes["/" + GetChannelIndexPath(version)] = GetChannelIndexJson(index);
                 foreach (var release in index.Releases)
                 {
-                    routes[$"/sdk/{release.ReleaseVersion}/dotnet-sdk-{CurrentRID}{ZipSuffix}"] = GetSdk(
-                        release.Sdk.Version,
-                        release.Runtime.Version,
-                        release.AspNetCore.Version,
-                        release.WindowsDesktop.Version
-                    );
+                    foreach (var sdk in release.Sdks)
+                    {
+                        routes[$"/sdk/{sdk.Version}/dotnet-sdk-{CurrentRID}{ZipSuffix}"] = GetSdk(
+                            sdk.Version,
+                            release.Runtime.Version,
+                            release.AspNetCore.Version,
+                            release.WindowsDesktop.Version
+                        );
+                    }
                 }
             }
             foreach (var channelIndex in ReleasesIndexJson.ChannelIndices)
