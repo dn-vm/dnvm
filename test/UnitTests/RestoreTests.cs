@@ -423,4 +423,36 @@ public sealed class RestoreTests
         Assert.Equal(SemVersion.Parse("43.0.0", SemVersionStyles.Strict), restoreResult);
         Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
     });
+
+    [Fact]
+    public async Task ZipAndExeFiles() => await TestUtils.RunWithServer(async (server, env) =>
+    {
+        var logger = new Logger(new TestConsole());
+        env.CwdFs.WriteAllText(env.Cwd / "global.json", $$"""
+        {
+            "sdk": {
+                "version": "{{MockServer.DefaultLtsVersion}}"
+            }
+        }
+        """);
+
+        var index = server.ChannelIndexMap[MockServer.DefaultLtsVersion.ToMajorMinor()];
+        var sdkComp = index.Releases.Single().Sdk;
+        var newSdk = sdkComp with {
+            Files = [
+                sdkComp.Files[0],
+                sdkComp.Files[0] with { Url = sdkComp.Files[0].Url.Replace(Utilities.ZipSuffix, ".exe") }
+            ]
+        };
+        server.ChannelIndexMap[MockServer.DefaultLtsVersion.ToMajorMinor()] = index with {
+            Releases = [ index.Releases[0] with { Sdk = newSdk, Sdks = [ newSdk ]} ]
+        };
+
+        Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+        var restoreResult = await RestoreCommand.Run(env, logger);
+
+        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
+        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+    });
 }

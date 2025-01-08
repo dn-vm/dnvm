@@ -195,7 +195,7 @@ public static partial class RestoreCommand
 
         var installDir = globalJsonPath.GetDirectory() / ".dotnet";
 
-        var sdks = await GetSortedSdks(versionIndex, allowPrerelease);
+        var sdks = await GetSortedSdks(versionIndex, allowPrerelease, sdk.Version.ToMajorMinor());
 
         ChannelReleaseIndex.Component? Search(Comparison<SemVersion> comparer, bool preferExact)
         {
@@ -225,7 +225,7 @@ public static partial class RestoreCommand
             return Error.CantFindRequestedVersion;
         }
 
-        var downloadUrl = component.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString()).Url;
+        var downloadUrl = component.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString() && f.Url.EndsWith(Utilities.ZipSuffix)).Url;
 
         var error = await InstallCommand.InstallSdkToDir(downloadUrl, env.CwdFs, installDir, env.TempFs, logger);
         if (error is not null)
@@ -355,18 +355,18 @@ public static partial class RestoreCommand
     }
 
     /// <summary>
-    /// Returns a sorted (descending) list of SDks. If <paramref name="majorMinorVersion"/> is not
+    /// Returns a sorted (descending) list of SDks. If <paramref name="minMajorMinor"/> is not
     /// null, only SDKs for that major+minor version are returned.
     /// </summary>
     private static async Task<List<ChannelReleaseIndex.Component>> GetSortedSdks(
         DotnetReleasesIndex versionIndex,
         bool allowPrerelease,
-        string? majorMinorVersion = null)
+        string minMajorMinor)
     {
         var sdks = new List<ChannelReleaseIndex.Component>();
         foreach (var releaseIndex in versionIndex.ChannelIndices)
         {
-            if (majorMinorVersion is not null && majorMinorVersion != releaseIndex.MajorMinorVersion)
+            if (minMajorMinor is not null && double.Parse(minMajorMinor) > double.Parse(releaseIndex.MajorMinorVersion))
             {
                 continue;
             }
