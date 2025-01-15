@@ -13,6 +13,9 @@ using static System.Environment;
 
 namespace Dnvm;
 
+/// <summary>
+/// Represents the environment of a dnvm process.
+/// <summary>
 public sealed partial class DnvmEnv
 {
     public bool IsPhysicalDnvmHome { get; }
@@ -61,15 +64,12 @@ public sealed partial class DnvmEnv
     }
 }
 
-/// <summary>
-/// Represents the environment of a dnvm process.
-/// <summary>
 public sealed partial class DnvmEnv : IDisposable
 {
     public const string ManifestFileName = "dnvmManifest.json";
-    public static EqArray<string> DefaultDotnetFeedUrls => [
-        "https://dotnetcli.blob.core.windows.net/dotnet",
+    public static EqArray<string> DefaultDotnetFeedUrls { get;} = [
         "https://builds.dotnet.microsoft.com/dotnet",
+        "https://dotnetcli.blob.core.windows.net/dotnet",
     ];
     public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
