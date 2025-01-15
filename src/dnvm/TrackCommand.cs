@@ -129,7 +129,7 @@ public sealed class TrackCommand
         DotnetReleasesIndex versionIndex;
         try
         {
-            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(feedUrls);
+            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(dnvmEnv.HttpClient, feedUrls);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -170,7 +170,7 @@ Proceeding without SDK installation.
         var latestSdkVersion = SemVersion.Parse(latestChannelIndex.LatestSdk, SemVersionStyles.Strict);
         logger.Log("Found latest version: " + latestSdkVersion);
 
-        var result = await InstallCommand.TryGetReleaseFromIndex(versionIndex, channel, latestSdkVersion);
+        var result = await InstallCommand.TryGetReleaseFromIndex(dnvmEnv.HttpClient, versionIndex, channel, latestSdkVersion);
         if (result is not ({} component, {} release))
         {
             throw new InvalidOperationException($"Could not find release {latestSdkVersion} in index. This is a bug.");

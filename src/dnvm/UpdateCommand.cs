@@ -5,6 +5,7 @@ using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,7 +63,7 @@ public sealed partial class UpdateCommand
         DotnetReleasesIndex releaseIndex;
         try
         {
-            releaseIndex = await DotnetReleasesIndex.FetchLatestIndex(_feedUrls);
+            releaseIndex = await DotnetReleasesIndex.FetchLatestIndex(_env.HttpClient, _feedUrls);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -78,8 +79,7 @@ public sealed partial class UpdateCommand
             releaseIndex,
             manifest,
             _args.Yes,
-            _releasesUrl,
-            cancellationToken: default);
+            _releasesUrl);
     }
 
     public static async Task<Result> UpdateSdks(
@@ -88,12 +88,11 @@ public sealed partial class UpdateCommand
         DotnetReleasesIndex releasesIndex,
         Manifest manifest,
         bool yes,
-        string releasesUrl,
-        CancellationToken cancellationToken)
+        string releasesUrl)
     {
         logger.Log("Looking for available updates");
         // Check for dnvm updates
-        if (await CheckForSelfUpdates(logger, releasesUrl, cancellationToken) is (true, _))
+        if (await CheckForSelfUpdates(env.HttpClient, logger, releasesUrl) is (true, _))
         {
             logger.Log("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
         }
@@ -123,7 +122,7 @@ public sealed partial class UpdateCommand
                     {
                         var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
 
-                        var result = await InstallCommand.TryGetReleaseFromIndex(releasesIndex, c, latestSdkVersion);
+                        var result = await InstallCommand.TryGetReleaseFromIndex(env.HttpClient, releasesIndex, c, latestSdkVersion);
                         if (result is not ({} component, {} release))
                         {
                             logger.Error($"Index does not contain release for channel '{c}' with version '{latestSdkVersion}'."
@@ -207,7 +206,7 @@ public sealed partial class UpdateCommand
         }
 
         DnvmReleases releases;
-        switch (await CheckForSelfUpdates(_logger, _releasesUrl, cancellationToken: default))
+        switch (await CheckForSelfUpdates(_env.HttpClient, _logger, _releasesUrl))
         {
             case (false, null):
                 return Result.SelfUpdateFailed;
@@ -247,9 +246,9 @@ public sealed partial class UpdateCommand
     }
 
     private static async Task<(bool UpdateAvailable, DnvmReleases? Releases)> CheckForSelfUpdates(
+        ScopedHttpClient httpClient,
         Logger logger,
-        string releasesUrl,
-        CancellationToken cancellationToken)
+        string releasesUrl)
     {
         logger.Log("Checking for updates to dnvm");
         logger.Info("Using dnvm releases URL: " + releasesUrl);
@@ -257,7 +256,7 @@ public sealed partial class UpdateCommand
         string releasesJson;
         try
         {
-            releasesJson = await Program.HttpClient.GetStringAsync(releasesUrl, cancellationToken);
+            releasesJson = await httpClient.GetStringAsync(releasesUrl);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -315,7 +314,10 @@ public sealed partial class UpdateCommand
             64 * 1024 /* 64kB */,
             FileOptions.WriteThrough))
         {
-            using var archiveHttpStream = await Program.HttpClient.GetStreamAsync(uri);
+            // We could have a timeout for downloading the file, but this is heavily dependent
+            // on the user's download speed and if they suspend/resume the process. Instead
+            // we'll rely on the user to cancel the download if it's taking too long.
+            using var archiveHttpStream = await _env.HttpClient.GetStreamAsync(uri);
             await archiveHttpStream.CopyToAsync(tempFile);
             await tempFile.FlushAsync();
         }

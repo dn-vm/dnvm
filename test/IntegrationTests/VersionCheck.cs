@@ -11,7 +11,8 @@ public class VersionCheck
     [Fact]
     public async Task ReleasesEndpointIsUp()
     {
-        var releasesIndex = await DotnetReleasesIndex.FetchLatestIndex(DnvmEnv.DefaultDotnetFeedUrls);
+        var env = DnvmEnv.CreateDefault();
+        var releasesIndex = await DotnetReleasesIndex.FetchLatestIndex(env.HttpClient, DnvmEnv.DefaultDotnetFeedUrls);
         Assert.NotEmpty(releasesIndex.ChannelIndices);
     }
 }
