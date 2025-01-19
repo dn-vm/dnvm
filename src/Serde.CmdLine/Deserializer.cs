@@ -1,11 +1,17 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 
 namespace Serde.CmdLine;
 
-internal sealed partial class Deserializer(string[] args) : IDeserializer
+internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDeserializer
 {
     private int _argIndex = 0;
     private int _paramIndex = 0;
+    private bool _throwOnMissing = true;
+    private readonly List<ISerdeInfo> _helpInfos = new();
+
+    public IReadOnlyList<ISerdeInfo> HelpInfos => _helpInfos;
 
     int IDeserializeType.TryReadIndex(ISerdeInfo serdeInfo, out string? errorName)
     {
@@ -14,11 +20,23 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
             errorName = null;
             return IDeserializeType.EndOfType;
         }
+
         var arg = args[_argIndex];
+        while (handleHelp && arg is "-h" or "--help")
+        {
+            _argIndex++;
+            _helpInfos.Add(serdeInfo);
+            if (_argIndex == args.Length)
+            {
+                errorName = null;
+                return IDeserializeType.EndOfType;
+            }
+            arg = args[_argIndex];
+        }
 
         for (int fieldIndex = 0; fieldIndex < serdeInfo.FieldCount; fieldIndex++)
         {
-            var attrs = serdeInfo.GetFieldAttributes(fieldIndex);
+            IList<CustomAttributeData> attrs = serdeInfo.GetFieldAttributes(fieldIndex);
             foreach (var attr in attrs)
             {
                 if (arg.StartsWith('-') &&
@@ -37,10 +55,45 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
                     }
                 }
                 else if (!arg.StartsWith('-') &&
-                         attr is { AttributeType: { Name: nameof(CommandAttribute) }})
+                         attr is { AttributeType: { Name: nameof(CommandAttribute) },
+                                   ConstructorArguments: [ { Value: string commandName } ] } &&
+                         commandName == arg)
                 {
+                    _argIndex++;
                     errorName = null;
                     return fieldIndex;
+                }
+                else if (!arg.StartsWith('-') &&
+                         attr is { AttributeType: { Name: nameof(CommandGroupAttribute) } })
+                {
+                    // If the field is a command group, check to see if any of the nested commands match
+                    // the argument. If so, mark this field as a match.
+#pragma warning disable SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                    var fieldInfo = serdeInfo.GetFieldInfo(fieldIndex);
+                    if (fieldInfo.Kind == InfoKind.Nullable)
+                    {
+                        // Unwrap nullable if present
+                        fieldInfo = fieldInfo.GetFieldInfo(0);
+                    }
+#pragma warning restore SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+                    // Save the argIndex and throwOnMissing so we can restore it after checking.
+                    var savedIndex = _argIndex;
+                    var savedThrowOnMissing = _throwOnMissing;
+                    _throwOnMissing = false;
+
+                    var deType = this.ReadType(fieldInfo);
+                    int index = deType.TryReadIndex(fieldInfo, out _);
+                    _argIndex = savedIndex;
+                    _throwOnMissing = savedThrowOnMissing;
+
+                    if (index >= 0)
+                    {
+                        // We found a match, so we can return the field index.
+                        errorName = null;
+                        return fieldIndex;
+                    }
+                    // No match, so we can continue.
                 }
                 else if (!arg.StartsWith('-') &&
                          attr is { AttributeType: { Name: nameof(CommandParameterAttribute) },
@@ -53,7 +106,15 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
                 }
             }
         }
-        throw new ArgumentSyntaxException($"Unexpected argument: '{arg}'");
+        if (_throwOnMissing)
+        {
+            throw new ArgumentSyntaxException($"Unexpected argument: '{arg}'");
+        }
+        else
+        {
+            errorName = arg;
+            return IDeserializeType.IndexNotFound;
+        }
     }
 
     public bool ReadBool()
