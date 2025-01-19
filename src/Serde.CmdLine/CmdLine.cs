@@ -140,7 +140,7 @@ public static class CmdLine
 #pragma warning disable SerdeExperimentalFieldInfo
                     var info = targetInfo.GetFieldInfo(fieldIndex);
                     // If the info is a nullable wrapper, unwrap it first.
-                    if (info.Name.EndsWith('?'))
+                    if (info.Kind == InfoKind.Nullable)
                     {
                         info = info.GetFieldInfo(0);
                     }
@@ -150,7 +150,6 @@ public static class CmdLine
                     {
                         AddCommand(commands, caseInfo);
                     }
-
                 }
                 else if (attr is { AttributeType: { Name: nameof(CommandAttribute) } })
                 {

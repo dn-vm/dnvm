@@ -36,15 +36,7 @@ internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDe
 
         for (int fieldIndex = 0; fieldIndex < serdeInfo.FieldCount; fieldIndex++)
         {
-            IList<CustomAttributeData> attrs;
-            if (serdeInfo is IUnionSerdeInfo unionSerdeInfo)
-            {
-                attrs = unionSerdeInfo.CaseInfos[fieldIndex].Attributes;
-            }
-            else
-            {
-                attrs = serdeInfo.GetFieldAttributes(fieldIndex);
-            }
+            IList<CustomAttributeData> attrs = serdeInfo.GetFieldAttributes(fieldIndex);
             foreach (var attr in attrs)
             {
                 if (arg.StartsWith('-') &&
@@ -78,7 +70,7 @@ internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDe
                     // the argument. If so, mark this field as a match.
 #pragma warning disable SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
                     var fieldInfo = serdeInfo.GetFieldInfo(fieldIndex);
-                    if (fieldInfo.Name.EndsWith('?'))
+                    if (fieldInfo.Kind == InfoKind.Nullable)
                     {
                         // Unwrap nullable if present
                         fieldInfo = fieldInfo.GetFieldInfo(0);
