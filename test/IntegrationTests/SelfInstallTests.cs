@@ -259,6 +259,59 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
     });
 
     [Fact]
+    public Task UpdateSelfPreview() => RunWithServer(async (mockServer, env) =>
+    {
+        var ver = Program.SemVer;
+        // Reset latest version to the current version to ensure we don't have
+        // any non-preview updates
+        mockServer.DnvmReleases = mockServer.DnvmReleases with {
+            LatestVersion = mockServer.DnvmReleases.LatestVersion with {
+                Version = ver.ToString()
+            }
+        };
+        var copiedExe = env.RealPath(DnvmEnv.DnvmExePath);
+        File.Copy(DnvmExe, copiedExe);
+        using var tmpDir = TestUtils.CreateTempDirectory();
+        mockServer.DnvmPath = Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm"));
+
+        var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
+        var result = await ProcUtil.RunWithOutput(
+            copiedExe,
+            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v",
+            new() {
+                ["HOME"] = env.UserHome,
+                ["DNVM_HOME"] = env.RealPath(UPath.Root)
+            }
+        );
+        Assert.Equal(0, result.ExitCode);
+        var timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
+        Assert.True(timeAfterUpdate == timeBeforeUpdate);
+        Assert.Contains("Dnvm is up-to-date", result.Out);
+
+        result = await ProcUtil.RunWithOutput(
+            copiedExe,
+            $"--enable-dnvm-previews",
+            new() {
+                ["HOME"] = env.UserHome,
+                ["DNVM_HOME"] = env.RealPath(UPath.Root)
+            }
+        );
+        Assert.Equal(0, result.ExitCode);
+
+        result = await ProcUtil.RunWithOutput(
+            copiedExe,
+            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v",
+            new() {
+                ["HOME"] = env.UserHome,
+                ["DNVM_HOME"] = env.RealPath(UPath.Root)
+            }
+        );
+        timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
+        Assert.True(timeAfterUpdate > timeBeforeUpdate);
+        Assert.Contains("Process successfully upgraded", result.Out);
+    });
+
+    [Fact]
     public async Task RunUpdateSelfInstaller()
     {
         using var srcTmpDir = TestUtils.CreateTempDirectory();
@@ -266,10 +319,12 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         using var env = DnvmEnv.CreateDefault(dnvmHome.Path);
         var dnvmTmpPath = srcTmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
-        // Create a dest dnvm home that looks like a previous install
+        // Create a dest dnvm that looks like a previous install
         const string helloString = "Hello from dnvm test";
-        var prevDnvmPath = Path.Combine(dnvmHome.Path, Utilities.DnvmExeName);
+        using var testInstallDir = TestUtils.CreateTempDirectory();
+        var prevDnvmPath = Path.Combine(testInstallDir.Path, Utilities.DnvmExeName);
         Assets.MakeEchoExe(prevDnvmPath, helloString);
+
         // Create a fake dotnet
         var sdkDir = Path.Combine(dnvmHome.Path, "dn");
         Directory.CreateDirectory(sdkDir);
@@ -280,7 +335,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         var startVer = Program.SemVer;
         var result = await ProcUtil.RunWithOutput(
             dnvmTmpPath,
-            $"selfinstall -v --update",
+            $"selfinstall -v --update --dest-path \"{prevDnvmPath}\"",
             new() { ["DNVM_HOME"] = dnvmHome.Path });
 
         _testOutput.WriteLine(result.Out);
@@ -310,7 +365,10 @@ echo "dnvm: `which dnvm`"
 echo "dotnet: `which dotnet`"
 echo "DOTNET_ROOT: $DOTNET_ROOT"
 """;
-            var shellResult = await ProcUtil.RunShell(src);
+            var shellResult = await ProcUtil.RunShell(src, new() {
+                ["DNVM_HOME"] = dnvmHome.Path,
+                ["PATH"] = $"{testInstallDir.Path}:" + GetEnvironmentVariable("PATH"),
+            });
 
             Assert.Contains("dnvm: " + prevDnvmPath, shellResult.Out);
             Assert.Contains("dotnet: " + Path.Combine(dnvmHome.Path, Utilities.DotnetExeName), shellResult.Out);

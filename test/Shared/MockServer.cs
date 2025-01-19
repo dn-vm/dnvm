@@ -63,7 +63,16 @@ public sealed class MockServer : IAsyncDisposable
                 ["linux-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
                 ["osx-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
                 ["win-x64"] = $"{PrefixString}dnvm/dnvm.zip"
-        }));
+        }))
+        {
+            LatestPreview = new(
+                Version: "99.99.99-preview",
+                Artifacts: new() {
+                    ["linux-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                    ["osx-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                    ["win-x64"] = $"{PrefixString}dnvm/dnvm.zip"
+            })
+        };
     }
 
     [MemberNotNull(nameof(ReleasesIndexJson))]
