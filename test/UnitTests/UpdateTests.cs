@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices.Marshalling;
 using System.Security.Cryptography;
+using Microsoft.VisualStudio.TestPlatform.CoreUtilities.Helpers;
 using Semver;
 using Serde.Json;
 using Spectre.Console.Testing;
@@ -23,16 +24,16 @@ public sealed class UpdateTests
         _logger = new Logger(new TestConsole());
     }
 
-    private static Task TestWithServer(Func<MockServer, DnvmEnv, CancellationToken, Task> test)
+    private static Task TestWithServer(Func<MockServer, DnvmEnv, Task> test)
         => TaskScope.With(async taskScope =>
         {
             await using var mockServer = new MockServer(taskScope);
             using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
-            await test(mockServer, testOptions.DnvmEnv, taskScope.CancellationToken);
+            await test(mockServer, testOptions.DnvmEnv);
         });
 
     [Fact]
-    public Task UpdateChecksForSelfUpdate() => TestWithServer(async (mockServer, env, cancellationToken) =>
+    public Task UpdateChecksForSelfUpdate() => TestWithServer(async (mockServer, env) =>
     {
         var sdkDir = DnvmEnv.DefaultSdkDirName;
         var manifest = new Manifest
@@ -99,7 +100,7 @@ public sealed class UpdateTests
     });
 
     [Fact]
-    public async Task InstallAndUpdate() => await TestWithServer(async (mockServer, env, cancellationToken) =>
+    public async Task InstallAndUpdate() => await TestWithServer(async (mockServer, env) =>
     {
         var baseVersion = new SemVersion(41, 0, 0);
         var upgradeVersion = new SemVersion(41, 0, 1);

@@ -16,6 +16,9 @@ namespace Dnvm;
 [Command("dnvm", Summary = "Install and manage .NET SDKs.")]
 public partial record DnvmCommand
 {
+    [CommandOption("--enable-dnvm-previews", Description = "Enable dnvm previews.")]
+    public bool? EnableDnvmPreviews { get; init; }
+
     [CommandGroup("command")]
     public DnvmSubCommand? Command { get; init; }
 }
@@ -96,8 +99,11 @@ public abstract partial record DnvmSubCommand
         [CommandOption("-y", Description = "Answer yes to all prompts.")]
         public bool? Yes { get; init; } = null;
 
-        [CommandOption("--update", Description = "[internal] Update the dnvm installation in the current location. Only intended to be called from dnvm.")]
+        [CommandOption("--update", Description = "[internal] Update the current dnvm installation. Only intended to be called from dnvm.")]
         public bool? Update { get; init; } = null;
+
+        [CommandOption("--dest-path", Description = "Set the destination path for the dnvm executable.")]
+        public string? DestPath { get; init; } = null;
     }
 
     [Command("update", Summary = "Update the installed SDKs or dnvm itself.")]
@@ -257,6 +263,10 @@ public abstract record CommandArguments
         /// Indicates that this is an update to an existing dnvm installation.
         /// </summary>
         public bool Update { get; init; } = false;
+        /// <summary>
+        /// Path to overwrite.
+        /// </summary>
+        public string? DestPath { get; init; } = null;
     }
 
     public sealed record UpdateArguments : CommandArguments
@@ -305,6 +315,8 @@ public abstract record CommandArguments
 
 public sealed record class CommandLineArguments(CommandArguments? Command)
 {
+    public bool EnableDnvmPreviews { get; init; } = false;
+
     public static CommandLineArguments? TryParse(IAnsiConsole console, string[] args)
     {
         try
@@ -333,6 +345,12 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
             return new CommandLineArguments(Command: null);
         }
         var dnvmCmd = result.Command!;
+        if (dnvmCmd.EnableDnvmPreviews == true)
+        {
+            return new CommandLineArguments(Command: null) {
+                EnableDnvmPreviews = true
+            };
+        }
         switch (dnvmCmd.Command)
         {
             case DnvmSubCommand.ListCommand c:
@@ -379,6 +397,7 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                     FeedUrl = s.FeedUrl,
                     Force = s.Force ?? false,
                     Update = s.Update ?? false,
+                    DestPath = s.DestPath,
                 });
             }
             case DnvmSubCommand.UpdateCommand u:
