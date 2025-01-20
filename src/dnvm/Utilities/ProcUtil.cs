@@ -38,7 +38,9 @@ public static class ProcUtil
             await error.ConfigureAwait(false));
     }
 
-    public static async Task<ProcResult> RunShell(string scriptContent)
+    public static async Task<ProcResult> RunShell(
+        string scriptContent,
+        Dictionary<string, string>? envVars = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -47,6 +49,13 @@ public static class ProcUtil
             RedirectStandardError = true,
             RedirectStandardInput = true
         };
+        if (envVars is not null)
+        {
+            foreach (var (k, v) in envVars)
+            {
+                psi.Environment[k] = v;
+            }
+        }
         var proc = Process.Start(psi)!;
         await proc.StandardInput.WriteAsync(scriptContent);
         proc.StandardInput.Close();
