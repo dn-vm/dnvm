@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Spectre.Console;
+using StaticCs;
 
 namespace Serde.CmdLine;
 
@@ -11,48 +12,32 @@ public static class CmdLine
     /// Try to parse the command line arguments directly into a command object.
     /// No errors are handled, so exceptions will be thrown if the arguments are invalid.
     /// </summary>
-    public static T ParseRaw<T>(string[] args)
-        where T : IDeserializeProvider<T>
+    public static Result<T, IReadOnlyList<ISerdeInfo>> ParseRaw<T>(
+        string[] args,
+        bool handleHelp = true
+    ) where T : IDeserializeProvider<T>
     {
-        try
-        {
-            var deserializer = new Deserializer(args, handleHelp: false);
-            var cmd = T.DeserializeInstance.Deserialize(deserializer);
-            return cmd;
-        }
-        catch (DeserializeException e)
-        {
-            throw new ArgumentSyntaxException(e.Message, e);
-        }
-    }
-
-    public sealed record Result<T>(
-        T? Command,
-        IReadOnlyList<ISerdeInfo> HelpInfos
-    );
-
-    /// <summary>
-    /// Try to parse the command line arguments directly into a command object.
-    /// No errors are handled, so exceptions will be thrown if the arguments are invalid.
-    /// </summary>
-    public static Result<T> ParseRawWithHelp<T>(string[] args)
-        where T : IDeserializeProvider<T>
-    {
-        var deserializer = new Deserializer(args, handleHelp: true);
+        var deserializer = new Deserializer(args, handleHelp);
         try
         {
             var cmd = T.DeserializeInstance.Deserialize(deserializer);
-            return new(cmd, deserializer.HelpInfos);
+            if (handleHelp && deserializer.HelpInfos.Count > 0)
+            {
+                return new Result<T, IReadOnlyList<ISerdeInfo>>.Err(deserializer.HelpInfos);
+            }
+            else
+            {
+                return cmd;
+            }
         }
         catch (DeserializeException e)
         {
             // If the deserializer was created and there's at least one help info added, provide a
             // null command and the help infos, ignoring what would otherwise be an error.
-            if (deserializer.HelpInfos.Count > 0)
+            if (handleHelp && deserializer.HelpInfos.Count > 0)
             {
-                return new(default, deserializer.HelpInfos);
+                return new Result<T, IReadOnlyList<ISerdeInfo>>.Err(deserializer.HelpInfos);
             }
-            // Otherwise, produce an error.
             throw new ArgumentSyntaxException(e.Message, e);
         }
     }
@@ -67,17 +52,21 @@ public static class CmdLine
     {
         try
         {
-            var result = ParseRawWithHelp<T>(args);
-            if (result.HelpInfos.Count > 0)
+            var result = ParseRaw<T>(args);
+            switch (result)
             {
-                var rootInfo = SerdeInfoProvider.GetInfo<T>();
-                var lastInfo = result.HelpInfos.Last();
-                console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
-                cmd = default!;
-                return false;
+                case Result<T, IReadOnlyList<ISerdeInfo>>.Ok(var value):
+                    cmd = value;
+                    return true;
+                case Result<T, IReadOnlyList<ISerdeInfo>>.Err(var helpInfos):
+                    var rootInfo = SerdeInfoProvider.GetInfo<T>();
+                    var lastInfo = helpInfos.Last();
+                    console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
+                    cmd = default!;
+                    return false;
+                default:
+                    throw new InvalidOperationException();
             }
-            cmd = result.Command!;
-            return true;
         }
         catch (ArgumentSyntaxException ex)
         {

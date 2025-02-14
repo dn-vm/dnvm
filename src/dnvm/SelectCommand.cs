@@ -5,6 +5,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Serde.Json;
 using Spectre.Console;
+using StaticCs;
 using Zio;
 
 namespace Dnvm;

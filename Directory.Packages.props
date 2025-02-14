@@ -9,6 +9,7 @@
     <PackageVersion Include="StaticCs" Version="0.3.1" />
     <PackageVersion Include="StaticCs.Collections" Version="1.0.1" />
     <PackageVersion Include="StaticCs.Async" Version="0.1.2" />
+    <PackageVersion Include="StaticCs.Result" Version="0.1.0" />
     <PackageVersion Include="zio" Version="0.16.2" />
     <PackageVersion Include="GitVersion.MSBuild" Version="5.10.3" />
     <PackageVersion Include="Semver" Version="2.2.0" />

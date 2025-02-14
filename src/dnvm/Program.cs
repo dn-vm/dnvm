@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Semver;
 using Spectre.Console;
+using StaticCs;
 
 namespace Dnvm;
 
