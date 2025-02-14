@@ -12,7 +12,7 @@ public sealed partial class SubCommandTests
     public void NoSubCommand()
     {
         string[] testArgs = [ "-v" ];
-        var cmd = CmdLine.ParseRaw<TopCommand>(testArgs);
+        var cmd = CmdLine.ParseRaw<TopCommand>(testArgs).Unwrap();
         Assert.Equal(new TopCommand { Verbose = true, SubCommand = null }, cmd);
     }
 
@@ -20,7 +20,7 @@ public sealed partial class SubCommandTests
     public void FirstCommand()
     {
         string[] testArgs = [ "-v", "first" ];
-        var cmd = CmdLine.ParseRaw<TopCommand>(testArgs);
+        var cmd = CmdLine.ParseRaw<TopCommand>(testArgs).Unwrap();
         Assert.Equal(new TopCommand { Verbose = true, SubCommand = new SubCommand.FirstCommand() }, cmd);
     }
 

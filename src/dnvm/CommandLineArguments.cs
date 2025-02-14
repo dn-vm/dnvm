@@ -336,15 +336,21 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
     /// </summary>
     public static CommandLineArguments ParseRaw(IAnsiConsole console, string[] args)
     {
-        var result = CmdLine.ParseRawWithHelp<DnvmCommand>(args);
-        if (result.HelpInfos.Count > 0)
+        var result = CmdLine.ParseRaw<DnvmCommand>(args, handleHelp: true);
+        DnvmCommand dnvmCmd;
+        switch (result)
         {
-            var rootInfo = SerdeInfoProvider.GetInfo<DnvmCommand>();
-            var lastInfo = result.HelpInfos.Last();
-            console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
-            return new CommandLineArguments(Command: null);
+            case Result<DnvmCommand, IReadOnlyList<ISerdeInfo>>.Ok(var value):
+                dnvmCmd = value;
+                break;
+            case Result<DnvmCommand, IReadOnlyList<ISerdeInfo>>.Err(var helpInfos):
+                var rootInfo = SerdeInfoProvider.GetInfo<DnvmCommand>();
+                var lastInfo = helpInfos.Last();
+                console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
+                return new CommandLineArguments(Command: null);
+            default:
+                throw new InvalidOperationException();
         }
-        var dnvmCmd = result.Command!;
         if (dnvmCmd.EnableDnvmPreviews == true)
         {
             return new CommandLineArguments(Command: null) {

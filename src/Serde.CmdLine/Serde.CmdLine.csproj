@@ -11,6 +11,9 @@
   <ItemGroup>
     <PackageReference Include="Serde" />
     <PackageReference Include="Spectre.Console" />
+
+    <PackageReference Include="StaticCs" />
+
   </ItemGroup>
 
 </Project>
