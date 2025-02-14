@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Semver;
 using Serde.Json;
+using StaticCs;
 using Zio;
 using static Dnvm.Utilities;
 

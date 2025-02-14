@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dnvm;
 using Spectre.Console;
+using StaticCs;
 
 namespace Serde.CmdLine;
 
