@@ -45,7 +45,7 @@ public static partial class InstallCommand
         }
 
         var sdkVersion = options.SdkVersion;
-        var channel = new Channel.Versioned(sdkVersion.Major, sdkVersion.Minor);
+        var channel = new Channel.VersionedMajorMinor(sdkVersion.Major, sdkVersion.Minor);
 
         if (!options.Force && manifest.InstalledSdks.Any(s => s.SdkVersion == sdkVersion && s.SdkDirName == sdkDir))
         {

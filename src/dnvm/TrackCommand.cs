@@ -149,7 +149,7 @@ public sealed class TrackCommand
             //   2. The channel is supported but there are currently no builds available
             // We want to provide a helpful error message about the first case, but let the second
             // case go through without attempting to install anything.
-            if (channel is Channel.Versioned)
+            if (channel is Channel.VersionedMajorMinor or Channel.VersionedFeature)
             {
                 logger.Error($"Could not find channel '{channel}' in the dotnet releases index.");
                 return Result.UnknownChannel;
