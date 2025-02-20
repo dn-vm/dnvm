@@ -159,6 +159,17 @@ public static class Utilities
 
     public static string ToMajorMinor(this SemVersion version) => $"{version.Major}.{version.Minor}";
 
+    public static string ToFeature(this SemVersion version)
+    {
+        int feature = version.Patch;
+        while (feature >= 10)
+        {
+            feature /= 10;
+        }
+
+        return $"{version.Major}.{version.Minor}.{feature}xx";
+    }
+
     public static string SeqToString<T>(this IEnumerable<T> e)
     {
         return "[ " + string.Join(", ", e) + " ]";
