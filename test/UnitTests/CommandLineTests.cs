@@ -86,16 +86,33 @@ public sealed class CommandLineTests
             "99.99"
         ]);
         Assert.True(options!.Command is CommandArguments.TrackArguments {
-            Channel: Channel.Versioned { Major: 99, Minor: 99 }
+            Channel: Channel.VersionedMajorMinor { Major: 99, Minor: 99 }
         });
     }
 
     [Fact]
-    public void TrackBadChannel()
+    public void TrackFeature()
+    {
+        var options = CommandLineArguments.ParseRaw(new TestConsole(), [
+            "track",
+            "99.99.9xx"
+        ]);
+        Assert.True(options!.Command is CommandArguments.TrackArguments {
+            Channel: Channel.VersionedFeature { Major: 99, Minor: 99, FeatureLevel: 9 }
+        });
+    }
+
+    [Theory]
+    [InlineData("badchannel")]
+    [InlineData("99.99.9x")]
+    [InlineData("99.99.9xxx")]
+    [InlineData("99.99.900")]
+    [InlineData("99.99.axx")]
+    public void TrackBadChannel(string channel)
     {
         var ex = Assert.Throws<ArgumentSyntaxException>(() => CommandLineArguments.ParseRaw(new TestConsole(), [
             "track",
-            "badversion"
+            channel
         ]));
         var tab = "\t";
         Assert.Equal($"""

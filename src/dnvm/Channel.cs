@@ -13,7 +13,8 @@ public static class Channels
 {
     public static string GetDesc(this Channel c) => c switch
     {
-        Channel.Versioned v => $"The latest version in the {v} support channel",
+        Channel.VersionedMajorMinor v => $"The latest version in the {v} support channel",
+        Channel.VersionedFeature v => $"The latest version in the {v} support channel",
         Channel.Lts => "The latest version in Long-Term support",
         Channel.Sts => "The latest version in Short-Term support",
         Channel.Latest => "The latest supported version from either the LTS or STS support channels.",
@@ -30,7 +31,12 @@ public abstract partial record Channel
     /// <summary>
     /// A major-minor versioned channel.
     /// </summary>
-    public sealed partial record Versioned(int Major, int Minor) : Channel;
+    public sealed partial record VersionedMajorMinor(int Major, int Minor) : Channel;
+    /// <summary>
+    /// A major-minor-patch versioned channel.
+    /// </summary>
+    /// <param name="FeatureLevel"> The feature level of the version, e.g. 1 in 9.0.100</param>
+    public sealed partial record VersionedFeature(int Major, int Minor, int FeatureLevel) : Channel;
     /// <summary>
     /// Newest Long Term Support release.
     /// </summary>
@@ -67,9 +73,13 @@ partial record Channel : ISerializeProvider<Channel>
             => serializer.SerializeString(channel.GetLowerName());
     }
 
-    partial record Versioned
+    partial record VersionedMajorMinor
     {
         public override string GetDisplayName() => $"{Major}.{Minor}";
+    }
+    partial record VersionedFeature
+    {
+        public override string GetDisplayName() => $"{Major}.{Minor}.{FeatureLevel}xx";
     }
     partial record Lts : Channel
     {
@@ -103,13 +113,24 @@ partial record Channel : IDeserializeProvider<Channel>
             case "preview": return new Preview();
             default:
                 var components = str.Split('.');
-                if (components.Length != 2)
+                switch (components)
                 {
-                    throw new DeserializeException($"Invalid channel version: {str}");
+                    case [_, _]:
+                        var major = int.Parse(components[0]);
+                        var minor = int.Parse(components[1]);
+                        return new VersionedMajorMinor(major, minor);
+                    case [_, _, _]:
+                        if (components[2] is not [<= '9' and >= '0', 'x', 'x'])
+                        {
+                            throw new DeserializeException($"Feature band must be 3 characters and end in 'xx': {str}");
+                        }
+                        major = int.Parse(components[0]);
+                        minor = int.Parse(components[1]);
+                        var featureLevel = components[2][0] - '0';
+                        return new VersionedFeature(major, minor, featureLevel);
+                    default:
+                        throw new DeserializeException($"Invalid channel version: {str}");
                 }
-                var major = int.Parse(components[0]);
-                var minor = int.Parse(components[1]);
-                return new Versioned(major, minor);
         }
     }
 
