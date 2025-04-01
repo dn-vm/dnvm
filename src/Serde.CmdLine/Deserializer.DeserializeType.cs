@@ -1,36 +1,38 @@
 namespace Serde.CmdLine;
 
-internal sealed partial class Deserializer : IDeserializeType
+internal sealed partial class Deserializer : ITypeDeserializer
 {
-    V IDeserializeType.ReadValue<V, D>(int index, D deserialize) => deserialize.Deserialize(this);
+    int? ITypeDeserializer.SizeOpt => null;
 
-    bool IDeserializeType.ReadBool(int index) => ReadBool();
+    T ITypeDeserializer.ReadValue<T>(ISerdeInfo info, int index, IDeserialize<T> deserialize) => deserialize.Deserialize(this);
 
-    byte IDeserializeType.ReadByte(int index) => ReadByte();
+    bool ITypeDeserializer.ReadBool(ISerdeInfo info, int index) => ReadBool();
 
-    char IDeserializeType.ReadChar(int index) => ReadChar();
+    byte ITypeDeserializer.ReadU8(ISerdeInfo info, int index) => ReadU8();
 
-    decimal IDeserializeType.ReadDecimal(int index) => ReadDecimal();
+    char ITypeDeserializer.ReadChar(ISerdeInfo info, int index) => ReadChar();
 
-    double IDeserializeType.ReadDouble(int index) => ReadDouble();
+    decimal ITypeDeserializer.ReadDecimal(ISerdeInfo info, int index) => ReadDecimal();
 
-    float IDeserializeType.ReadFloat(int index) => ReadFloat();
+    double ITypeDeserializer.ReadF64(ISerdeInfo info, int index) => ReadF64();
 
-    short IDeserializeType.ReadI16(int index) => ReadI16();
+    float ITypeDeserializer.ReadF32(ISerdeInfo info, int index) => ReadF32();
 
-    int IDeserializeType.ReadI32(int index) => ReadI32();
+    short ITypeDeserializer.ReadI16(ISerdeInfo info, int index) => ReadI16();
 
-    long IDeserializeType.ReadI64(int index) => ReadI64();
+    int ITypeDeserializer.ReadI32(ISerdeInfo info, int index) => ReadI32();
 
-    sbyte IDeserializeType.ReadSByte(int index) => ReadSByte();
+    long ITypeDeserializer.ReadI64(ISerdeInfo info, int index) => ReadI64();
 
-    string IDeserializeType.ReadString(int index) => ReadString();
+    sbyte ITypeDeserializer.ReadI8(ISerdeInfo info, int index) => ReadI8();
 
-    ushort IDeserializeType.ReadU16(int index) => ReadU16();
+    string ITypeDeserializer.ReadString(ISerdeInfo info, int index) => ReadString();
 
-    uint IDeserializeType.ReadU32(int index) => ReadU32();
+    ushort ITypeDeserializer.ReadU16(ISerdeInfo info, int index) => ReadU16();
 
-    ulong IDeserializeType.ReadU64(int index) => ReadU64();
+    uint ITypeDeserializer.ReadU32(ISerdeInfo info, int index) => ReadU32();
 
-    void IDeserializeType.SkipValue() => _argIndex++;
+    ulong ITypeDeserializer.ReadU64(ISerdeInfo info, int index) => ReadU64();
+
+    void ITypeDeserializer.SkipValue(ISerdeInfo info, int index) => _argIndex++;
 }

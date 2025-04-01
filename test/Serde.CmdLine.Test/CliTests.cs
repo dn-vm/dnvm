@@ -27,7 +27,7 @@ public sealed partial class DeserializerTests
     [Fact]
     public void TestHelp()
     {
-        var help = CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<FileSizeCommand>());
+        var help = CmdLine.GetHelpText(SerdeInfoProvider.GetDeserializeInfo<FileSizeCommand>());
         var text = """
 usage: FileSizeCommand [-p | --pattern <searchPattern>] [--hidden] [-h | --help] <searchPath>
 

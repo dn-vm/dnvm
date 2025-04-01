@@ -24,7 +24,7 @@ internal sealed partial record GlobalJsonSubset
     [GenerateDeserialize]
     public sealed partial record SdkSubset
     {
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SemVersion, SemVersionProxy>))]
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.De<SemVersion, SemVersionProxy>))]
         public SemVersion? Version { get; init; }
         public RollForwardOptions? RollForward { get; init; }
         public bool? AllowPrerelease { get; init; }
