@@ -115,11 +115,12 @@ public sealed partial class DnvmEnv : IDisposable
         Action<string, string> setUserEnvVar)
     {
         Directory.CreateDirectory(realPath);
+
         return new DnvmEnv(
             userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
             new SubFileSystem(PhysicalFs, PhysicalFs.ConvertPathFromInternal(realPath)),
             PhysicalFs,
-            new UPath(Environment.CurrentDirectory),
+            PhysicalFs.ConvertPathFromInternal(Environment.CurrentDirectory),
             isPhysical: true,
             getUserEnvVar,
             setUserEnvVar);
