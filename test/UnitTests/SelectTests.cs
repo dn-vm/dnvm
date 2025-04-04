@@ -1,12 +1,9 @@
 
-using System.Collections.Immutable;
-using System.Runtime.CompilerServices;
-using Dnvm.Test;
 using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Dnvm;
+namespace Dnvm.Test;
 
 public sealed class SelectTests
 {
