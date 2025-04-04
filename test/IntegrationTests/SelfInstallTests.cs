@@ -3,6 +3,7 @@ using Spectre.Console;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Xunit;
 using Xunit.Abstractions;
@@ -330,7 +331,11 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         Directory.CreateDirectory(sdkDir);
         var fakeDotnet = Path.Combine(sdkDir, Utilities.DotnetExeName);
         Assets.MakeEchoExe(fakeDotnet, "Hello from dotnet test");
-        _ = await ProcUtil.RunWithOutput("chmod", $"+x {fakeDotnet}");
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            _ = await ProcUtil.RunWithOutput("chmod", $"+x {fakeDotnet}");
+        }
 
         var startVer = Program.SemVer;
         var result = await ProcUtil.RunWithOutput(
