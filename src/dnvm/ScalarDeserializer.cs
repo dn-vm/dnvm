@@ -9,7 +9,7 @@ public sealed class ScalarDeserializer(string s) : IDeserializer
     public bool ReadBool()
         => bool.Parse(s);
 
-    public byte ReadByte()
+    public byte ReadU8()
         => byte.Parse(s);
 
     public char ReadChar()
@@ -18,9 +18,9 @@ public sealed class ScalarDeserializer(string s) : IDeserializer
     public decimal ReadDecimal()
         => decimal.Parse(s);
 
-    public double ReadDouble() => double.Parse(s);
+    public double ReadF64() => double.Parse(s);
 
-    public float ReadFloat() => float.Parse(s);
+    public float ReadF32() => float.Parse(s);
 
     public short ReadI16() => short.Parse(s);
 
@@ -28,7 +28,7 @@ public sealed class ScalarDeserializer(string s) : IDeserializer
 
     public long ReadI64() => long.Parse(s);
 
-    public sbyte ReadSByte() => sbyte.Parse(s);
+    public sbyte ReadI8() => sbyte.Parse(s);
 
     public string ReadString() => s;
 
@@ -40,16 +40,11 @@ public sealed class ScalarDeserializer(string s) : IDeserializer
 
     void IDisposable.Dispose() { }
 
-    T IDeserializer.ReadAny<T>(IDeserializeVisitor<T> v) => v.VisitString(ReadString());
-
-    IDeserializeCollection IDeserializer.ReadCollection(ISerdeInfo typeInfo)
-        => throw new DeserializeException("Found nullable ref, expected scalar");
-
-    T IDeserializer.ReadNullableRef<T, D>(D deserialize)
+    T IDeserializer.ReadNullableRef<T>(IDeserialize<T> deserialize)
     {
         return deserialize.Deserialize(this);
     }
 
-    IDeserializeType IDeserializer.ReadType(ISerdeInfo typeInfo)
+    ITypeDeserializer IDeserializer.ReadType(ISerdeInfo typeInfo)
         => throw new DeserializeException("Found nullable ref, expected scalar");
 }

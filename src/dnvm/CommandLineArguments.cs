@@ -40,7 +40,7 @@ public abstract partial record DnvmSubCommand
         public bool? Force { get; init; } = null;
 
         [CommandOption("-s|--sdk-dir", Description = "Install the SDK into a separate directory with the given name.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.De<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
 
         [CommandOption("-v|--verbose", Description = "Print debugging messages to the console.")]
@@ -159,7 +159,7 @@ public abstract partial record DnvmSubCommand
         public required SemVersion SdkVersion { get; init; }
 
         [CommandOption("-s|--sdk-dir", Description = "Uninstall the SDK from the given directory.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.De<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
     }
 
@@ -185,8 +185,8 @@ public abstract partial record DnvmSubCommand
     /// </summary>
     private sealed class CaseInsensitiveChannel : IDeserializeProvider<Channel>, IDeserialize<Channel>
     {
-        public static ISerdeInfo SerdeInfo => Serde.SerdeInfo.MakePrimitive(nameof(Channel));
-        static IDeserialize<Channel> IDeserializeProvider<Channel>.DeserializeInstance { get; } = new CaseInsensitiveChannel();
+        public ISerdeInfo SerdeInfo => StringProxy.SerdeInfo;
+        static IDeserialize<Channel> IDeserializeProvider<Channel>.Instance { get; } = new CaseInsensitiveChannel();
         private CaseInsensitiveChannel() { }
 
         public Channel Deserialize(IDeserializer deserializer)
@@ -326,7 +326,7 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
         catch (ArgumentSyntaxException ex)
         {
             console.WriteLine("error: " + ex.Message);
-            console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<DnvmCommand>(), includeHelp: true));
+            console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetDeserializeInfo<DnvmCommand>(), includeHelp: true));
             return null;
         }
     }
@@ -344,7 +344,7 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                 dnvmCmd = value;
                 break;
             case Result<DnvmCommand, IReadOnlyList<ISerdeInfo>>.Err(var helpInfos):
-                var rootInfo = SerdeInfoProvider.GetInfo<DnvmCommand>();
+                var rootInfo = SerdeInfoProvider.GetDeserializeInfo<DnvmCommand>();
                 var lastInfo = helpInfos.Last();
                 console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
                 return new CommandLineArguments(Command: null);
@@ -438,7 +438,7 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
             }
             case null:
             {
-                console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<DnvmCommand>(), includeHelp: true));
+                console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetDeserializeInfo<DnvmCommand>(), includeHelp: true));
                 return new CommandLineArguments(Command: null);
             }
         }

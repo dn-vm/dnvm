@@ -13,12 +13,12 @@ internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDe
 
     public IReadOnlyList<ISerdeInfo> HelpInfos => _helpInfos;
 
-    int IDeserializeType.TryReadIndex(ISerdeInfo serdeInfo, out string? errorName)
+    int ITypeDeserializer.TryReadIndex(ISerdeInfo serdeInfo, out string? errorName)
     {
         if (_argIndex == args.Length)
         {
             errorName = null;
-            return IDeserializeType.EndOfType;
+            return ITypeDeserializer.EndOfType;
         }
 
         var arg = args[_argIndex];
@@ -29,7 +29,7 @@ internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDe
             if (_argIndex == args.Length)
             {
                 errorName = null;
-                return IDeserializeType.EndOfType;
+                return ITypeDeserializer.EndOfType;
             }
             arg = args[_argIndex];
         }
@@ -113,7 +113,7 @@ internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDe
         else
         {
             errorName = arg;
-            return IDeserializeType.IndexNotFound;
+            return ITypeDeserializer.IndexNotFound;
         }
     }
 
@@ -132,20 +132,17 @@ internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDe
 
     public string ReadString() => args[_argIndex++];
 
-    public T ReadNullableRef<T, D>(D d)
+    public T ReadNullableRef<T>(IDeserialize<T> d)
         where T : class
-        where D : IDeserialize<T>
     {
         // Treat all nullable values as just being optional. Since we got here we must have a value
         // in hand.
         return d.Deserialize(this);
     }
 
-    public T ReadAny<T>(IDeserializeVisitor<T> v) where T : class => throw new NotImplementedException();
-
     public char ReadChar() => throw new NotImplementedException();
 
-    public byte ReadByte() => throw new NotImplementedException();
+    public byte ReadU8() => throw new NotImplementedException();
 
     public ushort ReadU16() => throw new NotImplementedException();
 
@@ -153,7 +150,7 @@ internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDe
 
     public ulong ReadU64() => throw new NotImplementedException();
 
-    public sbyte ReadSByte() => throw new NotImplementedException();
+    public sbyte ReadI8() => throw new NotImplementedException();
 
     public short ReadI16() => throw new NotImplementedException();
 
@@ -161,18 +158,13 @@ internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDe
 
     public long ReadI64() => throw new NotImplementedException();
 
-    public float ReadFloat() => throw new NotImplementedException();
+    public float ReadF32() => throw new NotImplementedException();
 
-    public double ReadDouble() => throw new NotImplementedException();
+    public double ReadF64() => throw new NotImplementedException();
 
     public decimal ReadDecimal() => throw new NotImplementedException();
 
-    public IDeserializeCollection ReadCollection(ISerdeInfo typeInfo)
-    {
-        throw new NotImplementedException();
-    }
-
-    public IDeserializeType ReadType(ISerdeInfo typeInfo) => this;
+    public ITypeDeserializer ReadType(ISerdeInfo typeInfo) => this;
 
     public void Dispose() { }
 }

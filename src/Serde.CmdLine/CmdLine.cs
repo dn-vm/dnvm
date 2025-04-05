@@ -20,7 +20,7 @@ public static class CmdLine
         var deserializer = new Deserializer(args, handleHelp);
         try
         {
-            var cmd = T.DeserializeInstance.Deserialize(deserializer);
+            var cmd = T.Instance.Deserialize(deserializer);
             if (handleHelp && deserializer.HelpInfos.Count > 0)
             {
                 return new Result<T, IReadOnlyList<ISerdeInfo>>.Err(deserializer.HelpInfos);
@@ -59,7 +59,7 @@ public static class CmdLine
                     cmd = value;
                     return true;
                 case Result<T, IReadOnlyList<ISerdeInfo>>.Err(var helpInfos):
-                    var rootInfo = SerdeInfoProvider.GetInfo<T>();
+                    var rootInfo = SerdeInfoProvider.GetDeserializeInfo<T>();
                     var lastInfo = helpInfos.Last();
                     console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
                     cmd = default!;
@@ -71,7 +71,7 @@ public static class CmdLine
         catch (ArgumentSyntaxException ex)
         {
             console.WriteLine("error: " + ex.Message);
-            var rootInfo = SerdeInfoProvider.GetInfo<T>();
+            var rootInfo = SerdeInfoProvider.GetDeserializeInfo<T>();
             console.WriteLine(GetHelpText(rootInfo));
             cmd = default!;
             return false;

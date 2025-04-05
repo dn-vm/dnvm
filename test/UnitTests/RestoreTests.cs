@@ -407,7 +407,7 @@ public sealed class RestoreTests
         {
             "sdk": {
                 "version": "42.42.40",
-                "rollForward": "major"
+                "rollForward": "major",
                 "allowPrerelease": false
             }
         }

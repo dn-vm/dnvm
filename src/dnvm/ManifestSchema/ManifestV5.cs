@@ -39,8 +39,8 @@ public partial record TrackedChannelV5
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
     [SerdeMemberOptions(
-        SerializeProxy = typeof(EqArrayProxy.Serialize<SemVersion, SemVersionProxy>),
-        DeserializeProxy = typeof(EqArrayProxy.Deserialize<SemVersion, SemVersionProxy>))]
+        SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
+        DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
     public EqArray<SemVersion> InstalledSdkVersions { get; init; } = EqArray<SemVersion>.Empty;
 }
 

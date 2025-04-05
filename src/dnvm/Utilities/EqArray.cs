@@ -61,30 +61,30 @@ public readonly struct EqArray<T>(ImmutableArray<T> value) : IReadOnlyCollection
 public static class EqArrayProxy
 {
     private static readonly ISerdeInfo s_typeInfo = Serde.SerdeInfo.MakeEnumerable(nameof(EqArray));
-    public sealed class Serialize<T, TProvider> : ISerializeProvider<EqArray<T>>, ISerialize<EqArray<T>>
+    public sealed class Ser<T, TProvider> : ISerializeProvider<EqArray<T>>, ISerialize<EqArray<T>>
         where TProvider : ISerializeProvider<T>
     {
-        public static readonly Serialize<T, TProvider> Instance = new();
-        static ISerialize<EqArray<T>> ISerializeProvider<EqArray<T>>.SerializeInstance => Instance;
+        public static readonly Ser<T, TProvider> Instance = new();
+        static ISerialize<EqArray<T>> ISerializeProvider<EqArray<T>>.Instance => Instance;
 
-        public static ISerdeInfo SerdeInfo => s_typeInfo;
+        public ISerdeInfo SerdeInfo => s_typeInfo;
 
         void ISerialize<EqArray<T>>.Serialize(EqArray<T> value, ISerializer serializer)
         {
-            EnumerableHelpers.SerializeSpan(s_typeInfo, value.Array.AsSpan(), TProvider.SerializeInstance, serializer);
+            ImmutableArrayProxy.Ser<T, TProvider>.Instance.Serialize(value.Array, serializer);
         }
     }
 
-    public sealed class Deserialize<T, TProvider> : IDeserializeProvider<EqArray<T>>, IDeserialize<EqArray<T>>
+    public sealed class De<T, TProvider> : IDeserializeProvider<EqArray<T>>, IDeserialize<EqArray<T>>
         where TProvider : IDeserializeProvider<T>
     {
-        public static readonly Deserialize<T, TProvider> Instance = new();
-        static IDeserialize<EqArray<T>> IDeserializeProvider<EqArray<T>>.DeserializeInstance => Instance;
+        public static readonly De<T, TProvider> Instance = new();
+        static IDeserialize<EqArray<T>> IDeserializeProvider<EqArray<T>>.Instance => Instance;
 
-        public static ISerdeInfo SerdeInfo => s_typeInfo;
+        public ISerdeInfo SerdeInfo => s_typeInfo;
         EqArray<T> IDeserialize<EqArray<T>>.Deserialize(IDeserializer deserializer)
         {
-            return ImmutableArrayProxy.Deserialize<T, TProvider>.Instance.Deserialize(deserializer).ToEq();
+            return ImmutableArrayProxy.De<T, TProvider>.Instance.Deserialize(deserializer).ToEq();
         }
     }
 }

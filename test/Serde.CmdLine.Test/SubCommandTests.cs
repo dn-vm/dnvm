@@ -27,7 +27,7 @@ public sealed partial class SubCommandTests
     [Fact]
     public void TopLevelHelp()
     {
-        var help = CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<TopCommand>());
+        var help = CmdLine.GetHelpText(SerdeInfoProvider.GetDeserializeInfo<TopCommand>());
         var text = """
 usage: TopCommand [-v | --verbose] [-h | --help] <command>
 
