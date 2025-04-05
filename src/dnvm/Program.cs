@@ -8,12 +8,12 @@ namespace Dnvm;
 
 public static class Program
 {
-    public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.MajorMinorPatch, SemVersionStyles.Strict);
+    public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.SemVer, SemVersionStyles.Strict);
 
     public static async Task<int> Main(string[] args)
     {
         var console = AnsiConsole.Console;
-        console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.Sha);
+        console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.ShortSha);
         console.WriteLine();
         var logger = new Logger(console);
 
