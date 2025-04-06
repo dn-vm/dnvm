@@ -24,7 +24,6 @@ public sealed partial class DnvmEnv
     public readonly IFileSystem CwdFs;
     public readonly UPath Cwd;
     public string RealPath(UPath path) => DnvmHomeFs.ConvertPathToInternal(path);
-    public string? DnvmHomeRealPath { get; }
     public SubFileSystem TempFs { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
@@ -41,7 +40,6 @@ public sealed partial class DnvmEnv
         bool isPhysical,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
-        string? dnvmHomeRealPath = null,
         IEnumerable<string>? dotnetFeedUrls = null,
         string releasesUrl = DefaultReleasesUrl,
         HttpClient? httpClient = null)
@@ -59,10 +57,6 @@ public sealed partial class DnvmEnv
             owned: false);
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
-        Debug.Assert(
-            dnvmHomeRealPath is null == !isPhysical,
-            "dnvmHome should be null if not a real path, and vice versa.");
-        DnvmHomeRealPath = dnvmHomeRealPath;
         DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
         DnvmReleasesUrl = releasesUrl;
         HttpClient = new ScopedHttpClient(httpClient ?? new HttpClient() {
@@ -130,8 +124,7 @@ public sealed partial class DnvmEnv : IDisposable
             PhysicalFs.ConvertPathFromInternal(Environment.CurrentDirectory),
             isPhysical: true,
             getUserEnvVar,
-            setUserEnvVar,
-            dnvmHomeRealPath: realPath);
+            setUserEnvVar);
     }
 
     /// <summary>

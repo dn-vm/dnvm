@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
@@ -164,8 +165,9 @@ public class SelfInstallCommand
             Yes = _installArgs.Yes
         });
 
-        if (result is not TrackCommand.Result.Success)
+        if (result is not (TrackCommand.Result.Success or TrackCommand.Result.ChannelAlreadyTracked))
         {
+            _logger.Info("Track failed: " + result);
             return Result.InstallFailed;
         }
 
@@ -174,7 +176,7 @@ public class SelfInstallCommand
         // Set up path
         if (updateUserEnv)
         {
-            await AddToPath(_env, sdkDirName);
+            await UpdateEnv(_env, sdkDirName);
         }
 
         return Result.Success;
@@ -249,15 +251,16 @@ public class SelfInstallCommand
 
     private static Task WriteEnvFile(DnvmEnv dnvmFs, string sdkInstallDir, Logger logger)
     {
+        var dnvmHome = dnvmFs.RealPath(UPath.Root);
         var newContent = GetEnvShContent()
-            .Replace("{install_loc}", dnvmFs.DnvmHomeFs.ConvertPathToInternal(UPath.Root))
+            .Replace("{install_loc}", dnvmHome)
             .Replace("{sdk_install_loc}", sdkInstallDir);
 
         // If DNVM_HOME is non-default, add it to the env.sh file
-        if (dnvmFs.DnvmHomeRealPath is {} realPath && realPath != DnvmEnv.DefaultDnvmHome)
+        if (dnvmHome != DnvmEnv.DefaultDnvmHome)
         {
             newContent = newContent + Environment.NewLine +
-                $"export DNVM_HOME={realPath}" + Environment.NewLine;
+                $"export DNVM_HOME={dnvmHome}" + Environment.NewLine;
         }
 
         logger.Info("Writing env sh file");
@@ -318,7 +321,7 @@ public class SelfInstallCommand
 
     private static bool MissingFromEnv(DnvmEnv dnvmEnv, SdkDirName sdkDirName)
     {
-        var dnvmHome = dnvmEnv.DnvmHomeFs.ConvertPathToInternal(UPath.Root);
+        var dnvmHome = dnvmEnv.RealPath(UPath.Root);
         string SdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
         if (GetEnvVar(dnvmEnv, "DOTNET_ROOT") != SdkInstallPath ||
             !PathContains(dnvmEnv, dnvmHome))
@@ -328,10 +331,10 @@ public class SelfInstallCommand
         return false;
     }
 
-    private async Task<int> AddToPath(DnvmEnv dnvmEnv, SdkDirName sdkDir)
+    private async Task<int> UpdateEnv(DnvmEnv dnvmEnv, SdkDirName sdkDir)
     {
-        string SdkInstallPath = Path.Combine(dnvmEnv.RealPath(UPath.Root), sdkDir.Name);
-        var dnvmHome = dnvmEnv.DnvmHomeFs.ConvertPathToInternal(UPath.Root);
+        var dnvmHome = dnvmEnv.RealPath(UPath.Root);
+        string sdkInstallPath = dnvmEnv.RealPath(DnvmEnv.GetSdkPath(sdkDir));
         if (OperatingSystem.IsWindows())
         {
             if (FindDotnetInSystemPath())
@@ -348,12 +351,12 @@ public class SelfInstallCommand
             }
             _logger.Log("Adding install directory to user path: " + dnvmHome);
             WindowsAddToPath(dnvmEnv, dnvmHome);
-            _logger.Log("Setting DOTNET_ROOT: " + SdkInstallPath);
-            SetEnvironmentVariable("DOTNET_ROOT", SdkInstallPath, EnvironmentVariableTarget.User);
-            if (dnvmEnv.DnvmHomeRealPath is {} realPath && realPath != DnvmEnv.DefaultDnvmHome)
+            _logger.Log("Setting DOTNET_ROOT: " + sdkInstallPath);
+            _env.SetUserEnvVar("DOTNET_ROOT", sdkInstallPath);
+            if (dnvmHome != DnvmEnv.DefaultDnvmHome)
             {
-                _logger.Log("Setting DNVM_HOME: " + realPath);
-                SetEnvironmentVariable("DNVM_HOME", realPath, EnvironmentVariableTarget.User);
+                _logger.Log("Setting DNVM_HOME: " + dnvmHome);
+                _env.SetUserEnvVar("DNVM_HOME", dnvmHome);
             }
 
             _logger.Log("");
@@ -362,7 +365,7 @@ public class SelfInstallCommand
         // Assume everything else is unix
         else
         {
-            await WriteEnvFile(dnvmEnv, SdkInstallPath, _logger);
+            await WriteEnvFile(dnvmEnv, sdkInstallPath, _logger);
             await AddToShellFiles(dnvmHome, dnvmEnv.UserHome);
         }
         return 0;
