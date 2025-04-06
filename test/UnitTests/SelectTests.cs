@@ -79,14 +79,7 @@ Valid SDK directory names:
 
     private static void AssertSymlinkTarget(string dotnetSymlink, SdkDirName dirName)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Contains($"{dirName.Name}\\{Utilities.DotnetExeName}", File.ReadAllText(dotnetSymlink));
-        }
-        else
-        {
-            var finfo = new FileInfo(dotnetSymlink);
-            Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DotnetExeName), finfo.LinkTarget);
-        }
+        var finfo = new FileInfo(dotnetSymlink);
+        Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DotnetExeName), finfo.LinkTarget);
     }
 }

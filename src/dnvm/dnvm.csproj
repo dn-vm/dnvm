@@ -10,7 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="env.sh" />
+    <EmbeddedResource Include="Resources/env.sh" />
+    <EmbeddedResource Include="Resources/dotnet.exe" />
   </ItemGroup>
 
   <ItemGroup>

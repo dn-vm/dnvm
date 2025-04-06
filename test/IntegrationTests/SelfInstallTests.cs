@@ -253,7 +253,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
                 ["DNVM_HOME"] = env.RealPath(UPath.Root)
             }
         );
-        Assert.Equal(0, result.ExitCode);
+        Assert.True(0 == result.ExitCode, result.Error);
         var timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
         Assert.True(timeAfterUpdate > timeBeforeUpdate);
         Assert.Contains("Process successfully upgraded", result.Out);

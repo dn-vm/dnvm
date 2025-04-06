@@ -49,16 +49,16 @@ public static class SelectCommand
             return Result.BadDirName;
         }
 
-        return await SelectNewDir(env, newDir, manifest);
+        return await SelectNewDir(logger, env, newDir, manifest);
     }
 
     /// <summary>
     /// Replaces the dotnet symlink with one pointing to the new SDK and
     /// updates the manifest to reflect the new SDK dir.
     /// </summary>
-    private static Task<Manifest> SelectNewDir(DnvmEnv env, SdkDirName newDir, Manifest manifest)
+    private static Task<Manifest> SelectNewDir(Logger logger, DnvmEnv env, SdkDirName newDir, Manifest manifest)
     {
-        InstallCommand.RetargetSymlink(env, newDir);
+        InstallCommand.RetargetSymlink(logger, env, newDir);
         return Task.FromResult(manifest with { CurrentSdkDir = newDir });
     }
 }
