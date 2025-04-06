@@ -254,7 +254,7 @@ public class SelfInstallCommand
             .Replace("{sdk_install_loc}", sdkInstallDir);
 
         // If DNVM_HOME is non-default, add it to the env.sh file
-        if (dnvmFs.DnvmHomeRealPath is {} realPath)
+        if (dnvmFs.DnvmHomeRealPath is {} realPath && realPath != DnvmEnv.DefaultDnvmHome)
         {
             newContent = newContent + Environment.NewLine +
                 $"export DNVM_HOME={realPath}" + Environment.NewLine;
