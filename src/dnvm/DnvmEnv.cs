@@ -60,7 +60,7 @@ public sealed partial class DnvmEnv
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
         Debug.Assert(
-            dnvmHomeRealPath is null ^ !isPhysical,
+            dnvmHomeRealPath is null == !isPhysical,
             "dnvmHome should be null if not a real path, and vice versa.");
         DnvmHomeRealPath = dnvmHomeRealPath;
         DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
@@ -130,7 +130,8 @@ public sealed partial class DnvmEnv : IDisposable
             PhysicalFs.ConvertPathFromInternal(Environment.CurrentDirectory),
             isPhysical: true,
             getUserEnvVar,
-            setUserEnvVar);
+            setUserEnvVar,
+            dnvmHomeRealPath: realPath);
     }
 
     /// <summary>

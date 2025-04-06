@@ -350,6 +350,11 @@ public class SelfInstallCommand
             WindowsAddToPath(dnvmEnv, dnvmHome);
             _logger.Log("Setting DOTNET_ROOT: " + SdkInstallPath);
             SetEnvironmentVariable("DOTNET_ROOT", SdkInstallPath, EnvironmentVariableTarget.User);
+            if (dnvmEnv.DnvmHomeRealPath is {} realPath && realPath != DnvmEnv.DefaultDnvmHome)
+            {
+                _logger.Log("Setting DNVM_HOME: " + realPath);
+                SetEnvironmentVariable("DNVM_HOME", realPath, EnvironmentVariableTarget.User);
+            }
 
             _logger.Log("");
             _logger.Log("Finished setting environment variables. Please close and re-open your terminal.");
