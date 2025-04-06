@@ -1,6 +1,7 @@
 
 using Spectre.Console;
 using System.ComponentModel;
+using System.Data;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -207,6 +208,7 @@ echo "DNVM_HOME: $DNVM_HOME"
     {
         const string PATH = "PATH";
         const string DOTNET_ROOT = "DOTNET_ROOT";
+        const string DNVM_HOME = "DNVM_HOME";
 
         var psi = new ProcessStartInfo
         {
@@ -220,6 +222,7 @@ echo "DNVM_HOME: $DNVM_HOME"
 
         var savedPath = Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User);
         var savedDotnetRoot = Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User);
+        var savedDnvmHome = Environment.GetEnvironmentVariable(DNVM_HOME, EnvironmentVariableTarget.User);
         try
         {
             var proc = Process.Start(psi);
@@ -230,11 +233,13 @@ echo "DNVM_HOME: $DNVM_HOME"
             var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName));
             Assert.DoesNotContain($";{sdkInstallDir};", pathMatch);
             Assert.Equal(sdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User)!);
+            Assert.Equal(env.RealPath(UPath.Root), Environment.GetEnvironmentVariable(DNVM_HOME, EnvironmentVariableTarget.User)!);
         }
         finally
         {
             Environment.SetEnvironmentVariable(PATH, savedPath, EnvironmentVariableTarget.User);
             Environment.SetEnvironmentVariable(DOTNET_ROOT, savedDotnetRoot, EnvironmentVariableTarget.User);
+            Environment.SetEnvironmentVariable(DNVM_HOME, savedDnvmHome, EnvironmentVariableTarget.User);
         }
     });
 
@@ -371,6 +376,7 @@ set -e
 echo "dnvm: `which dnvm`"
 echo "dotnet: `which dotnet`"
 echo "DOTNET_ROOT: $DOTNET_ROOT"
+echo "DNVM_HOME: $DNVM_HOME"
 """;
             var shellResult = await ProcUtil.RunShell(src, new() {
                 ["DNVM_HOME"] = dnvmHome.Path,
@@ -380,6 +386,7 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
             Assert.Contains("dnvm: " + prevDnvmPath, shellResult.Out);
             Assert.Contains("dotnet: " + Path.Combine(dnvmHome.Path, Utilities.DotnetExeName), shellResult.Out);
             Assert.Contains("DOTNET_ROOT: " + sdkDir, shellResult.Out);
+            Assert.Contains("DNVM_HOME: " + dnvmHome.Path, shellResult.Out);
         }
     }
 }
