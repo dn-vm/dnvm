@@ -10,6 +10,8 @@ public static class Program
 {
     public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.SemVer, SemVersionStyles.Strict);
 
+    public static readonly SemVersion BackupMuxerVersion = new SemVersion(9, 0, 3);
+
     public static async Task<int> Main(string[] args)
     {
         var console = AnsiConsole.Console;

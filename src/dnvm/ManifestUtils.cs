@@ -41,6 +41,26 @@ public static partial class ManifestUtils
         return manifest.RegisteredChannels.Where(x => !x.Untracked).ToEq();
     }
 
+    /// <summary>
+    /// Calculates the version of the installed muxer. This is
+    /// Max(<all installed _runtime_ versions>).
+    /// If no SDKs are installed, returns null.
+    /// </summary>
+    public static SemVersion? MuxerVersion(this Manifest manifest, SdkDirName dir)
+    {
+        var installedSdks = manifest
+            .InstalledSdks
+            .Where(s => s.SdkDirName == dir)
+            .ToList();
+        if (installedSdks.Count == 0)
+        {
+            return null;
+        }
+        return installedSdks
+            .Select(s => s.RuntimeVersion)
+            .Max(SemVersion.SortOrderComparer);
+    }
+
     public static Manifest AddSdk(
         this Manifest manifest,
         SemVersion semVersion,

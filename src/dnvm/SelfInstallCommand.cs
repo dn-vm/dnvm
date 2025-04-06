@@ -28,10 +28,6 @@ public class SelfInstallCommand
         _env = env;
         _logger = logger;
         _installArgs = args;
-        if (_installArgs.Verbose)
-        {
-            _logger.LogLevel = LogLevel.Info;
-        }
         _feedUrls = _installArgs.FeedUrl is null
             ? _env.DotnetFeedUrls
             : new[] { _installArgs.FeedUrl.TrimEnd('/') };
@@ -39,6 +35,11 @@ public class SelfInstallCommand
 
     public static async Task<Result> Run(Logger logger, CommandArguments.SelfInstallArguments args)
     {
+        if (args.Verbose)
+        {
+            logger.LogLevel = LogLevel.Info;
+        }
+
         if (!Utilities.IsSingleFile)
         {
             logger.Log("Cannot self-install into target location: the current executable is not deployed as a single file.");
@@ -168,7 +169,7 @@ public class SelfInstallCommand
             return Result.InstallFailed;
         }
 
-        InstallCommand.RetargetSymlink(_env, sdkDirName);
+        InstallCommand.RetargetSymlink(_logger, _env, sdkDirName);
 
         // Set up path
         if (updateUserEnv)
@@ -196,7 +197,8 @@ public class SelfInstallCommand
         }
 
         var dnvmHome = dnvmEnv.HomeFs.ConvertPathToInternal(UPath.Root);
-        var SdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
+        logger.Info($"Installing to {dnvmHome}");
+        var sdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
         if (destPath is null)
         {
             destPath = dnvmEnv.RealPath(DnvmEnv.DnvmExePath);
@@ -205,16 +207,15 @@ public class SelfInstallCommand
         {
             return Result.SelfInstallFailed;
         }
-        logger.Info($"Retargeting symlink in {dnvmHome} to {SdkInstallPath}");
-        InstallCommand.RetargetSymlink(dnvmEnv, sdkDirName);
+        InstallCommand.RetargetSymlink(logger, dnvmEnv, sdkDirName);
         if (!OperatingSystem.IsWindows())
         {
-            await WriteEnvFile(dnvmEnv, SdkInstallPath, logger);
+            await WriteEnvFile(dnvmEnv, sdkInstallPath, logger);
         }
         else
         {
             // Remove default SDK install path from PATH if present
-            RemoveFromPath(dnvmEnv, SdkInstallPath);
+            RemoveFromPath(dnvmEnv, sdkInstallPath);
         }
 
         return Result.Success;
@@ -260,7 +261,7 @@ public class SelfInstallCommand
     private static string GetEnvShContent()
     {
         var asm = Assembly.GetExecutingAssembly();
-        using var stream = asm.GetManifestResourceStream("dnvm.env.sh")!;
+        using var stream = asm.GetManifestResourceStream("dnvm.Resources.env.sh")!;
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
