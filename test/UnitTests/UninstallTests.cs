@@ -46,16 +46,16 @@ public sealed class UninstallTests
         };
         Assert.Equal(previewOnly, manifest);
 
-        Assert.False(env.HomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.NETCore.App" / ltsVersion.ToString()));
-        Assert.False(env.HomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.AspNetCore.App" / ltsVersion.ToString()));
-        Assert.False(env.HomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.AspNetCore.App" / ltsVersion.ToString()));
-        Assert.False(env.HomeFs.DirectoryExists(UPath.Root / "dn" / "host" / "fxr" / ltsVersion.ToString()));
+        Assert.False(env.DnvmHomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.NETCore.App" / ltsVersion.ToString()));
+        Assert.False(env.DnvmHomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.AspNetCore.App" / ltsVersion.ToString()));
+        Assert.False(env.DnvmHomeFs.DirectoryExists(UPath.Root / "dn" / "shared" / "Microsoft.AspNetCore.App" / ltsVersion.ToString()));
+        Assert.False(env.DnvmHomeFs.DirectoryExists(UPath.Root / "dn" / "host" / "fxr" / ltsVersion.ToString()));
 
-        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "shared" / "Microsoft.NETCore.App" / previewVersion.ToString()));
-        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "shared" / "Microsoft.AspNetCore.App" / previewVersion.ToString()));
-        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "host" / "fxr" / previewVersion.ToString()));
-        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "packs" / $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}" / previewVersion.ToString()));
-        Assert.True(env.HomeFs.DirectoryExists(UPath.Root / "preview" / "templates" / previewVersion.ToString()));
+        Assert.True(env.DnvmHomeFs.DirectoryExists(UPath.Root / "preview" / "shared" / "Microsoft.NETCore.App" / previewVersion.ToString()));
+        Assert.True(env.DnvmHomeFs.DirectoryExists(UPath.Root / "preview" / "shared" / "Microsoft.AspNetCore.App" / previewVersion.ToString()));
+        Assert.True(env.DnvmHomeFs.DirectoryExists(UPath.Root / "preview" / "host" / "fxr" / previewVersion.ToString()));
+        Assert.True(env.DnvmHomeFs.DirectoryExists(UPath.Root / "preview" / "packs" / $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}" / previewVersion.ToString()));
+        Assert.True(env.DnvmHomeFs.DirectoryExists(UPath.Root / "preview" / "templates" / previewVersion.ToString()));
     });
 
     [Fact]

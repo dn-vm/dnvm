@@ -70,7 +70,7 @@ public class SelfInstallCommand
         env ??= DnvmEnv.CreateDefault();
 
         var targetPath = DnvmEnv.DnvmExePath;
-        if (!args.Force && env.HomeFs.FileExists(targetPath))
+        if (!args.Force && env.DnvmHomeFs.FileExists(targetPath))
         {
             logger.Log("dnvm is already installed at: " + targetPath);
             logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
@@ -140,12 +140,12 @@ public class SelfInstallCommand
             _logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
             physicalFs.CopyFileCross(
                 physicalFs.ConvertPathFromInternal(procPath),
-                _env.HomeFs,
+                _env.DnvmHomeFs,
                 targetPath,
                 overwrite: _installArgs.Force);
             if (!OperatingSystem.IsWindows())
             {
-                Utilities.ChmodExec(_env.HomeFs, targetPath);
+                Utilities.ChmodExec(_env.DnvmHomeFs, targetPath);
             }
             _logger.Log("Dnvm installed successfully.");
         }
@@ -196,7 +196,7 @@ public class SelfInstallCommand
             sdkDirName = DnvmEnv.DefaultSdkDirName;
         }
 
-        var dnvmHome = dnvmEnv.HomeFs.ConvertPathToInternal(UPath.Root);
+        var dnvmHome = dnvmEnv.DnvmHomeFs.ConvertPathToInternal(UPath.Root);
         logger.Info($"Installing to {dnvmHome}");
         var sdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
         if (destPath is null)
@@ -250,11 +250,18 @@ public class SelfInstallCommand
     private static Task WriteEnvFile(DnvmEnv dnvmFs, string sdkInstallDir, Logger logger)
     {
         var newContent = GetEnvShContent()
-            .Replace("{install_loc}", dnvmFs.HomeFs.ConvertPathToInternal(UPath.Root))
+            .Replace("{install_loc}", dnvmFs.DnvmHomeFs.ConvertPathToInternal(UPath.Root))
             .Replace("{sdk_install_loc}", sdkInstallDir);
 
+        // If DNVM_HOME is non-default, add it to the env.sh file
+        if (dnvmFs.DnvmHomeRealPath is {} realPath && realPath != DnvmEnv.DefaultDnvmHome)
+        {
+            newContent = newContent + Environment.NewLine +
+                $"export DNVM_HOME={realPath}" + Environment.NewLine;
+        }
+
         logger.Info("Writing env sh file");
-        dnvmFs.HomeFs.WriteAllText(DnvmEnv.EnvPath, newContent);
+        dnvmFs.DnvmHomeFs.WriteAllText(DnvmEnv.EnvPath, newContent);
         return Task.CompletedTask;
     }
 
@@ -265,7 +272,6 @@ public class SelfInstallCommand
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
-
 
     private static bool PathContains(DnvmEnv dnvmEnv, string path)
     {
@@ -312,7 +318,7 @@ public class SelfInstallCommand
 
     private static bool MissingFromEnv(DnvmEnv dnvmEnv, SdkDirName sdkDirName)
     {
-        var dnvmHome = dnvmEnv.HomeFs.ConvertPathToInternal(UPath.Root);
+        var dnvmHome = dnvmEnv.DnvmHomeFs.ConvertPathToInternal(UPath.Root);
         string SdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
         if (GetEnvVar(dnvmEnv, "DOTNET_ROOT") != SdkInstallPath ||
             !PathContains(dnvmEnv, dnvmHome))
@@ -325,7 +331,7 @@ public class SelfInstallCommand
     private async Task<int> AddToPath(DnvmEnv dnvmEnv, SdkDirName sdkDir)
     {
         string SdkInstallPath = Path.Combine(dnvmEnv.RealPath(UPath.Root), sdkDir.Name);
-        var dnvmHome = dnvmEnv.HomeFs.ConvertPathToInternal(UPath.Root);
+        var dnvmHome = dnvmEnv.DnvmHomeFs.ConvertPathToInternal(UPath.Root);
         if (OperatingSystem.IsWindows())
         {
             if (FindDotnetInSystemPath())
@@ -344,6 +350,11 @@ public class SelfInstallCommand
             WindowsAddToPath(dnvmEnv, dnvmHome);
             _logger.Log("Setting DOTNET_ROOT: " + SdkInstallPath);
             SetEnvironmentVariable("DOTNET_ROOT", SdkInstallPath, EnvironmentVariableTarget.User);
+            if (dnvmEnv.DnvmHomeRealPath is {} realPath && realPath != DnvmEnv.DefaultDnvmHome)
+            {
+                _logger.Log("Setting DNVM_HOME: " + realPath);
+                SetEnvironmentVariable("DNVM_HOME", realPath, EnvironmentVariableTarget.User);
+            }
 
             _logger.Log("");
             _logger.Log("Finished setting environment variables. Please close and re-open your terminal.");
