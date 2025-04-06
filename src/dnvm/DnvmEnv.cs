@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -19,10 +20,11 @@ namespace Dnvm;
 public sealed partial class DnvmEnv
 {
     public bool IsPhysicalDnvmHome { get; }
-    public readonly IFileSystem HomeFs;
+    public readonly IFileSystem DnvmHomeFs;
     public readonly IFileSystem CwdFs;
     public readonly UPath Cwd;
-    public string RealPath(UPath path) => HomeFs.ConvertPathToInternal(path);
+    public string RealPath(UPath path) => DnvmHomeFs.ConvertPathToInternal(path);
+    public string? DnvmHomeRealPath { get; }
     public SubFileSystem TempFs { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
@@ -32,19 +34,20 @@ public sealed partial class DnvmEnv
     public ScopedHttpClient HttpClient { get; }
 
     public DnvmEnv(
-         string userHome,
+        string userHome,
         IFileSystem homeFs,
         IFileSystem cwdFs,
         UPath cwd,
         bool isPhysical,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
+        string? dnvmHomeRealPath = null,
         IEnumerable<string>? dotnetFeedUrls = null,
         string releasesUrl = DefaultReleasesUrl,
         HttpClient? httpClient = null)
     {
         UserHome = userHome;
-        HomeFs = homeFs;
+        DnvmHomeFs = homeFs;
         CwdFs = cwdFs;
         Cwd = cwd;
         IsPhysicalDnvmHome = isPhysical;
@@ -56,6 +59,10 @@ public sealed partial class DnvmEnv
             owned: false);
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
+        Debug.Assert(
+            dnvmHomeRealPath is null ^ !isPhysical,
+            "dnvmHome should be null if not a real path, and vice versa.");
+        DnvmHomeRealPath = dnvmHomeRealPath;
         DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
         DnvmReleasesUrl = releasesUrl;
         HttpClient = new ScopedHttpClient(httpClient ?? new HttpClient() {
@@ -132,14 +139,14 @@ public sealed partial class DnvmEnv : IDisposable
     /// </summary>
     public async Task<Manifest> ReadManifest()
     {
-        var text = HomeFs.ReadAllText(ManifestPath);
+        var text = DnvmHomeFs.ReadAllText(ManifestPath);
         return await ManifestUtils.DeserializeNewOrOldManifest(HttpClient, text, DotnetFeedUrls);
     }
 
     public void WriteManifest(Manifest manifest)
     {
         var text = JsonSerializer.Serialize(manifest);
-        HomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
+        DnvmHomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
     }
 
     public void Dispose()

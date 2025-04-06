@@ -23,7 +23,7 @@ public sealed class SelectTests
             Channel = new Channel.Latest(),
         });
         Assert.Equal(TrackCommand.Result.Success, result);
-        var homeFs = env.HomeFs;
+        var homeFs = env.DnvmHomeFs;
         var defaultSdkDir = DnvmEnv.DefaultSdkDirName;
         var defaultDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
         Assert.True(homeFs.FileExists(defaultDotnet));

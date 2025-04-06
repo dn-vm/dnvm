@@ -214,7 +214,7 @@ public static partial class InstallCommand
 
         logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
         var curMuxerVersion = manifest.MuxerVersion(sdkDir);
-        var error = await InstallSdkToDir(curMuxerVersion, release.Runtime.Version, env.HttpClient, link, env.HomeFs, sdkInstallPath, env.TempFs, logger);
+        var error = await InstallSdkToDir(curMuxerVersion, release.Runtime.Version, env.HttpClient, link, env.DnvmHomeFs, sdkInstallPath, env.TempFs, logger);
 
         CreateSymlinkIfMissing(logger, env, sdkDir);
 
@@ -306,7 +306,7 @@ public static partial class InstallCommand
 
     internal static void CreateSymlinkIfMissing(Logger logger, DnvmEnv dnvmEnv, SdkDirName sdkDirName)
     {
-        if (!dnvmEnv.HomeFs.FileExists(DnvmEnv.SymlinkPath))
+        if (!dnvmEnv.DnvmHomeFs.FileExists(DnvmEnv.SymlinkPath))
         {
             RetargetSymlink(logger, dnvmEnv, sdkDirName);
         }
@@ -331,13 +331,13 @@ public static partial class InstallCommand
         var dotnetExePath = DnvmEnv.GetSdkPath(sdkDirName)/Utilities.DotnetExeName;
         var realDotnetPath = dnvmEnv.RealPath(dotnetExePath);
         logger.Info($"Retargeting symlink in {dnvmEnv.RealPath(UPath.Root)} to {realDotnetPath}");
-        if (!dnvmEnv.HomeFs.FileExists(dotnetExePath))
+        if (!dnvmEnv.DnvmHomeFs.FileExists(dotnetExePath))
         {
             logger.Info("SDK install not found, skipping symlink creation.");
             return;
         }
 
-        var homeFs = dnvmEnv.HomeFs;
+        var homeFs = dnvmEnv.DnvmHomeFs;
         // Delete if it already exists
         try
         {
