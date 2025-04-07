@@ -1,7 +1,3 @@
-
-using Spectre.Console;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -29,16 +25,65 @@ public sealed class SelfInstallTests
         _testOutput = testOutput;
     }
 
+    private static async Task<ProcUtil.ProcResult> RunDnvmAndRestoreEnv(
+        DnvmEnv env,
+        string dnvmPath,
+        string dnvmArgs,
+        Action? envChecker = null)
+    {
+        var savedVars = new Dictionary<string, string?>();
+        const string PATH = "PATH";
+        const string DOTNET_ROOT = "DOTNET_ROOT";
+        const string DNVM_HOME = "DNVM_HOME";
+        if (OperatingSystem.IsWindows())
+        {
+            SaveVars(savedVars);
+        }
+        try
+        {
+            var procResult = await ProcUtil.RunWithOutput(
+                dnvmPath,
+                dnvmArgs,
+                new()
+                {
+                    ["HOME"] = env.UserHome,
+                    ["DNVM_HOME"] = env.RealPath(UPath.Root)
+                }
+            );
+            // Allow the test to check the environment variables before they are restored
+            envChecker?.Invoke();
+            return procResult;
+        }
+        finally
+        {
+            RestoreVars(savedVars);
+        }
+
+        static void SaveVars(Dictionary<string, string?> savedVars)
+        {
+            savedVars[PATH] = Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User);
+            savedVars[DOTNET_ROOT] = Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User);
+            savedVars[DNVM_HOME] = Environment.GetEnvironmentVariable(DNVM_HOME, EnvironmentVariableTarget.User);
+        }
+
+        static void RestoreVars(Dictionary<string, string?> savedVars)
+        {
+            foreach (var kvp in savedVars)
+            {
+                Environment.SetEnvironmentVariable(kvp.Key, kvp.Value, EnvironmentVariableTarget.User);
+            }
+        }
+    }
+
     [Fact]
     public Task FirstRunInstallsDotnet() => RunWithServer(async (mockServer, env) =>
     {
-        var procResult = await ProcUtil.RunWithOutput(DnvmExe,
-            $"selfinstall --feed-url {mockServer.PrefixString} -y -v",
-            new() {
-                ["HOME"] = env.UserHome,
-                ["DNVM_HOME"] = env.RealPath(UPath.Root)
-            }
+        var procResult = await RunDnvmAndRestoreEnv(
+            env,
+            DnvmExe,
+            $"selfinstall --feed-url {mockServer.PrefixString} -y -v"
         );
+
         _testOutput.WriteLine(procResult.Out);
         _testOutput.WriteLine(procResult.Error);
         Assert.Equal(0, procResult.ExitCode);
@@ -210,37 +255,20 @@ echo "DNVM_HOME: $DNVM_HOME"
         const string DOTNET_ROOT = "DOTNET_ROOT";
         const string DNVM_HOME = "DNVM_HOME";
 
-        var psi = new ProcessStartInfo
-        {
-            FileName = DnvmExe,
-            Arguments = $"selfinstall --feed-url {mockServer.PrefixString} -y -v",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        psi.Environment["HOME"] = env.UserHome;
-        psi.Environment["DNVM_HOME"] = env.RealPath(UPath.Root);
-
-        var savedPath = Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User);
-        var savedDotnetRoot = Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User);
-        var savedDnvmHome = Environment.GetEnvironmentVariable(DNVM_HOME, EnvironmentVariableTarget.User);
-        try
-        {
-            var proc = Process.Start(psi);
-            await proc!.WaitForExitAsync();
-
-            var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
-            Assert.Contains($";{env.RealPath(UPath.Root)};", pathMatch);
-            var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName));
-            Assert.DoesNotContain($";{sdkInstallDir};", pathMatch);
-            Assert.Equal(sdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User)!);
-            Assert.Equal(env.RealPath(UPath.Root), Environment.GetEnvironmentVariable(DNVM_HOME, EnvironmentVariableTarget.User)!);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(PATH, savedPath, EnvironmentVariableTarget.User);
-            Environment.SetEnvironmentVariable(DOTNET_ROOT, savedDotnetRoot, EnvironmentVariableTarget.User);
-            Environment.SetEnvironmentVariable(DNVM_HOME, savedDnvmHome, EnvironmentVariableTarget.User);
-        }
+        var result = await RunDnvmAndRestoreEnv(
+            env,
+            DnvmExe,
+            $"selfinstall --feed-url {mockServer.PrefixString} -y -v",
+            () =>
+            {
+                var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
+                Assert.Contains($";{env.RealPath(UPath.Root)};", pathMatch);
+                var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName));
+                Assert.DoesNotContain($";{sdkInstallDir};", pathMatch);
+                Assert.Equal(sdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User)!);
+                Assert.Equal(env.RealPath(UPath.Root), Environment.GetEnvironmentVariable(DNVM_HOME, EnvironmentVariableTarget.User)!);
+            }
+        );
     });
 
     [Fact]
@@ -252,13 +280,10 @@ echo "DNVM_HOME: $DNVM_HOME"
         mockServer.DnvmPath = Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm"));
 
         var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
-        var result = await ProcUtil.RunWithOutput(
+        var result = await RunDnvmAndRestoreEnv(
+            env,
             copiedExe,
-            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v",
-            new() {
-                ["HOME"] = env.UserHome,
-                ["DNVM_HOME"] = env.RealPath(UPath.Root)
-            }
+            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v"
         );
         Assert.True(0 == result.ExitCode, result.Error);
         var timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
@@ -283,13 +308,10 @@ echo "DNVM_HOME: $DNVM_HOME"
         mockServer.DnvmPath = Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm"));
 
         var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
-        var result = await ProcUtil.RunWithOutput(
+        var result = await RunDnvmAndRestoreEnv(
+            env,
             copiedExe,
-            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v",
-            new() {
-                ["HOME"] = env.UserHome,
-                ["DNVM_HOME"] = env.RealPath(UPath.Root)
-            }
+            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v"
         );
         Assert.Equal(0, result.ExitCode);
         var timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
@@ -306,13 +328,10 @@ echo "DNVM_HOME: $DNVM_HOME"
         );
         Assert.Equal(0, result.ExitCode);
 
-        result = await ProcUtil.RunWithOutput(
+        result = await RunDnvmAndRestoreEnv(
+            env,
             copiedExe,
-            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v",
-            new() {
-                ["HOME"] = env.UserHome,
-                ["DNVM_HOME"] = env.RealPath(UPath.Root)
-            }
+            $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v"
         );
         timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
         Assert.True(timeAfterUpdate > timeBeforeUpdate);
@@ -345,10 +364,11 @@ echo "DNVM_HOME: $DNVM_HOME"
         }
 
         var startVer = Program.SemVer;
-        var result = await ProcUtil.RunWithOutput(
+        var result = await RunDnvmAndRestoreEnv(
+            env,
             dnvmTmpPath,
-            $"selfinstall -v --update --dest-path \"{prevDnvmPath}\"",
-            new() { ["DNVM_HOME"] = dnvmHome.Path });
+            $"selfinstall -v --update --dest-path \"{prevDnvmPath}\""
+        );
 
         _testOutput.WriteLine(result.Out);
         Assert.Equal(0, result.ExitCode);

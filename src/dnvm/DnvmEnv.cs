@@ -99,7 +99,9 @@ public sealed partial class DnvmEnv : IDisposable
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="DnvmEnv.DefaultDnvmHome" /> as the default.
     /// </summar>
-    public static DnvmEnv CreateDefault(string? home = null)
+    public static DnvmEnv CreateDefault(
+        string? home = null,
+        string? dotnetFeedUrl = null)
     {
         home ??= Environment.GetEnvironmentVariable("DNVM_HOME");
         var dnvmHome = string.IsNullOrWhiteSpace(home)
@@ -107,13 +109,15 @@ public sealed partial class DnvmEnv : IDisposable
             : home;
         return CreatePhysical(dnvmHome,
             n => Environment.GetEnvironmentVariable(n, EnvironmentVariableTarget.User),
-            (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User));
+            (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User),
+            dotnetFeedUrl);
     }
 
     public static DnvmEnv CreatePhysical(
         string realPath,
         Func<string, string?> getUserEnvVar,
-        Action<string, string> setUserEnvVar)
+        Action<string, string> setUserEnvVar,
+        string? dotnetFeedUrl = null)
     {
         Directory.CreateDirectory(realPath);
 
@@ -124,7 +128,8 @@ public sealed partial class DnvmEnv : IDisposable
             PhysicalFs.ConvertPathFromInternal(Environment.CurrentDirectory),
             isPhysical: true,
             getUserEnvVar,
-            setUserEnvVar);
+            setUserEnvVar,
+            dotnetFeedUrls: dotnetFeedUrl is not null ? [ dotnetFeedUrl ] : null);
     }
 
     /// <summary>
