@@ -168,13 +168,13 @@ Please select a channel [default: Latest]:
             lines += await proc.StandardOutput.ReadLineAsync();
         }
 
-        Assert.Equal($"""
+        AssertLogEquals($"""
 Proceeding with installation.
 Log: Location of running exe: {DnvmExe}
 Log: Copying file from '{DnvmExe}' to '{DnvmEnv.DnvmExePath}'
 Dnvm installed successfully.
 Found latest version: 99.99.99-preview
-""".RemoveWhitespace(), lines.RemoveWhitespace());
+""", lines);
 
         do
         {
@@ -182,15 +182,31 @@ Found latest version: 99.99.99-preview
         } while (lines != null && !lines.Contains("Writing env sh file"));
 
         lines = await proc.StandardOutput.ReadToEndAsync();
-        Assert.Equal($"""
+        AssertLogEquals($"""
 Log: Setting environment variables in shell files
 Scanning for shell files to update
 Log: Checking for file: {env.UserHome}/.profile
 Log: Checking for file: {env.UserHome}/.bashrc
 Log: Checking for file: {env.UserHome}/.zshrc
-""".RemoveWhitespace(), lines.RemoveWhitespace());
+""", lines);
         Assert.Contains(env.RealPath(UPath.Root), env.DnvmHomeFs.ReadAllText(DnvmEnv.EnvPath));
     });
+
+    private static void AssertLogEquals(string expected, string actual)
+    {
+        var expectedLines = expected.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+        var actualLines = actual.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+        int i = 0;
+        foreach (var line in expectedLines)
+        {
+            if (line.StartsWith("Info("))
+            {
+                i++;
+                continue;
+            }
+            Assert.Equal(line, actualLines[i++]);
+        }
+    }
 
     [ConditionalFact(typeof(UnixOnly))]
     public Task FirstRunWritesEnv() => RunWithServer(async (mockServer, env) =>
