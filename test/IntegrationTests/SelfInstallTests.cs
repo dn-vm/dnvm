@@ -162,19 +162,19 @@ Please select a channel [default: Latest]:
         // Say yes
         await proc.StandardInput.WriteLineAsync("y");
 
-        lines = "";
+        var actualLines = new List<string>();
         for (int i = 0; i < 8; i++)
         {
-            lines += await proc.StandardOutput.ReadLineAsync();
+            actualLines.Add((await proc.StandardOutput.ReadLineAsync()).Unwrap());
         }
 
         AssertLogEquals($"""
 Proceeding with installation.
-Log: Location of running exe: {DnvmExe}
-Log: Copying file from '{DnvmExe}' to '{DnvmEnv.DnvmExePath}'
+Location of running exe: {DnvmExe}
+Copying file from '{DnvmExe}' to '{DnvmEnv.DnvmExePath}'
 Dnvm installed successfully.
 Found latest version: 99.99.99-preview
-""", lines);
+""", actualLines);
 
         do
         {
@@ -182,29 +182,30 @@ Found latest version: 99.99.99-preview
         } while (lines != null && !lines.Contains("Writing env sh file"));
 
         lines = await proc.StandardOutput.ReadToEndAsync();
+        actualLines = lines.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         AssertLogEquals($"""
-Log: Setting environment variables in shell files
+Setting environment variables in shell files
 Scanning for shell files to update
-Log: Checking for file: {env.UserHome}/.profile
-Log: Checking for file: {env.UserHome}/.bashrc
-Log: Checking for file: {env.UserHome}/.zshrc
-""", lines);
+Checking for file: {env.UserHome}/.profile
+Checking for file: {env.UserHome}/.bashrc
+Checking for file: {env.UserHome}/.zshrc
+""", actualLines);
         Assert.Contains(env.RealPath(UPath.Root), env.DnvmHomeFs.ReadAllText(DnvmEnv.EnvPath));
     });
 
-    private static void AssertLogEquals(string expected, string actual)
+    private static void AssertLogEquals(string expected, IList<string> actualLines)
     {
         var expectedLines = expected.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
-        var actualLines = actual.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
         int i = 0;
         foreach (var line in expectedLines)
         {
-            if (line.StartsWith("Info("))
+            var actualLine = actualLines[i];
+            if (actualLine.StartsWith("Info("))
             {
-                i++;
-                continue;
+                actualLine = actualLine[(actualLine.IndexOf(' ') + 1)..].Trim();
             }
-            Assert.Equal(line, actualLines[i++]);
+            Assert.Equal(line, actualLine);
+            i++;
         }
     }
 
