@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -19,10 +20,10 @@ namespace Dnvm;
 public sealed partial class DnvmEnv
 {
     public bool IsPhysicalDnvmHome { get; }
-    public readonly IFileSystem HomeFs;
+    public readonly IFileSystem DnvmHomeFs;
     public readonly IFileSystem CwdFs;
     public readonly UPath Cwd;
-    public string RealPath(UPath path) => HomeFs.ConvertPathToInternal(path);
+    public string RealPath(UPath path) => DnvmHomeFs.ConvertPathToInternal(path);
     public SubFileSystem TempFs { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
@@ -32,7 +33,7 @@ public sealed partial class DnvmEnv
     public ScopedHttpClient HttpClient { get; }
 
     public DnvmEnv(
-         string userHome,
+        string userHome,
         IFileSystem homeFs,
         IFileSystem cwdFs,
         UPath cwd,
@@ -44,7 +45,7 @@ public sealed partial class DnvmEnv
         HttpClient? httpClient = null)
     {
         UserHome = userHome;
-        HomeFs = homeFs;
+        DnvmHomeFs = homeFs;
         CwdFs = cwdFs;
         Cwd = cwd;
         IsPhysicalDnvmHome = isPhysical;
@@ -75,7 +76,7 @@ public sealed partial class DnvmEnv : IDisposable
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
     public static UPath DnvmExePath => UPath.Root / Utilities.DnvmExeName;
-    public static UPath SymlinkPath => UPath.Root / Utilities.DotnetSymlinkName;
+    public static UPath SymlinkPath => UPath.Root / Utilities.DotnetExeName;
     public static UPath GetSdkPath(SdkDirName sdkDirName) => UPath.Root / sdkDirName.Name;
     /// <summary>
     /// Default DNVM_HOME is
@@ -98,7 +99,9 @@ public sealed partial class DnvmEnv : IDisposable
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="DnvmEnv.DefaultDnvmHome" /> as the default.
     /// </summar>
-    public static DnvmEnv CreateDefault(string? home = null)
+    public static DnvmEnv CreateDefault(
+        string? home = null,
+        string? dotnetFeedUrl = null)
     {
         home ??= Environment.GetEnvironmentVariable("DNVM_HOME");
         var dnvmHome = string.IsNullOrWhiteSpace(home)
@@ -106,23 +109,27 @@ public sealed partial class DnvmEnv : IDisposable
             : home;
         return CreatePhysical(dnvmHome,
             n => Environment.GetEnvironmentVariable(n, EnvironmentVariableTarget.User),
-            (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User));
+            (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User),
+            dotnetFeedUrl);
     }
 
     public static DnvmEnv CreatePhysical(
         string realPath,
         Func<string, string?> getUserEnvVar,
-        Action<string, string> setUserEnvVar)
+        Action<string, string> setUserEnvVar,
+        string? dotnetFeedUrl = null)
     {
         Directory.CreateDirectory(realPath);
+
         return new DnvmEnv(
             userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
             new SubFileSystem(PhysicalFs, PhysicalFs.ConvertPathFromInternal(realPath)),
             PhysicalFs,
-            new UPath(Environment.CurrentDirectory),
+            PhysicalFs.ConvertPathFromInternal(Environment.CurrentDirectory),
             isPhysical: true,
             getUserEnvVar,
-            setUserEnvVar);
+            setUserEnvVar,
+            dotnetFeedUrls: dotnetFeedUrl is not null ? [ dotnetFeedUrl ] : null);
     }
 
     /// <summary>
@@ -131,14 +138,14 @@ public sealed partial class DnvmEnv : IDisposable
     /// </summary>
     public async Task<Manifest> ReadManifest()
     {
-        var text = HomeFs.ReadAllText(ManifestPath);
+        var text = DnvmHomeFs.ReadAllText(ManifestPath);
         return await ManifestUtils.DeserializeNewOrOldManifest(HttpClient, text, DotnetFeedUrls);
     }
 
     public void WriteManifest(Manifest manifest)
     {
         var text = JsonSerializer.Serialize(manifest);
-        HomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
+        DnvmHomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
     }
 
     public void Dispose()

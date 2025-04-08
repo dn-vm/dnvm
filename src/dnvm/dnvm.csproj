@@ -10,7 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="env.sh" />
+    <EmbeddedResource Include="Resources/env.sh" />
+    <EmbeddedResource Include="Resources/dotnet.exe" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,6 +25,7 @@
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="StaticCs" />
     <PackageReference Include="StaticCs.Collections" />
+    <PackageReference Include="StaticCs.Result" />
     <PackageReference Include="zio" />
   </ItemGroup>
 

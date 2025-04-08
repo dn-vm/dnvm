@@ -24,7 +24,7 @@ internal sealed partial record GlobalJsonSubset
     [GenerateDeserialize]
     public sealed partial record SdkSubset
     {
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SemVersion, SemVersionProxy>))]
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.De<SemVersion, SemVersionProxy>))]
         public SemVersion? Version { get; init; }
         public RollForwardOptions? RollForward { get; init; }
         public bool? AllowPrerelease { get; init; }
@@ -228,7 +228,16 @@ public static partial class RestoreCommand
 
         var downloadUrl = component.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString() && f.Url.EndsWith(Utilities.ZipSuffix)).Url;
 
-        var error = await InstallCommand.InstallSdkToDir(env.HttpClient, downloadUrl, env.CwdFs, installDir, env.TempFs, logger);
+        var error = await InstallCommand.InstallSdkToDir(
+            curMuxerVersion: null, // we shouldn't have a muxer yet, and we can overwrite it if we do
+            component.Version,
+            env.HttpClient,
+            downloadUrl,
+            env.CwdFs,
+            installDir,
+            env.TempFs,
+            logger
+        );
         if (error is not null)
         {
             return Error.IoError;

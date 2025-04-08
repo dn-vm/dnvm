@@ -1,7 +1,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.ComponentModel;
+using System.Linq;
 using Semver;
 using Serde;
 using Serde.CmdLine;
@@ -17,117 +19,40 @@ public partial record DnvmCommand
     [CommandOption("--enable-dnvm-previews", Description = "Enable dnvm previews.")]
     public bool? EnableDnvmPreviews { get; init; }
 
-    [CommandOption("-h|--help", Description = "Show help information.")]
-    public bool? Help { get; init; }
-
-    [Command("command")]
+    [CommandGroup("command")]
     public DnvmSubCommand? Command { get; init; }
 }
 
 [Closed]
-public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubCommand>
+[GenerateDeserialize]
+public abstract partial record DnvmSubCommand
 {
     private DnvmSubCommand() { }
-
-    static IDeserialize<DnvmSubCommand> IDeserializeProvider<DnvmSubCommand>.DeserializeInstance => Deserialize.Instance;
-
-    static ISerdeInfo ISerdeInfoProvider.SerdeInfo { get; } = new UnionSerdeInfo(
-        nameof(DnvmSubCommand),
-        typeof(DnvmSubCommand).GetCustomAttributesData(),
-        [
-            SerdeInfoProvider.GetInfo<TrackCommandProxy>(),
-            SerdeInfoProvider.GetInfo<InstallCommandProxy>(),
-            SerdeInfoProvider.GetInfo<SelfInstallCommandProxy>(),
-            SerdeInfoProvider.GetInfo<UpdateCommandProxy>(),
-            SerdeInfoProvider.GetInfo<ListCommandProxy>(),
-            SerdeInfoProvider.GetInfo<SelectCommandProxy>(),
-            SerdeInfoProvider.GetInfo<UntrackCommandProxy>(),
-            SerdeInfoProvider.GetInfo<UninstallCommandProxy>(),
-            SerdeInfoProvider.GetInfo<PruneCommandProxy>()
-        ]);
-
-    [GenerateDeserialize(ForType = typeof(InstallCommand))]
-    internal sealed partial class InstallCommandProxy;
-    [GenerateDeserialize(ForType = typeof(TrackCommand))]
-    internal sealed partial class TrackCommandProxy;
-    [GenerateDeserialize(ForType = typeof(SelfInstallCommand))]
-    internal sealed partial class SelfInstallCommandProxy;
-    [GenerateDeserialize(ForType = typeof(ListCommand))]
-    internal sealed partial class ListCommandProxy;
-    [GenerateDeserialize(ForType = typeof(SelectCommand))]
-    internal sealed partial class SelectCommandProxy;
-    [GenerateDeserialize(ForType = typeof(UntrackCommand))]
-    internal sealed partial class UntrackCommandProxy;
-    [GenerateDeserialize(ForType = typeof(UpdateCommand))]
-    internal sealed partial class UpdateCommandProxy;
-    [GenerateDeserialize(ForType = typeof(UninstallCommand))]
-    internal sealed partial class UninstallCommandProxy;
-    [GenerateDeserialize(ForType = typeof(PruneCommand))]
-    internal sealed partial class PruneCommandProxy;
-    [GenerateDeserialize(ForType = typeof(RestoreCommand))]
-    internal sealed partial class RestoreCommandProxy;
-
-    private sealed class Deserialize : IDeserialize<DnvmSubCommand>
-    {
-        public static readonly Deserialize Instance = new();
-
-        private Deserialize() { }
-
-        DnvmSubCommand IDeserialize<DnvmSubCommand>.Deserialize(IDeserializer deserializer)
-        {
-            var commandName = StringProxy.Instance.Deserialize(deserializer);
-            DnvmSubCommand subCommand = commandName switch
-            {
-                "install" => DeserializeSubCommand<InstallCommand, InstallCommandProxy>(deserializer),
-                "track" => DeserializeSubCommand<TrackCommand, TrackCommandProxy>(deserializer),
-                "selfinstall" => DeserializeSubCommand<SelfInstallCommand, SelfInstallCommandProxy>(deserializer),
-                "update" => DeserializeSubCommand<UpdateCommand, UpdateCommandProxy>(deserializer),
-                "list" => DeserializeSubCommand<ListCommand, ListCommandProxy>(deserializer),
-                "select" => DeserializeSubCommand<SelectCommand, SelectCommandProxy>(deserializer),
-                "untrack" => DeserializeSubCommand<UntrackCommand, UntrackCommandProxy>(deserializer),
-                "uninstall" => DeserializeSubCommand<UninstallCommand, UninstallCommandProxy>(deserializer),
-                "prune" => DeserializeSubCommand<PruneCommand, PruneCommandProxy>(deserializer),
-                "restore" => DeserializeSubCommand<RestoreCommand, RestoreCommandProxy>(deserializer),
-                _ => throw new DeserializeException($"Unknown command: {commandName}")
-            };
-            return subCommand;
-        }
-    }
-
-    private static T DeserializeSubCommand<T, TProvider>(IDeserializer deserializer)
-        where T : DnvmSubCommand
-        where TProvider : IDeserializeProvider<T>
-    {
-        return TProvider.DeserializeInstance.Deserialize(deserializer);
-    }
 
     [Command("install", Summary = "Install an SDK.")]
     public sealed partial record InstallCommand : DnvmSubCommand
     {
         [CommandParameter(0, "version", Description = "The version of the SDK to install.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SemVersion, SemVersionProxy>))]
-        public SemVersion? SdkVersion { get; init; }
+        [SerdeMemberOptions(DeserializeProxy = typeof(SemVersionProxy))]
+        public required SemVersion SdkVersion { get; init; }
 
         [CommandOption("-f|--force", Description = "Force install the given SDK, even if already installed")]
         public bool? Force { get; init; } = null;
 
         [CommandOption("-s|--sdk-dir", Description = "Install the SDK into a separate directory with the given name.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.De<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
 
         [CommandOption("-v|--verbose", Description = "Print debugging messages to the console.")]
         public bool? Verbose { get; init; } = null;
-
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; }
     }
 
     [Command("track", Summary = "Start tracking a new channel.")]
     public sealed partial record TrackCommand : DnvmSubCommand
     {
-        [CommandParameter(0, "channel", Description = "Track the channel specified. Defaults to 'latest'.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<Channel, CaseInsensitiveChannel>))]
-        public Channel? Channel { get; init; } = null;
+        [CommandParameter(0, "channel", Description = "Track the channel specified.")]
+        [SerdeMemberOptions(DeserializeProxy = typeof(CaseInsensitiveChannel))]
+        public required Channel Channel { get; init; }
 
         /// <summary>
         /// URL to the dotnet feed containing the releases index and SDKs.
@@ -157,9 +82,6 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
         /// </summary>
         [CommandOption("-s|--sdk-dir", Description = "Track the channel in a separate directory with the given name.")]
         public string? SdkDir { get; init; } = null;
-
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; } = null;
     }
 
     [Command("selfinstall", Summary = "Install dnvm to the local machine.")]
@@ -182,9 +104,6 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
 
         [CommandOption("--dest-path", Description = "Set the destination path for the dnvm executable.")]
         public string? DestPath { get; init; } = null;
-
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; } = null;
     }
 
     [Command("update", Summary = "Update the installed SDKs or dnvm itself.")]
@@ -204,16 +123,11 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
 
         [CommandOption("-y", Description = "Answer yes to all prompts.")]
         public bool? Yes { get; init; } = null;
-
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; } = null;
     }
 
     [Command("list", Summary = "List installed SDKs.")]
     public sealed partial record ListCommand : DnvmSubCommand
     {
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; }
     }
 
     [Command("select", Summary = "Select the active SDK directory.", Description =
@@ -226,36 +140,27 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
     public sealed partial record SelectCommand : DnvmSubCommand
     {
         [CommandParameter(0, "sdkDirName", Description = "The name of the SDK directory to select.")]
-        public string? SdkDirName { get; init; }
-
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; }
+        public required string SdkDirName { get; init; }
     }
 
     [Command("untrack", Summary = "Remove a channel from the list of tracked channels.")]
     public sealed partial record UntrackCommand : DnvmSubCommand
     {
         [CommandParameter(0, "channel", Description = "The channel to untrack.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<Channel, CaseInsensitiveChannel>))]
-        public Channel? Channel { get; init; }
-
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; }
+        [SerdeMemberOptions(DeserializeProxy = typeof(CaseInsensitiveChannel))]
+        public required Channel Channel { get; init; }
     }
 
     [Command("uninstall", Summary = "Uninstall an SDK.")]
     public sealed partial record UninstallCommand : DnvmSubCommand
     {
         [CommandParameter(0, "sdkVersion", Description = "The version of the SDK to uninstall.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SemVersion, SemVersionProxy>))]
-        public SemVersion? SdkVersion { get; init; } = null;
+        [SerdeMemberOptions(DeserializeProxy = typeof(SemVersionProxy))]
+        public required SemVersion SdkVersion { get; init; }
 
         [CommandOption("-s|--sdk-dir", Description = "Uninstall the SDK from the given directory.")]
-        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.Deserialize<SdkDirName, SdkDirNameProxy>))] // Treat as string
+        [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.De<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
-
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; }
     }
 
     [Command("prune", Summary = "Remove all SDKs with older patch versions.")]
@@ -266,16 +171,12 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
 
         [CommandOption("--dry-run", Description = "Print the list of the SDKs to be uninstalled, but don't uninstall.")]
         public bool? DryRun { get; init; } = null;
-
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; } = null;
     }
 
-    [Command("restore", Summary = "Restore the SDK listed in the global.json file in or above the current directory to the .dotnet folder in the same directory.")]
+    [Command("restore", Summary = "Restore the SDK listed in the global.json file.",
+        Description = "Downloads the SDK in the global.json in or above the current directory to the .dotnet folder in the same directory.")]
     public sealed partial record RestoreCommand : DnvmSubCommand
     {
-        [CommandOption("-h|--help", Description = "Show help information.")]
-        public bool? Help { get; init; } = null;
     }
 
     /// <summary>
@@ -284,8 +185,8 @@ public abstract partial record DnvmSubCommand : IDeserializeProvider<DnvmSubComm
     /// </summary>
     private sealed class CaseInsensitiveChannel : IDeserializeProvider<Channel>, IDeserialize<Channel>
     {
-        public static ISerdeInfo SerdeInfo => Serde.SerdeInfo.MakePrimitive(nameof(Channel));
-        static IDeserialize<Channel> IDeserializeProvider<Channel>.DeserializeInstance { get; } = new CaseInsensitiveChannel();
+        public ISerdeInfo SerdeInfo => StringProxy.SerdeInfo;
+        static IDeserialize<Channel> IDeserializeProvider<Channel>.Instance { get; } = new CaseInsensitiveChannel();
         private CaseInsensitiveChannel() { }
 
         public Channel Deserialize(IDeserializer deserializer)
@@ -425,7 +326,7 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
         catch (ArgumentSyntaxException ex)
         {
             console.WriteLine("error: " + ex.Message);
-            console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<DnvmCommand>()));
+            console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetDeserializeInfo<DnvmCommand>(), includeHelp: true));
             return null;
         }
     }
@@ -435,11 +336,26 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
     /// </summary>
     public static CommandLineArguments ParseRaw(IAnsiConsole console, string[] args)
     {
-        var dnvmCmd = CmdLine.ParseRaw<DnvmCommand>(args);
-        if (dnvmCmd.Help == true)
+        var result = CmdLine.ParseRaw<DnvmCommand>(args, handleHelp: true);
+        DnvmCommand dnvmCmd;
+        switch (result)
         {
-            console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<DnvmCommand>()));
-            return new CommandLineArguments(Command: null);
+            case Result<DnvmCommand, IReadOnlyList<ISerdeInfo>>.Ok(var value):
+                dnvmCmd = value;
+                break;
+            case Result<DnvmCommand, IReadOnlyList<ISerdeInfo>>.Err(var helpInfos):
+                var rootInfo = SerdeInfoProvider.GetDeserializeInfo<DnvmCommand>();
+                var lastInfo = helpInfos.Last();
+                console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
+                return new CommandLineArguments(Command: null);
+            default:
+                throw new InvalidOperationException();
+        }
+        if (dnvmCmd.EnableDnvmPreviews == true)
+        {
+            return new CommandLineArguments(Command: null) {
+                EnableDnvmPreviews = true
+            };
         }
         if (dnvmCmd.EnableDnvmPreviews == true)
         {
@@ -450,40 +366,19 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
         switch (dnvmCmd.Command)
         {
             case DnvmSubCommand.ListCommand c:
-                if (CheckHelp<DnvmSubCommand.ListCommandProxy>(c.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.ListArguments());
+            }
             case DnvmSubCommand.SelectCommand s:
-                if (CheckHelp<DnvmSubCommand.SelectCommandProxy>(s.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
-                if (s.SdkDirName is not { } sdkDirName)
-                {
-                    throw new Serde.CmdLine.ArgumentSyntaxException("Missing required parameter: sdkDirName");
-                }
-                return new CommandLineArguments(new CommandArguments.SelectArguments { SdkDirName = sdkDirName });
+            {
+                return new CommandLineArguments(new CommandArguments.SelectArguments { SdkDirName = s.SdkDirName });
+            }
             case DnvmSubCommand.UntrackCommand u:
-                if (CheckHelp<DnvmSubCommand.UntrackCommandProxy>(u.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
-                if (u.Channel is null)
-                {
-                    throw new Serde.CmdLine.ArgumentSyntaxException("Missing required parameter: channel");
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.UntrackArguments { Channel = u.Channel });
+            }
             case DnvmSubCommand.InstallCommand i:
-                if (CheckHelp<DnvmSubCommand.InstallCommandProxy>(i.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
-                if (i.SdkVersion is null)
-                {
-                    throw new Serde.CmdLine.ArgumentSyntaxException("Missing required parameter: version");
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.InstallArguments
                 {
                     SdkVersion = i.SdkVersion,
@@ -491,15 +386,9 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                     SdkDir = i.SdkDir,
                     Verbose = i.Verbose ?? false,
                 });
+            }
             case DnvmSubCommand.TrackCommand t:
-                if (CheckHelp<DnvmSubCommand.TrackCommandProxy>(t.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
-                if (t.Channel is null)
-                {
-                    throw new Serde.CmdLine.ArgumentSyntaxException("Missing required parameter: channel");
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.TrackArguments
                 {
                     Channel = t.Channel,
@@ -510,11 +399,9 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                     FeedUrl = t.FeedUrl,
                     SdkDir = t.SdkDir,
                 });
+            }
             case DnvmSubCommand.SelfInstallCommand s:
-                if (CheckHelp<DnvmSubCommand.SelfInstallCommandProxy>(s.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.SelfInstallArguments
                 {
                     Verbose = s.Verbose ?? false,
@@ -524,11 +411,9 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                     Update = s.Update ?? false,
                     DestPath = s.DestPath,
                 });
+            }
             case DnvmSubCommand.UpdateCommand u:
-                if (CheckHelp<DnvmSubCommand.UpdateCommandProxy>(u.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.UpdateArguments
                 {
                     Self = u.Self ?? false,
@@ -536,54 +421,34 @@ public sealed record class CommandLineArguments(CommandArguments? Command)
                     FeedUrl = u.FeedUrl,
                     DnvmReleasesUrl = u.DnvmReleasesUrl,
                 });
+            }
             case DnvmSubCommand.UninstallCommand u:
-                if (CheckHelp<DnvmSubCommand.UninstallCommandProxy>(u.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
-                if (u.SdkVersion is null)
-                {
-                    throw new Serde.CmdLine.ArgumentSyntaxException("Missing required parameter: sdkVersion");
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.UninstallArguments
                 {
                     SdkVersion = u.SdkVersion,
                     Dir = u.SdkDir,
                 });
+            }
             case DnvmSubCommand.PruneCommand p:
-                if (CheckHelp<DnvmSubCommand.PruneCommandProxy>(p.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.PruneArguments
                 {
                     Verbose = p.Verbose ?? false,
                     DryRun = p.DryRun ?? false,
                 });
+            }
             case DnvmSubCommand.RestoreCommand r:
-                if (CheckHelp<DnvmSubCommand.RestoreCommandProxy>(r.Help, console))
-                {
-                    return new CommandLineArguments(Command: null);
-                }
+            {
                 return new CommandLineArguments(new CommandArguments.RestoreArguments());
+            }
             case null:
-                console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetInfo<DnvmCommand>()));
+            {
+                console.WriteLine(CmdLine.GetHelpText(SerdeInfoProvider.GetDeserializeInfo<DnvmCommand>(), includeHelp: true));
                 return new CommandLineArguments(Command: null);
+            }
         }
 
         throw new DeserializeException("Unknown command");
-
-        static bool CheckHelp<TCmdProxy>(bool? help, IAnsiConsole console)
-            where TCmdProxy : ISerdeInfoProvider
-        {
-            if (help == true)
-            {
-                console.WriteLine(CmdLine.GetHelpText(
-                    SerdeInfoProvider.GetInfo<TCmdProxy>(),
-                    [SerdeInfoProvider.GetInfo<DnvmCommand>()]));
-                return true;
-            }
-            return false;
-        }
     }
 }

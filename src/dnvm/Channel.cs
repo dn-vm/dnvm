@@ -61,16 +61,20 @@ partial record Channel : ISerializeProvider<Channel>
     public sealed override string ToString() => GetDisplayName();
     public string GetLowerName() => GetDisplayName().ToLowerInvariant();
 
-    static ISerdeInfo ISerdeInfoProvider.SerdeInfo { get; } = SerdeInfo.MakePrimitive(nameof(Channel));
-    static ISerialize<Channel> ISerializeProvider<Channel>.SerializeInstance => Serialize.Instance;
+    static ISerialize<Channel> ISerializeProvider<Channel>.Instance => Serialize.Instance;
 
     private sealed class Serialize : ISerialize<Channel>
     {
         public static readonly Serialize Instance = new();
         private Serialize() { }
 
+        /// <summary>
+        /// Serialize as a string.
+        /// </summary>
+        ISerdeInfo ISerdeInfoProvider.SerdeInfo => StringProxy.SerdeInfo;
+
         void ISerialize<Channel>.Serialize(Channel channel, ISerializer serializer)
-            => serializer.SerializeString(channel.GetLowerName());
+            => serializer.WriteString(channel.GetLowerName());
     }
 
     partial record VersionedMajorMinor
@@ -101,7 +105,7 @@ partial record Channel : ISerializeProvider<Channel>
 
 partial record Channel : IDeserializeProvider<Channel>
 {
-    static IDeserialize<Channel> IDeserializeProvider<Channel>.DeserializeInstance => DeserializeProxy.Instance;
+    static IDeserialize<Channel> IDeserializeProvider<Channel>.Instance => DeserializeProxy.Instance;
 
     public static Channel FromString(string str)
     {
@@ -137,6 +141,12 @@ partial record Channel : IDeserializeProvider<Channel>
     private sealed class DeserializeProxy : IDeserialize<Channel>
     {
         public static readonly DeserializeProxy Instance = new();
+
+        /// <summary>
+        /// Deserialize as a string.
+        /// </summary>
+        ISerdeInfo ISerdeInfoProvider.SerdeInfo => StringProxy.SerdeInfo;
+
         public Channel Deserialize(IDeserializer deserializer)
             => FromString(StringProxy.Instance.Deserialize(deserializer));
     }

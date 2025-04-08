@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Spectre.Console;
+using StaticCs;
 
 namespace Serde.CmdLine;
 
@@ -11,17 +12,32 @@ public static class CmdLine
     /// Try to parse the command line arguments directly into a command object.
     /// No errors are handled, so exceptions will be thrown if the arguments are invalid.
     /// </summary>
-    public static T ParseRaw<T>(string[] args)
-        where T : IDeserializeProvider<T>
+    public static Result<T, IReadOnlyList<ISerdeInfo>> ParseRaw<T>(
+        string[] args,
+        bool handleHelp = true
+    ) where T : IDeserializeProvider<T>
     {
+        var deserializer = new Deserializer(args, handleHelp);
         try
         {
-            var deserializer = new Deserializer(args);
-            var cmd = T.DeserializeInstance.Deserialize(deserializer);
-            return cmd;
+            var cmd = T.Instance.Deserialize(deserializer);
+            if (handleHelp && deserializer.HelpInfos.Count > 0)
+            {
+                return new Result<T, IReadOnlyList<ISerdeInfo>>.Err(deserializer.HelpInfos);
+            }
+            else
+            {
+                return cmd;
+            }
         }
         catch (DeserializeException e)
         {
+            // If the deserializer was created and there's at least one help info added, provide a
+            // null command and the help infos, ignoring what would otherwise be an error.
+            if (handleHelp && deserializer.HelpInfos.Count > 0)
+            {
+                return new Result<T, IReadOnlyList<ISerdeInfo>>.Err(deserializer.HelpInfos);
+            }
             throw new ArgumentSyntaxException(e.Message, e);
         }
     }
@@ -36,27 +52,43 @@ public static class CmdLine
     {
         try
         {
-            cmd = ParseRaw<T>(args);
-            return true;
+            var result = ParseRaw<T>(args);
+            switch (result)
+            {
+                case Result<T, IReadOnlyList<ISerdeInfo>>.Ok(var value):
+                    cmd = value;
+                    return true;
+                case Result<T, IReadOnlyList<ISerdeInfo>>.Err(var helpInfos):
+                    var rootInfo = SerdeInfoProvider.GetDeserializeInfo<T>();
+                    var lastInfo = helpInfos.Last();
+                    console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
+                    cmd = default!;
+                    return false;
+                default:
+                    throw new InvalidOperationException();
+            }
         }
         catch (ArgumentSyntaxException ex)
         {
             console.WriteLine("error: " + ex.Message);
-            console.WriteLine(GetHelpText(SerdeInfoProvider.GetInfo<T>()));
+            var rootInfo = SerdeInfoProvider.GetDeserializeInfo<T>();
+            console.WriteLine(GetHelpText(rootInfo));
             cmd = default!;
             return false;
         }
     }
 
-    public static string GetHelpText(ISerdeInfo serdeInfo, IEnumerable<ISerdeInfo>? parentCommandInfos = null)
+    public static string GetHelpText(ISerdeInfo rootInfo, bool includeHelp = false) => GetHelpText(rootInfo, rootInfo, includeHelp);
+
+    public static string GetHelpText(ISerdeInfo rootInfo, ISerdeInfo targetInfo, bool includeHelp = false)
     {
         var args = new List<(string Name, string? Description)>();
         var options = new List<(string[] Patterns, string? Name, string? Description)>();
         string? commandsName = null;
         var commands = new List<(string Name, string? Summary, string? Description)>();
-        for (int fieldIndex = 0; fieldIndex < serdeInfo.FieldCount; fieldIndex++)
+        for (int fieldIndex = 0; fieldIndex < targetInfo.FieldCount; fieldIndex++)
         {
-            var attrs = serdeInfo.GetFieldAttributes(fieldIndex);
+            var attrs = targetInfo.GetFieldAttributes(fieldIndex);
             foreach (var attr in attrs)
             {
                 if (attr is { AttributeType: { Name: nameof(CommandOptionAttribute) },
@@ -65,10 +97,10 @@ public static class CmdLine
                 {
                     // Consider nullable boolean fields as flag options.
 #pragma warning disable SerdeExperimentalFieldInfo
-                    var optionName = serdeInfo.GetFieldInfo(fieldIndex).Name == "bool?"
+                    var optionName = targetInfo.GetFieldInfo(fieldIndex).Name == "bool?"
 #pragma warning restore SerdeExperimentalFieldInfo
                         ? null
-                        : $"<{serdeInfo.GetFieldStringName(fieldIndex)}>";
+                        : $"<{targetInfo.GetFieldStringName(fieldIndex)}>";
                     string? desc = null;
                     if (namedArgs is [ { MemberName: nameof(CommandParameterAttribute.Description),
                                          TypedValue: { Value: string attrDesc } } ])
@@ -89,57 +121,82 @@ public static class CmdLine
                     }
                     args.Add(($"<{paramName}>", desc));
                 }
-                else if (attr is { AttributeType: { Name: nameof(CommandAttribute) },
+                else if (attr is { AttributeType: { Name: nameof(CommandGroupAttribute) },
                                    ConstructorArguments: [ { Value: string commandName }]
                                  })
                 {
                     commandsName ??= commandName;
 #pragma warning disable SerdeExperimentalFieldInfo
-                    var info = serdeInfo.GetFieldInfo(fieldIndex);
-#pragma warning restore SerdeExperimentalFieldInfo
-                    // The info should be either a nullable wrapper or a union. If it's a
-                    // nullable wrapper, unwrap it first.
-                    if (info.Kind != InfoKind.Union)
+                    var info = targetInfo.GetFieldInfo(fieldIndex);
+                    // If the info is a nullable wrapper, unwrap it first.
+                    if (info.Kind == InfoKind.Nullable)
                     {
-#pragma warning disable SerdeExperimentalFieldInfo
                         info = info.GetFieldInfo(0);
-#pragma warning restore SerdeExperimentalFieldInfo
                     }
-                    var unionInfo = (IUnionSerdeInfo)info;
-                    foreach (var unionField in unionInfo.CaseInfos)
+#pragma warning restore SerdeExperimentalFieldInfo
+
+                    foreach (var caseInfo in ((IUnionSerdeInfo)info).CaseInfos)
                     {
-                        var cmdName = unionField.Name;
-                        string? summary = null;
-                        string? desc = null;
-                        foreach (var caseAttr in unionField.Attributes)
-                        {
-                            if (caseAttr is { AttributeType: { Name: nameof(CommandAttribute) },
-                                              ConstructorArguments: [ { Value: string caseCmdName } ],
-                                              NamedArguments: var namedCaseArgs })
-                            {
-                                cmdName = caseCmdName;
-                                foreach (var namedArg in namedCaseArgs)
-                                {
-                                    if (namedArg is {
-                                            MemberName: nameof(CommandAttribute.Summary),
-                                            TypedValue: { Value: string caseSummary } })
-                                    {
-                                        summary = caseSummary;
-                                    }
-                                    if (namedArg is {
-                                            MemberName: nameof(CommandAttribute.Description),
-                                            TypedValue: { Value: string caseDesc } })
-                                    {
-                                        desc = caseDesc.ReplaceLineEndings();
-                                    }
-                                }
-                                break;
-                            }
-                        }
-                        commands.Add((cmdName, summary, desc));
+                        AddCommand(commands, caseInfo);
                     }
                 }
+                else if (attr is { AttributeType: { Name: nameof(CommandAttribute) } })
+                {
+#pragma warning disable SerdeExperimentalFieldInfo
+                    var info = targetInfo.GetFieldInfo(fieldIndex);
+#pragma warning restore SerdeExperimentalFieldInfo
+
+                    AddCommand(commands, info);
+                }
+
+                static void AddCommand(
+                    List<(string Name, string? Summary, string? Description)> commands,
+                    ISerdeInfo commandInfo
+                )
+                {
+                    var cmdName = commandInfo.Name;
+                    string? summary = null;
+                    string? desc = null;
+                    foreach (var caseAttr in commandInfo.Attributes)
+                    {
+                        if (caseAttr is
+                            {
+                                AttributeType: { Name: nameof(CommandAttribute) },
+                                ConstructorArguments: [{ Value: string caseCmdName }],
+                                NamedArguments: var namedCaseArgs
+                            })
+                        {
+                            cmdName = caseCmdName;
+                            foreach (var namedArg in namedCaseArgs)
+                            {
+                                if (namedArg is
+                                    {
+                                        MemberName: nameof(CommandAttribute.Summary),
+                                        TypedValue: { Value: string caseSummary }
+                                    })
+                                {
+                                    summary = caseSummary;
+                                }
+                                if (namedArg is
+                                    {
+                                        MemberName: nameof(CommandAttribute.Description),
+                                        TypedValue: { Value: string caseDesc }
+                                    })
+                                {
+                                    desc = caseDesc.ReplaceLineEndings();
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    commands.Add((cmdName, summary, desc));
+                }
             }
+        }
+
+        if (includeHelp)
+        {
+            options.Add((new[] { "-h", "--help" }, null, "Show help information."));
         }
 
         const string Indent = "    ";
@@ -173,15 +230,13 @@ Options:
                 options.Select(o => $"[{string.Join(" | ", o.Patterns)}{o.Name?.Map(n => " " + n) ?? "" }]"))
             : "";
 
-        var topLevelName = serdeInfo.Name;
         string topLevelDesc = "";
-        foreach (var attr in serdeInfo.Attributes)
+        foreach (var attr in targetInfo.Attributes)
         {
             if (attr is { AttributeType: { Name: nameof(CommandAttribute) },
                           ConstructorArguments: [ { Value: string name } ],
                           NamedArguments: var namedArgs })
             {
-                topLevelName = name;
                 foreach (var named in namedArgs)
                 {
                     if (named is {
@@ -201,10 +256,9 @@ Options:
             }
         }
 
-        if (parentCommandInfos != null)
-        {
-            topLevelName = string.Join(" ", parentCommandInfos.Select(GetCommandName)) + " " + topLevelName;
-        }
+        var parentCommandInfos = GetParentInfos(rootInfo, targetInfo);
+
+        var topLevelName = string.Join(" ", parentCommandInfos.Select(GetCommandName));
 
         var argsShortString = args.Count > 0
             ? " " + string.Join(" ", args.Select(a => a.Name))
@@ -219,6 +273,65 @@ usage: {topLevelName}{optionsUsageShortString}{commandsName?.Map(n => $" <{n}>")
 {remainingString}
 
 """;
+
+        /// Get the chain of ISerdeInfo objects from the root to the target ISerdeInfo.
+        static IEnumerable<ISerdeInfo> GetParentInfos(ISerdeInfo rootInfo, ISerdeInfo targetInfo)
+        {
+            var parentInfos = new List<ISerdeInfo> { rootInfo };
+            if (BuildParentInfos(parentInfos, rootInfo, targetInfo))
+            {
+                return parentInfos;
+            }
+            throw new InvalidOperationException("Could not find path from root to target.");
+
+            static bool BuildParentInfos(List<ISerdeInfo> parentInfos, ISerdeInfo currentInfo, ISerdeInfo targetInfo)
+            {
+                // Unwrap nullable types
+                if (currentInfo.Kind == InfoKind.Nullable)
+                {
+#pragma warning disable SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                    currentInfo = currentInfo.GetFieldInfo(0);
+#pragma warning restore SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                }
+
+                if (currentInfo == targetInfo)
+                {
+                    return true;
+                }
+                for (int i = 0; i < currentInfo.FieldCount; i++)
+                {
+                    var attrs = currentInfo.GetFieldAttributes(i);
+
+                    foreach (var attr in attrs)
+                    {
+                        if (attr is { AttributeType: { Name: nameof(CommandGroupAttribute) }})
+                        {
+#pragma warning disable SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                            var nextInfo = currentInfo.GetFieldInfo(i);
+#pragma warning restore SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                            // Don't push the group itself
+                            if (BuildParentInfos(parentInfos, nextInfo, targetInfo))
+                            {
+                                return true;
+                            }
+                        }
+                        else if (attr is { AttributeType: { Name: nameof(CommandAttribute)}})
+                        {
+#pragma warning disable SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                            var nextInfo = currentInfo.GetFieldInfo(i);
+#pragma warning restore SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                            parentInfos.Add(nextInfo);
+                            if (BuildParentInfos(parentInfos, nextInfo, targetInfo))
+                            {
+                                return true;
+                            }
+                            parentInfos.RemoveAt(parentInfos.Count - 1);
+                        }
+                    }
+                }
+                return false;
+            }
+        }
     }
 
     public static string GetCommandName(ISerdeInfo serdeInfo)

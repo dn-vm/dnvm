@@ -220,9 +220,6 @@ public static class Utilities
 
     public static string DnvmExeName = "dnvm" + ExeSuffix;
     public static string DotnetExeName = "dotnet" + ExeSuffix;
-    public static string DotnetSymlinkName = "dotnet" + (OperatingSystem.IsWindows()
-        ? ".cmd"
-        : "");
 
     public static async Task<string?> ExtractArchiveToDir(string archivePath, string dirPath)
     {
@@ -246,13 +243,15 @@ public static class Utilities
         return null;
     }
 
-    public static async Task<string?> ExtractArchiveToDir(
+    public static async Task<string?> ExtractSdkToDir(
+        SemVersion? existingMuxerVersion,
+        SemVersion runtimeVersion,
         string archivePath,
         IFileSystem tempFs,
         IFileSystem destFs,
-        UPath dest)
+        UPath destDir)
     {
-        destFs.CreateDirectory(dest);
+        destFs.CreateDirectory(destDir);
         var tempExtractDir = UPath.Root / Path.GetRandomFileName();
         tempFs.CreateDirectory(tempExtractDir);
         using var tempRealPath = new DirectoryResource(tempFs.ConvertPathToInternal(tempExtractDir));
@@ -275,27 +274,30 @@ public static class Utilities
                 return e.Message;
             }
         }
+
         try
         {
-            var extractFullName = tempExtractDir.FullName;
-            // We want to copy over all the files from the extraction directory to the target directory,
-            // with one exception. The top-level "dotnet" exe is always shared and if a dotnet process is
-            // already running it may have locked this file. On Unix, we can work around this problem by
-            // deleting (unlinking) the file, and then copying. On Windows, we can't delete an open file,
-            // so we have to move the file, move the new file over the old file, and then delete the old
-            // file.
-            foreach (var fsItem in tempFs.EnumerateItems(tempExtractDir, SearchOption.AllDirectories))
-            {
-                var relativePath = fsItem.Path.FullName[extractFullName.Length..].TrimStart('/');
-                var destPath = UPath.Combine(dest, relativePath);
+            // We want to copy over all the files from the extraction directory to the target
+            // directory, with one exception: the top-level "dotnet exe" (muxer). That has special logic.
+            await CopyMuxer(existingMuxerVersion, runtimeVersion, tempFs, tempExtractDir, destFs, destDir);
 
-                if (fsItem.IsDirectory)
+            var extractFullName = tempExtractDir.FullName;
+            foreach (var dir in tempFs.EnumerateDirectories(tempExtractDir))
+            {
+                destFs.CreateDirectory(destDir / dir.GetName());
+                foreach (var fsItem in tempFs.EnumerateItems(dir, SearchOption.AllDirectories))
                 {
-                    destFs.CreateDirectory(destPath);
-                }
-                else
-                {
-                    ForceReplaceFile(tempFs, fsItem.Path, destFs, destPath);
+                    var relativePath = fsItem.Path.FullName[extractFullName.Length..].TrimStart('/');
+                    var destPath = destDir / relativePath;
+
+                    if (fsItem.IsDirectory)
+                    {
+                        destFs.CreateDirectory(destPath);
+                    }
+                    else
+                    {
+                        ForceReplaceFile(tempFs, fsItem.Path, destFs, destPath);
+                    }
                 }
             }
         }
@@ -304,6 +306,62 @@ public static class Utilities
             return e.Message;
         }
         return null;
+    }
+
+    private static async Task CopyMuxer(
+        SemVersion? existingMuxerVersion,
+        SemVersion newRuntimeVersion,
+        IFileSystem tempFs,
+        UPath tempExtractDir,
+        IFileSystem destFs,
+        UPath destDir)
+    {   //The "dotnet" exe (muxer) is special in three ways:
+        // 1. It is shared between all SDKs, so it may be locked by another process.
+        // 2. It should always be the newest version, so we don't want to overwrite it if the SDK
+        //    we're installing is older than the one already installed.
+        // 3. Our symlink strategy on Windows requires a muxer from .NET 9 or later. If we're
+        //    installing an SDK older than .NET 9, we need to copy the muxer from an embedded resource.
+        //
+        var muxerTargetPath = destDir / DotnetExeName;
+
+        // TODO: For now, on Windows, we will always copy the backup muxer if it's newer than the
+        // SDK since we didn't reliably detect the muxer version in the past. This can be removed
+        // in future updates.
+        if (OperatingSystem.IsWindows() && newRuntimeVersion.CompareSortOrderTo(Program.BackupMuxerVersion) < 0)
+        {
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"dnvm.Resources.{DotnetExeName}");
+            if (stream is null)
+            {
+                throw new InvalidOperationException("Could not find embedded muxer resource");
+            }
+            using var fileStream = destFs.OpenFile(muxerTargetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            await stream.CopyToAsync(fileStream);
+            return;
+        }
+
+        if (newRuntimeVersion.CompareSortOrderTo(existingMuxerVersion) <= 0)
+        {
+            // The new SDK is older than the existing muxer, so we don't need to do anything.
+            return;
+        }
+
+        // We need to copy either the muxer from the temp directory or the embedded resource.
+        if (OperatingSystem.IsWindows() && newRuntimeVersion.CompareSortOrderTo(Program.BackupMuxerVersion) < 0)
+        {
+            // The new SDK is older than the backup muxer, so we need to copy the embedded resource.
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"dnvm.Resources.{DotnetExeName}");
+            if (stream is null)
+            {
+                throw new InvalidOperationException("Could not find embedded muxer resource");
+            }
+            using var fileStream = destFs.OpenFile(muxerTargetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            await stream.CopyToAsync(fileStream);
+        }
+        else
+        {
+            // The new SDK is newer than the backup muxer, so we can copy the muxer from the temp directory.
+            ForceReplaceFile(tempFs, tempExtractDir / DotnetExeName, destFs, muxerTargetPath);
+        }
     }
 
     public static T Unwrap<T>(this T? t, [CallerArgumentExpression(parameterName: nameof(t))] string? expr = null) where T : class

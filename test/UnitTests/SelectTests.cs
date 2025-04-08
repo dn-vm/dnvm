@@ -1,12 +1,9 @@
 
-using System.Collections.Immutable;
-using System.Runtime.CompilerServices;
-using Dnvm.Test;
 using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Dnvm;
+namespace Dnvm.Test;
 
 public sealed class SelectTests
 {
@@ -26,7 +23,7 @@ public sealed class SelectTests
             Channel = new Channel.Latest(),
         });
         Assert.Equal(TrackCommand.Result.Success, result);
-        var homeFs = env.HomeFs;
+        var homeFs = env.DnvmHomeFs;
         var defaultSdkDir = DnvmEnv.DefaultSdkDirName;
         var defaultDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
         Assert.True(homeFs.FileExists(defaultDotnet));
@@ -82,14 +79,7 @@ Valid SDK directory names:
 
     private static void AssertSymlinkTarget(string dotnetSymlink, SdkDirName dirName)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Contains($"{dirName.Name}\\{Utilities.DotnetExeName}", File.ReadAllText(dotnetSymlink));
-        }
-        else
-        {
-            var finfo = new FileInfo(dotnetSymlink);
-            Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DotnetExeName), finfo.LinkTarget);
-        }
+        var finfo = new FileInfo(dotnetSymlink);
+        Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DotnetExeName), finfo.LinkTarget);
     }
 }

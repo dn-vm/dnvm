@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Semver;
 using Serde.Json;
 using Spectre.Console;
+using StaticCs;
 using static Dnvm.UpdateCommand.Result;
 
 namespace Dnvm;
@@ -241,7 +242,7 @@ public sealed partial class UpdateCommand
         {
             return SelfUpdateFailed;
         }
-        var exitCode = RunSelfInstall(dnvmTmpPath, Utilities.ProcessPath);
+        var exitCode = RunSelfInstall(_logger, dnvmTmpPath, Utilities.ProcessPath);
         return exitCode == 0 ? Success : SelfUpdateFailed;
     }
 
@@ -374,13 +375,18 @@ public sealed partial class UpdateCommand
         return false;
     }
 
-    public static int RunSelfInstall(string newFileName, string oldPath)
+    public static int RunSelfInstall(Logger logger, string newFileName, string oldPath)
     {
         var psi = new ProcessStartInfo
         {
             FileName = newFileName,
-            ArgumentList = { "selfinstall", "--update" }
+            ArgumentList = { "selfinstall", "--update", "--dest-path", $"{oldPath}" }
         };
+        if (logger.LogLevel >= LogLevel.Info)
+        {
+            psi.ArgumentList.Add("--verbose");
+        }
+        logger.Log("Running selfinstall: " + string.Join(" ", psi.ArgumentList));
         var proc = Process.Start(psi);
         proc!.WaitForExit();
         return proc.ExitCode;
