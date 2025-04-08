@@ -24,7 +24,6 @@ public sealed partial class DnvmEnv
     public readonly IFileSystem CwdFs;
     public readonly UPath Cwd;
     public string RealPath(UPath path) => DnvmHomeFs.ConvertPathToInternal(path);
-    public string? DnvmHomeRealPath { get; }
     public SubFileSystem TempFs { get; }
     public Func<string, string?> GetUserEnvVar { get; }
     public Action<string, string> SetUserEnvVar { get; }
@@ -41,7 +40,6 @@ public sealed partial class DnvmEnv
         bool isPhysical,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
-        string? dnvmHomeRealPath = null,
         IEnumerable<string>? dotnetFeedUrls = null,
         string releasesUrl = DefaultReleasesUrl,
         HttpClient? httpClient = null)
@@ -59,10 +57,6 @@ public sealed partial class DnvmEnv
             owned: false);
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
-        Debug.Assert(
-            dnvmHomeRealPath is null == !isPhysical,
-            "dnvmHome should be null if not a real path, and vice versa.");
-        DnvmHomeRealPath = dnvmHomeRealPath;
         DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
         DnvmReleasesUrl = releasesUrl;
         HttpClient = new ScopedHttpClient(httpClient ?? new HttpClient() {
@@ -105,7 +99,9 @@ public sealed partial class DnvmEnv : IDisposable
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="DnvmEnv.DefaultDnvmHome" /> as the default.
     /// </summar>
-    public static DnvmEnv CreateDefault(string? home = null)
+    public static DnvmEnv CreateDefault(
+        string? home = null,
+        string? dotnetFeedUrl = null)
     {
         home ??= Environment.GetEnvironmentVariable("DNVM_HOME");
         var dnvmHome = string.IsNullOrWhiteSpace(home)
@@ -113,13 +109,15 @@ public sealed partial class DnvmEnv : IDisposable
             : home;
         return CreatePhysical(dnvmHome,
             n => Environment.GetEnvironmentVariable(n, EnvironmentVariableTarget.User),
-            (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User));
+            (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User),
+            dotnetFeedUrl);
     }
 
     public static DnvmEnv CreatePhysical(
         string realPath,
         Func<string, string?> getUserEnvVar,
-        Action<string, string> setUserEnvVar)
+        Action<string, string> setUserEnvVar,
+        string? dotnetFeedUrl = null)
     {
         Directory.CreateDirectory(realPath);
 
@@ -131,7 +129,7 @@ public sealed partial class DnvmEnv : IDisposable
             isPhysical: true,
             getUserEnvVar,
             setUserEnvVar,
-            dnvmHomeRealPath: realPath);
+            dotnetFeedUrls: dotnetFeedUrl is not null ? [ dotnetFeedUrl ] : null);
     }
 
     /// <summary>

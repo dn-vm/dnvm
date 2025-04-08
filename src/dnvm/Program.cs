@@ -15,6 +15,11 @@ public static class Program
     public static async Task<int> Main(string[] args)
     {
         var console = AnsiConsole.Console;
+        if (!console.Profile.Out.IsTerminal)
+        {
+            // Set the width to a large, but reasonable, value to avoid wrapping.
+            console.Profile.Width = 255;
+        }
         console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.ShortSha);
         console.WriteLine();
         var logger = new Logger(console);
