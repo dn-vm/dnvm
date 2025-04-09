@@ -1,24 +1,42 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 
 namespace Serde.CmdLine;
 
-internal sealed partial class Deserializer(string[] args) : IDeserializer
+internal sealed partial class Deserializer(string[] args, bool handleHelp) : IDeserializer
 {
     private int _argIndex = 0;
     private int _paramIndex = 0;
+    private bool _throwOnMissing = true;
+    private readonly List<ISerdeInfo> _helpInfos = new();
 
-    int IDeserializeType.TryReadIndex(ISerdeInfo serdeInfo, out string? errorName)
+    public IReadOnlyList<ISerdeInfo> HelpInfos => _helpInfos;
+
+    int ITypeDeserializer.TryReadIndex(ISerdeInfo serdeInfo, out string? errorName)
     {
         if (_argIndex == args.Length)
         {
             errorName = null;
-            return IDeserializeType.EndOfType;
+            return ITypeDeserializer.EndOfType;
         }
+
         var arg = args[_argIndex];
+        while (handleHelp && arg is "-h" or "--help")
+        {
+            _argIndex++;
+            _helpInfos.Add(serdeInfo);
+            if (_argIndex == args.Length)
+            {
+                errorName = null;
+                return ITypeDeserializer.EndOfType;
+            }
+            arg = args[_argIndex];
+        }
 
         for (int fieldIndex = 0; fieldIndex < serdeInfo.FieldCount; fieldIndex++)
         {
-            var attrs = serdeInfo.GetFieldAttributes(fieldIndex);
+            IList<CustomAttributeData> attrs = serdeInfo.GetFieldAttributes(fieldIndex);
             foreach (var attr in attrs)
             {
                 if (arg.StartsWith('-') &&
@@ -37,10 +55,45 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
                     }
                 }
                 else if (!arg.StartsWith('-') &&
-                         attr is { AttributeType: { Name: nameof(CommandAttribute) }})
+                         attr is { AttributeType: { Name: nameof(CommandAttribute) },
+                                   ConstructorArguments: [ { Value: string commandName } ] } &&
+                         commandName == arg)
                 {
+                    _argIndex++;
                     errorName = null;
                     return fieldIndex;
+                }
+                else if (!arg.StartsWith('-') &&
+                         attr is { AttributeType: { Name: nameof(CommandGroupAttribute) } })
+                {
+                    // If the field is a command group, check to see if any of the nested commands match
+                    // the argument. If so, mark this field as a match.
+#pragma warning disable SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+                    var fieldInfo = serdeInfo.GetFieldInfo(fieldIndex);
+                    if (fieldInfo.Kind == InfoKind.Nullable)
+                    {
+                        // Unwrap nullable if present
+                        fieldInfo = fieldInfo.GetFieldInfo(0);
+                    }
+#pragma warning restore SerdeExperimentalFieldInfo // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+                    // Save the argIndex and throwOnMissing so we can restore it after checking.
+                    var savedIndex = _argIndex;
+                    var savedThrowOnMissing = _throwOnMissing;
+                    _throwOnMissing = false;
+
+                    var deType = this.ReadType(fieldInfo);
+                    int index = deType.TryReadIndex(fieldInfo, out _);
+                    _argIndex = savedIndex;
+                    _throwOnMissing = savedThrowOnMissing;
+
+                    if (index >= 0)
+                    {
+                        // We found a match, so we can return the field index.
+                        errorName = null;
+                        return fieldIndex;
+                    }
+                    // No match, so we can continue.
                 }
                 else if (!arg.StartsWith('-') &&
                          attr is { AttributeType: { Name: nameof(CommandParameterAttribute) },
@@ -53,7 +106,15 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
                 }
             }
         }
-        throw new ArgumentSyntaxException($"Unexpected argument: '{arg}'");
+        if (_throwOnMissing)
+        {
+            throw new ArgumentSyntaxException($"Unexpected argument: '{arg}'");
+        }
+        else
+        {
+            errorName = arg;
+            return ITypeDeserializer.IndexNotFound;
+        }
     }
 
     public bool ReadBool()
@@ -71,20 +132,17 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
 
     public string ReadString() => args[_argIndex++];
 
-    public T ReadNullableRef<T, D>(D d)
+    public T ReadNullableRef<T>(IDeserialize<T> d)
         where T : class
-        where D : IDeserialize<T>
     {
         // Treat all nullable values as just being optional. Since we got here we must have a value
         // in hand.
         return d.Deserialize(this);
     }
 
-    public T ReadAny<T>(IDeserializeVisitor<T> v) where T : class => throw new NotImplementedException();
-
     public char ReadChar() => throw new NotImplementedException();
 
-    public byte ReadByte() => throw new NotImplementedException();
+    public byte ReadU8() => throw new NotImplementedException();
 
     public ushort ReadU16() => throw new NotImplementedException();
 
@@ -92,7 +150,7 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
 
     public ulong ReadU64() => throw new NotImplementedException();
 
-    public sbyte ReadSByte() => throw new NotImplementedException();
+    public sbyte ReadI8() => throw new NotImplementedException();
 
     public short ReadI16() => throw new NotImplementedException();
 
@@ -100,18 +158,13 @@ internal sealed partial class Deserializer(string[] args) : IDeserializer
 
     public long ReadI64() => throw new NotImplementedException();
 
-    public float ReadFloat() => throw new NotImplementedException();
+    public float ReadF32() => throw new NotImplementedException();
 
-    public double ReadDouble() => throw new NotImplementedException();
+    public double ReadF64() => throw new NotImplementedException();
 
     public decimal ReadDecimal() => throw new NotImplementedException();
 
-    public IDeserializeCollection ReadCollection(ISerdeInfo typeInfo)
-    {
-        throw new NotImplementedException();
-    }
-
-    public IDeserializeType ReadType(ISerdeInfo typeInfo) => this;
+    public ITypeDeserializer ReadType(ISerdeInfo typeInfo) => this;
 
     public void Dispose() { }
 }

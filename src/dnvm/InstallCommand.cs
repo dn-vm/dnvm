@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Semver;
 using Serde;
@@ -212,9 +213,10 @@ public static partial class InstallCommand
         logger.Info("Download link: " + link);
 
         logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
-        var error = await InstallSdkToDir(env.HttpClient, link, env.HomeFs, sdkInstallPath, env.TempFs, logger);
+        var curMuxerVersion = manifest.MuxerVersion(sdkDir);
+        var error = await InstallSdkToDir(curMuxerVersion, release.Runtime.Version, env.HttpClient, link, env.DnvmHomeFs, sdkInstallPath, env.TempFs, logger);
 
-        CreateSymlinkIfMissing(env, sdkDir);
+        CreateSymlinkIfMissing(logger, env, sdkDir);
 
         var result = JsonSerializer.Serialize(manifest);
         logger.Info("Existing manifest: " + result);
@@ -240,6 +242,8 @@ public static partial class InstallCommand
     }
 
     internal static async Task<InstallError?> InstallSdkToDir(
+        SemVersion? curMuxerVersion,
+        SemVersion runtimeVersion,
         ScopedHttpClient httpClient,
         string downloadUrl,
         IFileSystem destFs,
@@ -268,7 +272,13 @@ public static partial class InstallCommand
         }
 
         logger.Log($"Installing to {destPath}");
-        string? extractResult = await Utilities.ExtractArchiveToDir(archivePath, tempFs, destFs, destPath);
+        string? extractResult = await Utilities.ExtractSdkToDir(
+            curMuxerVersion,
+            runtimeVersion,
+            archivePath,
+            tempFs,
+            destFs,
+            destPath);
         File.Delete(archivePath);
         if (extractResult != null)
         {
@@ -294,12 +304,11 @@ public static partial class InstallCommand
         return null;
     }
 
-    internal static void CreateSymlinkIfMissing(DnvmEnv dnvmFs, SdkDirName sdkDirName)
+    internal static void CreateSymlinkIfMissing(Logger logger, DnvmEnv dnvmEnv, SdkDirName sdkDirName)
     {
-        var symlinkPath = dnvmFs.HomeFs.ConvertPathToInternal(UPath.Root + Utilities.DotnetSymlinkName);
-        if (!File.Exists(symlinkPath))
+        if (!dnvmEnv.DnvmHomeFs.FileExists(DnvmEnv.SymlinkPath))
         {
-            RetargetSymlink(dnvmFs, sdkDirName);
+            RetargetSymlink(logger, dnvmEnv, sdkDirName);
         }
     }
 
@@ -317,38 +326,39 @@ public static partial class InstallCommand
     /// Creates a symlink from the dotnet exe in the dnvm home directory to the dotnet exe in the
     /// sdk install directory.
     /// </summary>
-    /// <remarks>
-    /// Doesn't use a symlink on Windows because the dotnet muxer doesn't properly resolve through
-    /// symlinks.
-    /// </remarks>
-    internal static void RetargetSymlink(DnvmEnv dnvmFs, SdkDirName sdkDirName)
+    internal static void RetargetSymlink(Logger logger, DnvmEnv dnvmEnv, SdkDirName sdkDirName)
     {
-        var dnvmHome = dnvmFs.HomeFs.ConvertPathToInternal(UPath.Root);
-        RetargetSymlink(dnvmHome, sdkDirName);
-
-        static void RetargetSymlink(string dnvmHome, SdkDirName sdkDirName)
+        var dotnetExePath = DnvmEnv.GetSdkPath(sdkDirName)/Utilities.DotnetExeName;
+        var realDotnetPath = dnvmEnv.RealPath(dotnetExePath);
+        logger.Info($"Retargeting symlink in {dnvmEnv.RealPath(UPath.Root)} to {realDotnetPath}");
+        if (!dnvmEnv.DnvmHomeFs.FileExists(dotnetExePath))
         {
-            var symlinkPath = Path.Combine(dnvmHome, Utilities.DotnetSymlinkName);
-            var sdkInstallDir = Path.Combine(dnvmHome, sdkDirName.Name);
-            // Delete if it already exists
-            try
-            {
-                File.Delete(symlinkPath);
-            }
-            catch { }
+            logger.Info("SDK install not found, skipping symlink creation.");
+            return;
+        }
+
+        var homeFs = dnvmEnv.DnvmHomeFs;
+        // Delete if it already exists
+        try
+        {
+            homeFs.DeleteFile(DnvmEnv.SymlinkPath);
+        }
+        catch { }
+
+        // Create a symlink. We assume that the user has enabled developer mode in Windows,
+        // which is required to create symlinks.
+        try
+        {
+            homeFs.CreateSymbolicLink(DnvmEnv.SymlinkPath, dotnetExePath);
+        }
+        catch (IOException)
+        {
             if (OperatingSystem.IsWindows())
             {
-                // On Windows, we can't create a symlink, so create a .cmd file that calls the dotnet.exe
-                File.WriteAllText(symlinkPath, $"""
-    @echo off
-    "%~dp0{sdkDirName.Name}\{Utilities.DotnetExeName}" %*
-    """);
+                Console.WriteLine("Failed to create symlink. " +
+                    "Please make sure you have developer mode enabled.");
             }
-            else
-            {
-                // On Unix, we can create a symlink
-                File.CreateSymbolicLink(symlinkPath, Path.Combine(sdkInstallDir, Utilities.DotnetExeName));
-            }
+            throw;
         }
     }
 }

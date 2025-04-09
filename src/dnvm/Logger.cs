@@ -1,3 +1,4 @@
+using System;
 using System.Security;
 using Spectre.Console;
 
@@ -28,7 +29,7 @@ public sealed record Logger(IAnsiConsole Console)
     {
         if (LogLevel >= LogLevel.Info)
         {
-            Console.WriteLine("Log: " + msg);
+            Console.WriteLine($"Info({DateTime.UtcNow.TimeOfDay}): {msg}");
         }
     }
 

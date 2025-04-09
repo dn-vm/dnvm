@@ -2,17 +2,25 @@
 using System.Threading.Tasks;
 using Semver;
 using Spectre.Console;
+using StaticCs;
 
 namespace Dnvm;
 
 public static class Program
 {
-    public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.MajorMinorPatch, SemVersionStyles.Strict);
+    public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.SemVer, SemVersionStyles.Strict);
+
+    public static readonly SemVersion BackupMuxerVersion = new SemVersion(9, 0, 3);
 
     public static async Task<int> Main(string[] args)
     {
         var console = AnsiConsole.Console;
-        console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.Sha);
+        if (!console.Profile.Out.IsTerminal)
+        {
+            // Set the width to a large, but reasonable, value to avoid wrapping.
+            console.Profile.Width = 255;
+        }
+        console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.ShortSha);
         console.WriteLine();
         var logger = new Logger(console);
 

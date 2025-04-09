@@ -1,11 +1,9 @@
 
-using System.Net.Security;
-using Serde.Json;
 using Dnvm;
-using Dnvm.Test;
 using Semver;
 using Xunit;
-using System.Net.NetworkInformation;
+
+namespace Dnvm.Test;
 
 public sealed class ManifestTests
 {

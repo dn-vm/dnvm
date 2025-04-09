@@ -3,13 +3,14 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Serde" Version="0.8.0-preview2" />
+    <PackageVersion Include="Serde" Version="[0.8.0-preview5]" />
     <PackageVersion Include="Spectre.Console" Version="0.49.1" />
     <PackageVersion Include="Spectre.Console.Testing" Version="0.46.0" />
     <PackageVersion Include="StaticCs" Version="0.3.1" />
     <PackageVersion Include="StaticCs.Collections" Version="1.0.1" />
     <PackageVersion Include="StaticCs.Async" Version="0.1.2" />
-    <PackageVersion Include="zio" Version="0.16.2" />
+    <PackageVersion Include="StaticCs.Result" Version="0.1.0" />
+    <PackageVersion Include="zio" Version="0.20.0" />
     <PackageVersion Include="GitVersion.MSBuild" Version="5.10.3" />
     <PackageVersion Include="Semver" Version="2.2.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
