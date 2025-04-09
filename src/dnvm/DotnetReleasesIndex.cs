@@ -13,71 +13,6 @@ using Serde.Json;
 
 namespace Dnvm;
 
-public partial record DotnetReleasesIndex
-{
-    public const string ReleasesUrlSuffix = "/release-metadata/releases-index.json";
-    public async static Task<DotnetReleasesIndex> FetchLatestIndex(
-        ScopedHttpClient client,
-        IEnumerable<string> feeds,
-        string urlSuffix = ReleasesUrlSuffix)
-    {
-        ScopedHttpResponseMessage? lastResponse = null;
-        foreach (var feed in feeds)
-        {
-            var adjustedUrl = feed.TrimEnd('/') + urlSuffix;
-            var response = await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
-                _ => client.GetAsync(adjustedUrl)
-            );
-            if (response.IsSuccessStatusCode)
-            {
-                return JsonSerializer.Deserialize<DotnetReleasesIndex>(
-                    await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
-                        async _ => await response.Content.ReadAsStringAsync()
-                    )
-                );
-            }
-            else
-            {
-                lastResponse = response;
-            }
-        }
-        lastResponse!.EnsureSuccessStatusCode();
-        throw ExceptionUtilities.Unreachable;
-    }
-
-    public ChannelIndex? GetChannelIndex(Channel c)
-    {
-        (ChannelIndex Release, SemVersion Version)? latestRelease = null;
-        foreach (var release in this.ChannelIndices)
-        {
-            var supportPhase = release.SupportPhase.ToLowerInvariant();
-            var releaseType = release.ReleaseType.ToLowerInvariant();
-            if (!SemVersion.TryParse(release.LatestRelease, SemVersionStyles.Strict, out var releaseVersion))
-            {
-                continue;
-            }
-            var found = (c, supportPhase, releaseType) switch
-            {
-                (Channel.Latest, "active", _)
-                or (Channel.Lts, "active", "lts")
-                or (Channel.Sts, "active", "sts")
-                or (Channel.Preview, "go-live", _)
-                or (Channel.Preview, "preview", _) => true,
-                (Channel.VersionedMajorMinor v, _, _) when v.ToString() == releaseVersion.ToMajorMinor() => true,
-                (Channel.VersionedFeature v, _, _) when v.ToString() == releaseVersion.ToFeature() => true,
-                _ => false
-            };
-            if (found &&
-                (latestRelease is not { } latest ||
-                 SemVersion.ComparePrecedence(releaseVersion, latest.Version) > 0))
-            {
-                latestRelease = (release, releaseVersion);
-            }
-        }
-        return latestRelease?.Release;
-    }
-}
-
 [GenerateSerde]
 public partial record DotnetReleasesIndex
 {
@@ -163,5 +98,70 @@ public partial record ChannelReleaseIndex
         public required string Url { get; init; }
         public required string Rid { get; init; }
         public string? Hash { get; init; } = null;
+    }
+}
+
+public partial record DotnetReleasesIndex
+{
+    public const string ReleasesUrlSuffix = "/release-metadata/releases-index.json";
+    public async static Task<DotnetReleasesIndex> FetchLatestIndex(
+        ScopedHttpClient client,
+        IEnumerable<string> feeds,
+        string urlSuffix = ReleasesUrlSuffix)
+    {
+        ScopedHttpResponseMessage? lastResponse = null;
+        foreach (var feed in feeds)
+        {
+            var adjustedUrl = feed.TrimEnd('/') + urlSuffix;
+            var response = await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
+                _ => client.GetAsync(adjustedUrl)
+            );
+            if (response.IsSuccessStatusCode)
+            {
+                return JsonSerializer.Deserialize<DotnetReleasesIndex>(
+                    await CancelScope.WithTimeoutAfter(DnvmEnv.DefaultTimeout,
+                        async _ => await response.Content.ReadAsStringAsync()
+                    )
+                );
+            }
+            else
+            {
+                lastResponse = response;
+            }
+        }
+        lastResponse!.EnsureSuccessStatusCode();
+        throw ExceptionUtilities.Unreachable;
+    }
+
+    public ChannelIndex? GetChannelIndex(Channel c)
+    {
+        (ChannelIndex Release, SemVersion Version)? latestRelease = null;
+        foreach (var release in this.ChannelIndices)
+        {
+            var supportPhase = release.SupportPhase.ToLowerInvariant();
+            var releaseType = release.ReleaseType.ToLowerInvariant();
+            if (!SemVersion.TryParse(release.LatestRelease, SemVersionStyles.Strict, out var releaseVersion))
+            {
+                continue;
+            }
+            var found = (c, supportPhase, releaseType) switch
+            {
+                (Channel.Latest, "active", _)
+                or (Channel.Lts, "active", "lts")
+                or (Channel.Sts, "active", "sts")
+                or (Channel.Preview, "go-live", _)
+                or (Channel.Preview, "preview", _) => true,
+                (Channel.VersionedMajorMinor v, _, _) when v.ToString() == releaseVersion.ToMajorMinor() => true,
+                (Channel.VersionedFeature v, _, _) when v.ToString() == releaseVersion.ToFeature() => true,
+                _ => false
+            };
+            if (found &&
+                (latestRelease is not { } latest ||
+                 SemVersion.ComparePrecedence(releaseVersion, latest.Version) > 0))
+            {
+                latestRelease = (release, releaseVersion);
+            }
+        }
+        return latestRelease?.Release;
     }
 }

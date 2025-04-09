@@ -18,11 +18,10 @@ public static class SelectCommand
         BadDirName,
     }
 
-    public static async Task<Result> Run(DnvmEnv dnvmEnv, Logger logger, CommandArguments.SelectArguments args)
+    public static async Task<Result> Run(DnvmEnv dnvmEnv, Logger logger, SdkDirName sdkDirName)
     {
-        var newDir = new SdkDirName(args.SdkDirName);
         var manifest = await dnvmEnv.ReadManifest();
-        switch (await RunWithManifest(dnvmEnv, newDir, manifest, logger))
+        switch (await RunWithManifest(dnvmEnv, sdkDirName, manifest, logger))
         {
             case Result<Manifest, Result>.Ok(var newManifest):
                 dnvmEnv.WriteManifest(newManifest);

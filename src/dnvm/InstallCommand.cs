@@ -25,7 +25,27 @@ public static partial class InstallCommand
         ManifestIOError,
         InstallError
     }
-    public static async Task<Result> Run(DnvmEnv env, Logger logger, CommandArguments.InstallArguments options)
+
+    public sealed record Options
+    {
+        public required SemVersion SdkVersion { get; init; }
+        public bool Force { get; init; } = false;
+        public SdkDirName? SdkDir { get; init; } = null;
+        public bool Verbose { get; init; } = false;
+    }
+
+    public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.InstallArgs args)
+    {
+        return Run(env, logger, new Options
+        {
+            SdkVersion = args.SdkVersion,
+            Force = args.Force ?? false,
+            SdkDir = args.SdkDir,
+            Verbose = args.Verbose ?? false,
+        });
+    }
+
+    public static async Task<Result> Run(DnvmEnv env, Logger logger, Options options)
     {
         var sdkDir = options.SdkDir ?? DnvmEnv.DefaultSdkDirName;
 

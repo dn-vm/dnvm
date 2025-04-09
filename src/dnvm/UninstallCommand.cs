@@ -10,7 +10,7 @@ namespace Dnvm;
 
 public sealed class UninstallCommand
 {
-    public static async Task<int> Run(DnvmEnv env, Logger logger, CommandArguments.UninstallArguments args)
+    public static async Task<int> Run(DnvmEnv env, Logger logger, SemVersion sdkVersion, SdkDirName? dir = null)
     {
         Manifest manifest;
         try
@@ -33,7 +33,7 @@ public sealed class UninstallCommand
 
         foreach (var installed in manifest.InstalledSdks)
         {
-            if (installed.SdkVersion == args.SdkVersion && (args.Dir is null || installed.SdkDirName == args.Dir))
+            if (installed.SdkVersion == sdkVersion && (dir is null || installed.SdkDirName == dir))
             {
                 sdksToRemove.Add((installed.SdkVersion, installed.SdkDirName));
                 runtimesToRemove.Add((installed.RuntimeVersion, installed.SdkDirName));
@@ -50,7 +50,7 @@ public sealed class UninstallCommand
 
         if (sdksToRemove.Count == 0)
         {
-            logger.Error($"SDK version {args.SdkVersion} is not installed.");
+            logger.Error($"SDK version {sdkVersion} is not installed.");
             return 1;
         }
 
@@ -63,7 +63,7 @@ public sealed class UninstallCommand
         DeleteAspnets(env, aspnetToRemove, logger);
         DeleteWins(env, winToRemove, logger);
 
-        manifest = UninstallSdk(manifest, args.SdkVersion);
+        manifest = UninstallSdk(manifest, sdkVersion);
         env.WriteManifest(manifest);
 
         return 0;

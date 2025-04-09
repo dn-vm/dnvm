@@ -12,6 +12,7 @@
     <PackageReference Include="Serde" />
     <PackageReference Include="Spectre.Console" />
 
+    <PackageReference Include="StaticCs" />
     <PackageReference Include="StaticCs.Result" />
 
   </ItemGroup>

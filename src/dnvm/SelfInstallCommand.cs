@@ -18,21 +18,60 @@ namespace Dnvm;
 
 public class SelfInstallCommand
 {
+    public sealed record Options
+    {
+        public bool Verbose { get; init; } = false;
+        public bool Force { get; init; } = false;
+        /// <summary>
+        /// URL to the dotnet feed containing the releases index and download artifacts.
+        /// </summary>
+        public string? FeedUrl { get; init; }
+        /// <summary>
+        /// Answer yes to every question or use the defaults.
+        /// </summary>
+        public bool Yes { get; init; } = false;
+        /// <summary>
+        /// Indicates that this is an update to an existing dnvm installation.
+        /// </summary>
+        public bool Update { get; init; } = false;
+        /// <summary>
+        /// Path to overwrite.
+        /// </summary>
+        public string? DestPath { get; init; } = null;
+    }
+
     private readonly DnvmEnv _env;
     private readonly Logger _logger;
     // Place to install dnvm
-    private readonly CommandArguments.SelfInstallArguments _installArgs;
+    private readonly Options _opts;
+    private readonly IEnumerable<string> _feedUrls;
 
-    public SelfInstallCommand(DnvmEnv env, Logger logger, CommandArguments.SelfInstallArguments args)
+    public SelfInstallCommand(DnvmEnv env, Logger logger, Options opts)
     {
         _env = env;
         _logger = logger;
-        _installArgs = args;
+        _opts = opts;
+        _feedUrls = _opts.FeedUrl is null
+            ? _env.DotnetFeedUrls
+            : new[] { _opts.FeedUrl.TrimEnd('/') };
     }
 
-    public static async Task<Result> Run(Logger logger, CommandArguments.SelfInstallArguments args)
+    public static Task<Result> Run(Logger logger, DnvmSubCommand.SelfInstallArgs args)
     {
-        if (args.Verbose)
+        return Run(logger, new Options
+        {
+            Verbose = args.Verbose ?? false,
+            Force = args.Force ?? false,
+            FeedUrl = args.FeedUrl,
+            Yes = args.Yes ?? false,
+            Update = args.Update ?? false,
+            DestPath = args.DestPath
+        });
+    }
+
+    public static async Task<Result> Run(Logger logger, Options opt)
+    {
+        if (opt.Verbose)
         {
             logger.LogLevel = LogLevel.Info;
         }
@@ -44,16 +83,16 @@ public class SelfInstallCommand
         }
 
         DnvmEnv? env = null;
-        if (args.Update is true)
+        if (opt.Update is true)
         {
             logger.Log("Running self-update install");
-            env = DnvmEnv.CreateDefault(dotnetFeedUrl: args.FeedUrl);
-            return await SelfUpdate(args.DestPath, logger, env);
+            env = DnvmEnv.CreateDefault(dotnetFeedUrl: opt.FeedUrl);
+            return await SelfUpdate(opt.DestPath, logger, env);
         }
 
         logger.Log("Starting dnvm install");
 
-        if (!args.Yes)
+        if (!opt.Yes)
         {
             var defaultInstall = Environment.GetEnvironmentVariable("DNVM_HOME") ?? DnvmEnv.DefaultDnvmHome;
             Console.WriteLine($"Please select install location [default: {defaultInstall}]: ");
@@ -61,13 +100,13 @@ public class SelfInstallCommand
             var customInstallPath = Console.ReadLine()?.Trim();
             if (!string.IsNullOrEmpty(customInstallPath))
             {
-                env = DnvmEnv.CreateDefault(customInstallPath, dotnetFeedUrl: args.FeedUrl);
+                env = DnvmEnv.CreateDefault(customInstallPath, dotnetFeedUrl: opt.FeedUrl);
             }
         }
-        env ??= DnvmEnv.CreateDefault(dotnetFeedUrl: args.FeedUrl);
+        env ??= DnvmEnv.CreateDefault(dotnetFeedUrl: opt.FeedUrl);
 
         var targetPath = DnvmEnv.DnvmExePath;
-        if (!args.Force && env.DnvmHomeFs.FileExists(targetPath))
+        if (!opt.Force && env.DnvmHomeFs.FileExists(targetPath))
         {
             logger.Log("dnvm is already installed at: " + targetPath);
             logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
@@ -75,7 +114,7 @@ public class SelfInstallCommand
         }
 
         Channel channel = new Channel.Latest();
-        if (!args.Yes)
+        if (!opt.Yes)
         {
             Console.WriteLine("Which channel would you like to start tracking?");
             Console.WriteLine("Available channels:");
@@ -105,9 +144,9 @@ public class SelfInstallCommand
             }
         }
 
-        var updateUserEnv = args.UpdateUserEnvironment;
+        var updateUserEnv = true;
         var sdkDirName = DnvmEnv.DefaultSdkDirName;
-        if (!args.Yes && MissingFromEnv(env, sdkDirName))
+        if (!opt.Yes && MissingFromEnv(env, sdkDirName))
         {
             Console.WriteLine("One or more paths are missing from the user environment. Attempt to update the user environment?");
             Console.Write("[Y/n]> ");
@@ -116,7 +155,7 @@ public class SelfInstallCommand
 
         logger.Log("Proceeding with installation.");
 
-        return await new SelfInstallCommand(env, logger, args).Run(targetPath, channel, sdkDirName, updateUserEnv);
+        return await new SelfInstallCommand(env, logger, opt).Run(targetPath, channel, sdkDirName, updateUserEnv);
     }
 
     public enum Result
@@ -139,7 +178,7 @@ public class SelfInstallCommand
                 physicalFs.ConvertPathFromInternal(procPath),
                 _env.DnvmHomeFs,
                 targetPath,
-                overwrite: _installArgs.Force);
+                overwrite: _opts.Force);
             if (!OperatingSystem.IsWindows())
             {
                 Utilities.ChmodExec(_env.DnvmHomeFs, targetPath);
@@ -152,13 +191,13 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
 
-        var result = await TrackCommand.Run(_env, _logger, new CommandArguments.TrackArguments() {
+        var result = await TrackCommand.Run(_env, _logger, new TrackCommand.Options {
             Channel = channel,
-            Force = _installArgs.Force,
-            Verbose = _installArgs.Verbose,
-            FeedUrl = _installArgs.FeedUrl,
-            SdkDir = sdkDirName.Name,
-            Yes = _installArgs.Yes
+            Force = _opts.Force,
+            Verbose = _opts.Verbose,
+            FeedUrl = _opts.FeedUrl,
+            SdkDir = sdkDirName,
+            Yes = _opts.Yes
         });
 
         if (result is not (TrackCommand.Result.Success or TrackCommand.Result.ChannelAlreadyTracked))
