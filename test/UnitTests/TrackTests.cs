@@ -22,7 +22,7 @@ public sealed class TrackTests
     public Task LtsInstall() => RunWithServer(async (server, env) =>
     {
         Channel channel = new Channel.Lts();
-        var options = new CommandArguments.TrackArguments()
+        var options = new TrackCommand.Options()
         {
             Channel = channel,
         };
@@ -60,7 +60,7 @@ public sealed class TrackTests
     [Fact]
     public Task SdkInstallDirMissing() => RunWithServer(async (server, env) =>
     {
-        var args = new CommandArguments.TrackArguments()
+        var args = new TrackCommand.Options()
         {
             Channel = new Channel.Lts(),
             Verbose = true,
@@ -82,7 +82,7 @@ public sealed class TrackTests
             ChannelIndices = server.ReleasesIndexJson.ChannelIndices.Select(r => r with { SupportPhase = "preview" }).ToImmutableArray()
         };
 
-        var args = new CommandArguments.TrackArguments()
+        var args = new TrackCommand.Options()
         {
             Channel = new Channel.Preview(),
         };
@@ -103,10 +103,10 @@ public sealed class TrackTests
             ChannelIndices = server.ReleasesIndexJson.ChannelIndices.Select(r => r with { ReleaseType = "sts" }).ToImmutableArray()
         };
         const string dirName = "sts";
-        var args = new CommandArguments.TrackArguments()
+        var args = new TrackCommand.Options()
         {
             Channel = new Channel.Sts(),
-            SdkDir = dirName
+            SdkDir = new(dirName)
         };
         // Check that the SDK is installed is isolated into the "sts" subdirectory
         var sdkInstallDir = DnvmEnv.GetSdkPath(new SdkDirName(dirName));
@@ -123,9 +123,9 @@ public sealed class TrackTests
     {
         // Default release index only contains an LTS release, so adding LTS and latest
         // should result in the same SDK being installed
-        var result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Latest() });
+        var result = await TrackCommand.Run(env, _logger, new Options() { Channel = new Channel.Latest() });
         Assert.Equal(TrackCommand.Result.Success , result);
-        result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Lts() });
+        result = await TrackCommand.Run(env, _logger, new Options() { Channel = new Channel.Lts() });
         Assert.Equal(TrackCommand.Result.Success , result);
 
         var ltsRelease = server.ReleasesIndexJson.ChannelIndices.Single(r => r.ReleaseType == "lts");
@@ -156,7 +156,7 @@ public sealed class TrackTests
     [Fact]
     public Task TrackMajorMinor() => RunWithServer(async (server, env) =>
     {
-        var result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.VersionedMajorMinor(99, 99) });
+        var result = await TrackCommand.Run(env, _logger, new Options() { Channel = new Channel.VersionedMajorMinor(99, 99) });
         Assert.Equal(TrackCommand.Result.Success, result);
 
         var manifest = await env.ReadManifest();
@@ -173,7 +173,7 @@ public sealed class TrackTests
     [Fact]
     public Task TrackFeature() => RunWithServer(async (server, env) =>
     {
-        var result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.VersionedFeature(99, 99, 9) });
+        var result = await TrackCommand.Run(env, _logger, new Options { Channel = new Channel.VersionedFeature(99, 99, 9) });
         Assert.Equal(TrackCommand.Result.Success, result);
 
         var manifest = await env.ReadManifest();
@@ -192,18 +192,15 @@ public sealed class TrackTests
     {
         var logger = new Logger(new TestConsole());
         var channel = new Channel.Latest();
-        var result = await TrackCommand.Run(env, logger, new CommandArguments.TrackArguments
+        var result = await TrackCommand.Run(env, logger, new TrackCommand.Options
         {
             Channel = channel,
         });
         Assert.Equal(TrackCommand.Result.Success, result);
 
-        var untrackCode = await UntrackCommand.Run(env, logger, new CommandArguments.UntrackArguments
-        {
-            Channel = channel,
-        });
+        var untrackCode = await UntrackCommand.Run(env, logger, channel);
         Assert.Equal(0, untrackCode);
-        result = await TrackCommand.Run(env, logger, new CommandArguments.TrackArguments
+        result = await TrackCommand.Run(env, logger, new TrackCommand.Options
         {
             Channel = channel,
         });
@@ -223,7 +220,7 @@ public sealed class TrackTests
         mockServer.ReleasesIndexJson = DotnetReleasesIndex.Empty;
         mockServer.ChannelIndexMap.Clear();
         mockServer.RegisterReleaseVersion(MockServer.DefaultLtsVersion, "lts", "active");
-        var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = new Channel.Preview()
         });

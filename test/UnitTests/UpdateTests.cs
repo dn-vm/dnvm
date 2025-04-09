@@ -14,7 +14,7 @@ namespace Dnvm.Test;
 public sealed class UpdateTests
 {
     private readonly Logger _logger;
-    private readonly CommandArguments.UpdateArguments updateArguments = new() {
+    private readonly DnvmSubCommand.UpdateArgs updateArguments = new() {
         Verbose = true,
         Yes = true,
     };
@@ -106,7 +106,7 @@ public sealed class UpdateTests
         var upgradeVersion = new SemVersion(41, 0, 1);
         Channel channel = new Channel.Latest();
         Setup(mockServer, baseVersion);
-        var result = await TrackCommand.Run(env, _logger, new() {
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options() {
             Channel = channel,
             Verbose = true
         });
@@ -240,14 +240,14 @@ public sealed class UpdateTests
     [Fact]
     public Task DontUpdateUntracked() => TestUtils.RunWithServer(async (server, env) =>
     {
-        var result = await TrackCommand.Run(env, _logger, new() {
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options() {
             Channel = new Channel.Latest(),
             Verbose = true
         });
 
         Assert.Equal(TrackCommand.Result.Success, result);
 
-        result = await TrackCommand.Run(env, _logger, new() {
+        result = await TrackCommand.Run(env, _logger, new TrackCommand.Options() {
             Channel = new Channel.Preview(),
             Verbose = true
         });
@@ -259,15 +259,15 @@ public sealed class UpdateTests
     {
         // Default release index only contains an LTS release, so adding LTS and latest
         // should result in the same SDK being installed
-        var result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Latest() });
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options() { Channel = new Channel.Latest() });
         Assert.Equal(TrackCommand.Result.Success , result);
-        result = await TrackCommand.Run(env, _logger, new() { Channel = new Channel.Lts() });
+        result = await TrackCommand.Run(env, _logger, new TrackCommand.Options() { Channel = new Channel.Lts() });
         Assert.Equal(TrackCommand.Result.Success , result);
 
         var oldRelease = server.ReleasesIndexJson.ChannelIndices.Single(r => r.ReleaseType == "lts");
         var newSdkVersion = new SemVersion(42, 42, 43);
         var newRelease = server.RegisterReleaseVersion(newSdkVersion, "lts", "active");
-        var updateResult = await UpdateCommand.Run(env, _logger, new() { Yes = true });
+        var updateResult = await UpdateCommand.Run(env, _logger, new UpdateCommand.Options() { Yes = true });
 
         var oldSdkVersion = SemVersion.Parse(oldRelease.LatestSdk, SemVersionStyles.Strict);
         var oldReleaseVersion = SemVersion.Parse(oldRelease.LatestRelease, SemVersionStyles.Strict);
@@ -305,7 +305,7 @@ public sealed class UpdateTests
         server.ReleasesIndexJson = DotnetReleasesIndex.Empty;
         server.ChannelIndexMap.Clear();
         server.RegisterReleaseVersion(MockServer.DefaultLtsVersion, "lts", "active");
-        var trackResult = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        var trackResult = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = new Channel.Preview()
         });
@@ -327,7 +327,7 @@ public sealed class UpdateTests
         server.ReleasesIndexJson = DotnetReleasesIndex.Empty;
         server.ChannelIndexMap.Clear();
         server.RegisterReleaseVersion(MockServer.DefaultLtsVersion, "lts", "active");
-        var trackResult = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        var trackResult = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = new Channel.Preview()
         });

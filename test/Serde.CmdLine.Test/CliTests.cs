@@ -12,7 +12,7 @@ public sealed partial class DeserializerTests
     public void SpectreExample()
     {
         string[] testArgs = [ "-p", "*.txt", "--hidden", ];
-        var cmd = CmdLine.ParseRaw<FileSizeCommand>(testArgs).Unwrap();
+        var cmd = CmdLine.ParseRawWithHelp<FileSizeCommand>(testArgs).Unwrap();
         Assert.Equal(new FileSizeCommand { SearchPath = null, SearchPattern = "*.txt", IncludeHidden = true }, cmd);
     }
 
@@ -20,7 +20,7 @@ public sealed partial class DeserializerTests
     public void TestSearchPath()
     {
         string[] testArgs = [ "search-path" ];
-        var cmd = CmdLine.ParseRaw<FileSizeCommand>(testArgs).Unwrap();
+        var cmd = CmdLine.ParseRawWithHelp<FileSizeCommand>(testArgs).Unwrap();
         Assert.Equal(new FileSizeCommand { SearchPath = "search-path", SearchPattern = null, IncludeHidden = null }, cmd);
     }
 
@@ -98,7 +98,7 @@ Options:
     public void BasicCommandTest()
     {
         string[] cmdLine = [ "-f", "abc" ];
-        var cmd = CmdLine.ParseRaw<BasicCommand>(cmdLine).Unwrap();
+        var cmd = CmdLine.ParseRawWithHelp<BasicCommand>(cmdLine).Unwrap();
         Assert.Equal(new BasicCommand
         {
             FlagOption = true,

@@ -24,23 +24,23 @@ public static class Program
         console.WriteLine();
         var logger = new Logger(console);
 
-        var options = CommandLineArguments.TryParse(console, args);
-        if (options is null)
+        var parsedArgs = CommandLineArguments.TryParse(console, args);
+        if (parsedArgs is null)
         {
-            // Error was already printed, exit with failure.
-            return 1;
+            // Help was requested, exit with success.
+            return 0;
         }
 
         // Self-install is special, since we don't know the DNVM_HOME yet.
-        if (options.Command is CommandArguments.SelfInstallArguments selfInstallArgs)
+        if (parsedArgs.SubCommand is DnvmSubCommand.SelfInstallArgs selfInstallArgs)
         {
             return (int)await SelfInstallCommand.Run(logger, selfInstallArgs);
         }
 
         using var env = DnvmEnv.CreateDefault();
-        if (options.Command is null)
+        if (parsedArgs.SubCommand is null)
         {
-            if (options.EnableDnvmPreviews)
+            if (parsedArgs.EnableDnvmPreviews == true)
             {
                 return await EnableDnvmPreviews(env);
             }
@@ -51,7 +51,7 @@ public static class Program
             }
         }
 
-        return await Dnvm(env, logger, options);
+        return await Dnvm(env, logger, parsedArgs);
     }
 
     public static async Task<int> EnableDnvmPreviews(DnvmEnv env)
@@ -62,24 +62,24 @@ public static class Program
         return 0;
     }
 
-    internal static async Task<int> Dnvm(DnvmEnv env, Logger logger, CommandLineArguments options)
+    internal static async Task<int> Dnvm(DnvmEnv env, Logger logger, DnvmArgs args)
     {
-        return options.Command switch
+        return args.SubCommand switch
         {
-            CommandArguments.TrackArguments o => (int)await TrackCommand.Run(env, logger, o),
-            CommandArguments.InstallArguments o => (int)await InstallCommand.Run(env, logger, o),
-            CommandArguments.UpdateArguments o => (int)await UpdateCommand.Run(env, logger, o),
-            CommandArguments.ListArguments => (int)await ListCommand.Run(logger, env),
-            CommandArguments.SelectArguments o => (int)await SelectCommand.Run(env, logger, o),
-            CommandArguments.UntrackArguments o => await UntrackCommand.Run(env, logger, o),
-            CommandArguments.UninstallArguments o => await UninstallCommand.Run(env, logger, o),
-            CommandArguments.PruneArguments args => await PruneCommand.Run(env, logger, args),
-            CommandArguments.RestoreArguments => await RestoreCommand.Run(env, logger) switch {
+            DnvmSubCommand.TrackArgs a => (int)await TrackCommand.Run(env, logger, a),
+            DnvmSubCommand.InstallArgs a => (int)await InstallCommand.Run(env, logger, a),
+            DnvmSubCommand.UpdateArgs a => (int)await UpdateCommand.Run(env, logger, a),
+            DnvmSubCommand.ListArgs => (int)await ListCommand.Run(logger, env),
+            DnvmSubCommand.SelectArgs a => (int)await SelectCommand.Run(env, logger, new(a.SdkDirName)),
+            DnvmSubCommand.UntrackArgs a => await UntrackCommand.Run(env, logger, a.Channel),
+            DnvmSubCommand.UninstallArgs a => await UninstallCommand.Run(env, logger, a.SdkVersion, a.SdkDir),
+            DnvmSubCommand.PruneArgs a => await PruneCommand.Run(env, logger, a),
+            DnvmSubCommand.RestoreArgs => await RestoreCommand.Run(env, logger) switch {
                 Result<SemVersion, RestoreCommand.Error>.Ok => 0,
                 Result<SemVersion, RestoreCommand.Error>.Err x => (int)x.Value,
             },
 
-            CommandArguments.SelfInstallArguments => throw ExceptionUtilities.Unreachable,
+            DnvmSubCommand.SelfInstallArgs => throw ExceptionUtilities.Unreachable,
         };
     }
 }

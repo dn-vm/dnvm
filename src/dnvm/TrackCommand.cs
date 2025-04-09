@@ -16,12 +16,27 @@ namespace Dnvm;
 
 public sealed class TrackCommand
 {
+    public sealed record Options
+    {
+        public required Channel Channel { get; init; }
+        /// <summary>
+        /// URL to the dotnet feed containing the releases index and SDKs.
+        /// </summary>
+        public string? FeedUrl { get; init; }
+        public bool Verbose { get; init; } = false;
+        public bool Force { get; init; } = false;
+        /// <summary>
+        /// Answer yes to every question or use the defaults.
+        /// </summary>
+        public bool Yes { get; init; } = false;
+        public bool Prereqs { get; init; } = false;
+        public SdkDirName SdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
+    }
+
     private readonly DnvmEnv _env;
-    // Place to install dnvm
-    private readonly SdkDirName _sdkDir;
 
     private readonly Logger _logger;
-    private readonly CommandArguments.TrackArguments _installArgs;
+    private readonly Options _opts;
     private readonly IEnumerable<string> _feedUrls;
 
     public enum Result
@@ -38,35 +53,47 @@ public sealed class TrackCommand
         CouldntFetchIndex
     }
 
-    public TrackCommand(DnvmEnv env, Logger logger, CommandArguments.TrackArguments args)
+    public TrackCommand(DnvmEnv env, Logger logger, Options opts)
     {
         _env = env;
         _logger = logger;
-        _installArgs = args;
-        if (_installArgs.Verbose)
+        _opts = opts;
+        if (_opts.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrls = args.FeedUrl is not null
-            ? [ args.FeedUrl.TrimEnd('/') ]
+        _feedUrls = opts.FeedUrl is not null
+            ? [ opts.FeedUrl.TrimEnd('/') ]
             : env.DotnetFeedUrls;
-        // Use an explicit SdkDir if specified, otherwise, only the preview channel is isolated by
-        // default.
-        _sdkDir = args.SdkDir switch {
-            {} sdkDir => new SdkDirName(sdkDir),
-            _ => DnvmEnv.DefaultSdkDirName
-        };
     }
 
-    public static Task<Result> Run(DnvmEnv env, Logger logger, CommandArguments.TrackArguments args)
+    public static Task<Result> Run(DnvmEnv env, Logger logger, Options opts)
     {
-        return new TrackCommand(env, logger, args).Run();
+        return new TrackCommand(env, logger, opts).Run();
+    }
+
+    public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.TrackArgs args)
+    {
+        var sdkDir = args.SdkDir == null
+            ? DnvmEnv.DefaultSdkDirName
+            : new SdkDirName(args.SdkDir);
+        var opts = new Options
+        {
+            Channel = args.Channel,
+            FeedUrl = args.FeedUrl,
+            Verbose = args.Verbose ?? false,
+            Force = args.Force ?? false,
+            Yes = args.Yes ?? false,
+            Prereqs = args.Prereqs ?? false,
+            SdkDir = sdkDir
+        };
+        return Run(env, logger, opts);
     }
 
     public async Task<Result> Run()
     {
         var dnvmHome = _env.RealPath(UPath.Root);
-        var sdkInstallPath = Path.Combine(dnvmHome, _sdkDir.Name);
+        var sdkInstallPath = Path.Combine(dnvmHome, _opts.SdkDir.Name);
         try
         {
             Directory.CreateDirectory(dnvmHome);
@@ -94,7 +121,7 @@ public sealed class TrackCommand
             return Result.ManifestIOError;
         }
 
-        var channel = _installArgs.Channel;
+        var channel = _opts.Channel;
         if (manifest.TrackedChannels().Any(c => c.ChannelName == channel))
         {
             _logger.Log($"Channel '{channel.GetDisplayName()}' is already being tracked." +
@@ -104,7 +131,7 @@ public sealed class TrackCommand
 
         manifest = manifest.TrackChannel(new RegisteredChannel {
             ChannelName = channel,
-            SdkDirName = _sdkDir,
+            SdkDirName = _opts.SdkDir,
             InstalledSdkVersions = EqArray<SemVersion>.Empty
         });
 
@@ -113,9 +140,9 @@ public sealed class TrackCommand
             _env,
             _logger,
             channel,
-            _installArgs.Force,
+            _opts.Force,
             _feedUrls,
-            _sdkDir);
+            _opts.SdkDir);
     }
 
     internal static async Task<Result> InstallLatestFromChannel(
