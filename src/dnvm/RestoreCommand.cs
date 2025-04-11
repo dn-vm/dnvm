@@ -245,6 +245,7 @@ public static partial class RestoreCommand
             return Error.CantFindRequestedVersion;
         }
 
+        logger.Log($"Found version {sdk.Version} in global.json. Selected version {release.Sdk.Version} based on roll forward rules.");
         var downloadUrl = release.Sdk.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString() && f.Url.EndsWith(Utilities.ZipSuffix)).Url;
 
         if (options.Local)
