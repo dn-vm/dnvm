@@ -285,6 +285,12 @@ public static partial class RestoreCommand
                 return Error.IoError; // Result.ManifestIOError;
             }
 
+            if (!options.Force && ManifestUtils.IsSdkInstalled(manifest, release.Sdk.Version, manifest.CurrentSdkDir))
+            {
+                logger.Log($"Version {release.Sdk.Version} is already installed in directory '{manifest.CurrentSdkDir.Name}'." +
+                    " Skipping installation. To install anyway, pass --force.");
+                return release.Sdk.Version;
+            }
 
             var error = await InstallCommand.InstallSdk(env, manifest, release.Sdk, release, manifest.CurrentSdkDir, logger);
             if (error is not Result<Manifest, InstallError>.Ok)
