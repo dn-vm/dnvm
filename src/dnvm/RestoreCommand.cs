@@ -1,16 +1,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
 using Serde;
-using Serde.CmdLine;
 using Serde.Json;
-using Spectre.Console;
 using StaticCs;
 using Zio;
 using static Dnvm.InstallCommand;
@@ -128,6 +124,8 @@ public static partial class RestoreCommand
         NoVersion = 4,
         CouldntFetchReleaseIndex = 5,
         CantFindRequestedVersion = 6,
+        ManifestFileCorrupted = 7,
+        ManifestIOError = 8,
     }
 
     public sealed record Options
@@ -268,7 +266,6 @@ public static partial class RestoreCommand
         }
         else
         {
-            // TODO: Refactor this duplication
             Manifest manifest;
             try
             {
@@ -277,12 +274,12 @@ public static partial class RestoreCommand
             catch (InvalidDataException)
             {
                 logger.Error("Manifest file corrupted");
-                return Error.IoError; //Result.ManifestFileCorrupted;
+                return Error.ManifestFileCorrupted;
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
                 logger.Error("Error reading manifest file: " + e.Message);
-                return Error.IoError; // Result.ManifestIOError;
+                return Error.ManifestIOError;
             }
 
             if (!options.Force && ManifestUtils.IsSdkInstalled(manifest, release.Sdk.Version, manifest.CurrentSdkDir))
