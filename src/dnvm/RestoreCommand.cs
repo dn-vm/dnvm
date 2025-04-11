@@ -8,10 +8,12 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
 using Serde;
+using Serde.CmdLine;
 using Serde.Json;
 using Spectre.Console;
 using StaticCs;
 using Zio;
+using static Dnvm.InstallCommand;
 using RollForwardOptions =  Dnvm.GlobalJsonSubset.SdkSubset.RollForwardOptions;
 
 namespace Dnvm;
@@ -128,7 +130,26 @@ public static partial class RestoreCommand
         CantFindRequestedVersion = 6,
     }
 
-    public static async Task<Result<SemVersion, Error>> Run(DnvmEnv env, Logger logger)
+    public sealed record Options
+    {
+        public bool Local { get; init; }
+
+        public bool Force { get; init; }
+
+        public bool Verbose { get; init; }
+    }
+
+    public static Task<Result<SemVersion, Error>> Run(DnvmEnv env, Logger logger, DnvmSubCommand.RestoreArgs args)
+    {
+        return Run(env, logger, new Options
+        {
+            Local = args.Local ?? false,
+            Force = args.Force ?? false,
+            Verbose = args.Verbose ?? false,
+        });
+    }
+
+    public static async Task<Result<SemVersion, Error>> Run(DnvmEnv env, Logger logger, Options options)
     {
         UPath? globalJsonPathOpt = null;
         UPath cwd = env.Cwd;
@@ -196,18 +217,18 @@ public static partial class RestoreCommand
 
         var installDir = globalJsonPath.GetDirectory() / ".dotnet";
 
-        var sdks = await GetSortedSdks(env.HttpClient, versionIndex, allowPrerelease, sdk.Version.ToMajorMinor());
+        var releases = await GetSortedReleases(env.HttpClient, versionIndex, allowPrerelease, sdk.Version.ToMajorMinor());
 
-        ChannelReleaseIndex.Component? Search(Comparison<SemVersion> comparer, bool preferExact)
+        ChannelReleaseIndex.Release? Search(Comparison<SemVersion> comparer, bool preferExact)
         {
-            if (preferExact && BinarySearchLatest(sdks, version, SemVersion.CompareSortOrder) is { } exactMatch)
+            if (preferExact && BinarySearchLatest(releases, version, SemVersion.CompareSortOrder) is { } exactMatch)
             {
                 return exactMatch;
             }
-            return BinarySearchLatest(sdks, version, comparer);
+            return BinarySearchLatest(releases, version, comparer);
         }
 
-        ChannelReleaseIndex.Component? component = rollForward switch
+        ChannelReleaseIndex.Release? release = rollForward switch
         {
             RollForwardOptions.Patch => Search(LatestPatchComparison, preferExact: true),
             RollForwardOptions.Feature => Search(LatestFeatureComparison, preferExact: true),
@@ -220,30 +241,59 @@ public static partial class RestoreCommand
             RollForwardOptions.Disable => Search(SemVersion.CompareSortOrder, preferExact: false),
         };
 
-        if (component is null)
+        if (release is null)
         {
             logger.Error("No SDK found that matches the requested version.");
             return Error.CantFindRequestedVersion;
         }
 
-        var downloadUrl = component.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString() && f.Url.EndsWith(Utilities.ZipSuffix)).Url;
+        var downloadUrl = release.Sdk.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString() && f.Url.EndsWith(Utilities.ZipSuffix)).Url;
 
-        var error = await InstallCommand.InstallSdkToDir(
-            curMuxerVersion: null, // we shouldn't have a muxer yet, and we can overwrite it if we do
-            component.Version,
-            env.HttpClient,
-            downloadUrl,
-            env.CwdFs,
-            installDir,
-            env.TempFs,
-            logger
-        );
-        if (error is not null)
+        if (options.Local)
         {
-            return Error.IoError;
+            var error = await InstallCommand.InstallSdkToDir(
+                curMuxerVersion: null, // we shouldn't have a muxer yet, and we can overwrite it if we do
+                release.Sdk.Version,
+                env.HttpClient,
+                downloadUrl,
+                env.CwdFs,
+                installDir,
+                env.TempFs,
+                logger
+            );
+            if (error is not null)
+            {
+                return Error.IoError;
+            }
+        }
+        else
+        {
+            // TODO: Refactor this duplication
+            Manifest manifest;
+            try
+            {
+                manifest = await ManifestUtils.ReadOrCreateManifest(env);
+            }
+            catch (InvalidDataException)
+            {
+                logger.Error("Manifest file corrupted");
+                return Error.IoError; //Result.ManifestFileCorrupted;
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                logger.Error("Error reading manifest file: " + e.Message);
+                return Error.IoError; // Result.ManifestIOError;
+            }
+
+
+            var error = await InstallCommand.InstallSdk(env, manifest, release.Sdk, release, manifest.CurrentSdkDir, logger);
+            if (error is not Result<Manifest, InstallError>.Ok)
+            {
+                return Error.IoError;
+            }
         }
 
-        return component.Version;
+        return release.Sdk.Version;
     }
 
     /// <summary>
@@ -334,25 +384,25 @@ public static partial class RestoreCommand
     }
 
     /// <summary>
-    /// Finds the component with the given version. If multiple components have the same version,
-    /// the one with the newest version is returned.
+    /// Finds the release with the given SDK version. If multiple releases have the same SDK version,
+    /// the one with the newest SDK version is returned.
     /// </summary>
-    /// <param name="sdks">A list of the components in descending sort order.</param>
-    /// <param name="version">Version of the component to find.</param>
+    /// <param name="releases">A list of the releases in descending sort order.</param>
+    /// <param name="version">Version of the SDK to find.</param>
     /// <param name="comparer">Custom comparison for versions.</param>
-    /// <returns>The component with the newest matching version, or null if no matching version is found.</returns>
-    private static ChannelReleaseIndex.Component? BinarySearchLatest(
-        List<ChannelReleaseIndex.Component> sdks,
+    /// <returns>The SDK with the newest matching version, or null if no matching version is found.</returns>
+    private static ChannelReleaseIndex.Release? BinarySearchLatest(
+        List<ChannelReleaseIndex.Release> releases,
         SemVersion version,
         Comparison<SemVersion> comparer)
     {
         // Note: the list is sorted in descending order.
         int left = 0;
-        int right = sdks.Count;
+        int right = releases.Count;
         while (left < right)
         {
             int mid = left + (right - left) / 2;
-            if (comparer(sdks[mid].Version, version) > 0)
+            if (comparer(releases[mid].Sdk.Version, version) > 0)
             {
                 left = mid + 1;
             }
@@ -361,20 +411,20 @@ public static partial class RestoreCommand
                 right = mid;
             }
         }
-        return left < sdks.Count && comparer(sdks[left].Version, version) == 0 ? sdks[left] : null;
+        return left < releases.Count && comparer(releases[left].Sdk.Version, version) == 0 ? releases[left] : null;
     }
 
     /// <summary>
-    /// Returns a sorted (descending) list of SDks. If <paramref name="minMajorMinor"/> is not
-    /// null, only SDKs for that major+minor version are returned.
+    /// Returns list of releases sorted (descending) by SDK version. If <paramref name="minMajorMinor"/> is not
+    /// null, only releases for that major+minor version are returned.
     /// </summary>
-    private static async Task<List<ChannelReleaseIndex.Component>> GetSortedSdks(
+    private static async Task<List<ChannelReleaseIndex.Release>> GetSortedReleases(
         ScopedHttpClient httpClient,
         DotnetReleasesIndex versionIndex,
         bool allowPrerelease,
         string minMajorMinor)
     {
-        var sdks = new List<ChannelReleaseIndex.Component>();
+        var releases = new List<ChannelReleaseIndex.Release>();
         foreach (var releaseIndex in versionIndex.ChannelIndices)
         {
             if (minMajorMinor is not null && double.Parse(minMajorMinor) > double.Parse(releaseIndex.MajorMinorVersion))
@@ -388,13 +438,13 @@ public static partial class RestoreCommand
                 {
                     if (allowPrerelease || !sdk.Version.IsPrerelease)
                     {
-                        sdks.Add(sdk);
+                        releases.Add(release);
                     }
                 }
             }
         }
         // Sort in descending order.
-        sdks.Sort((a, b) => b.Version.CompareSortOrderTo(a.Version));
-        return sdks;
+        releases.Sort((a, b) => b.Sdk.Version.CompareSortOrderTo(a.Sdk.Version));
+        return releases;
     }
 }
