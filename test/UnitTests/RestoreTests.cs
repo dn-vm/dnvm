@@ -67,7 +67,8 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -75,6 +76,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -96,7 +101,8 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(UPath.Root / ".dotnet"));
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(UPath.Root / ".dotnet"));
@@ -104,6 +110,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(UPath.Root / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -125,7 +135,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 43), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 43);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -133,6 +144,11 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -155,7 +171,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 43), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 43);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -163,6 +180,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -186,7 +207,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 100), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 100);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -194,6 +216,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -218,7 +244,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 43, 0), restoreResult);
+        var expectedVersion = new SemVersion(42, 43, 0);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -226,6 +253,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -251,7 +282,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict), restoreResult);
+        var expectedVersion = SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -259,6 +291,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -285,7 +321,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(SemVersion.Parse("43.0.0", SemVersionStyles.Strict), restoreResult);
+        var expectedVersion = SemVersion.Parse("43.0.0", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
 
         {
@@ -294,6 +331,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -316,7 +357,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -324,6 +366,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -347,7 +393,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -355,6 +402,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -379,7 +430,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -387,6 +439,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -412,7 +468,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(SemVersion.Parse("42.42.42", SemVersionStyles.Strict), restoreResult);
+        var expectedVersion = SemVersion.Parse("42.42.42", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -420,6 +477,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -443,7 +504,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 43), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 43);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -451,6 +513,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -474,7 +540,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 42, 100), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 100);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -482,6 +549,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -506,7 +577,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(new SemVersion(42, 43, 0), restoreResult);
+        var expectedVersion = new SemVersion(42, 43, 0);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -514,6 +586,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -539,7 +615,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict), restoreResult);
+        var expectedVersion = SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -547,6 +624,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -573,7 +654,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-        Assert.Equal(SemVersion.Parse("43.0.0", SemVersionStyles.Strict), restoreResult);
+        var expectedVersion = SemVersion.Parse("43.0.0", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -581,6 +663,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 
@@ -613,8 +699,8 @@ public sealed class RestoreTests
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
-
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
         if (isLocalInstall)
         {
             Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
@@ -622,6 +708,10 @@ public sealed class RestoreTests
         else
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
         }
     });
 }
