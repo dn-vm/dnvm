@@ -448,12 +448,15 @@ Options:
             console,
             [ "restore", param ]));
         Assert.Equal("""
-usage: dnvm restore [-h | --help]
+usage: dnvm restore [-l | --local] [-f | --force] [-v | --verbose] [-h | --help]
 
-Downloads the SDK in the global.json in or above the current directory to the
-.dotnet folder in the same directory.
+Downloads the SDK in the global.json in or above the current directory.
 
 Options:
+    -l, --local  Install the sdk into the .dotnet folder in the same directory
+as global.json.
+    -f, --force  Force install the SDK, even if already installed.
+    -v, --verbose  Print extra debugging info to the console.
     -h, --help  Show help information.
 
 
