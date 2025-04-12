@@ -115,6 +115,11 @@ public static partial class ManifestUtils
         };
     }
 
+    public static bool IsSdkInstalled(Manifest manifest, SemVersion version, SdkDirName dirName)
+    {
+        return manifest.InstalledSdks.Any(s => s.SdkVersion == version && s.SdkDirName == dirName);
+    }
+
     /// <summary>
     /// Either reads a manifest in the current format, or reads a
     /// manifest in the old format and converts it to the new format.

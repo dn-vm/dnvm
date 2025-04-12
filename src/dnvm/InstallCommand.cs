@@ -68,7 +68,7 @@ public static partial class InstallCommand
         var sdkVersion = options.SdkVersion;
         var channel = new Channel.VersionedMajorMinor(sdkVersion.Major, sdkVersion.Minor);
 
-        if (!options.Force && manifest.InstalledSdks.Any(s => s.SdkVersion == sdkVersion && s.SdkDirName == sdkDir))
+        if (!options.Force && ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))
         {
             logger.Log($"Version {sdkVersion} is already installed in directory '{sdkDir.Name}'." +
                 " Skipping installation. To install anyway, pass --force.");
@@ -241,7 +241,7 @@ public static partial class InstallCommand
         var result = JsonSerializer.Serialize(manifest);
         logger.Info("Existing manifest: " + result);
 
-        if (!manifest.InstalledSdks.Any(s => s.SdkVersion == sdkVersion && s.SdkDirName == sdkDir))
+        if (!ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))
         {
             manifest = manifest with
             {

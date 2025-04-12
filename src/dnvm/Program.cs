@@ -74,7 +74,7 @@ public static class Program
             DnvmSubCommand.UntrackArgs a => await UntrackCommand.Run(env, logger, a.Channel),
             DnvmSubCommand.UninstallArgs a => await UninstallCommand.Run(env, logger, a.SdkVersion, a.SdkDir),
             DnvmSubCommand.PruneArgs a => await PruneCommand.Run(env, logger, a),
-            DnvmSubCommand.RestoreArgs => await RestoreCommand.Run(env, logger) switch {
+            DnvmSubCommand.RestoreArgs a => await RestoreCommand.Run(env, logger, a) switch {
                 Result<SemVersion, RestoreCommand.Error>.Ok => 0,
                 Result<SemVersion, RestoreCommand.Error>.Err x => (int)x.Value,
             },
