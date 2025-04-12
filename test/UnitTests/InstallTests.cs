@@ -19,7 +19,7 @@ public sealed class InstallTests
         Assert.False(env.DnvmHomeFs.FileExists(dotnetFile));
 
         var logger = new Logger(new TestConsole());
-        var options = new CommandArguments.InstallArguments()
+        var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = MockServer.DefaultLtsVersion
         };
@@ -38,7 +38,7 @@ public sealed class InstallTests
     {
         var console = new TestConsole();
         var logger = new Logger(console);
-        var options = new CommandArguments.InstallArguments()
+        var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = MockServer.DefaultLtsVersion,
         };
@@ -59,7 +59,7 @@ public sealed class InstallTests
     {
         var console = new TestConsole();
         var logger = new Logger(console);
-        var options = new CommandArguments.InstallArguments()
+        var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = MockServer.DefaultLtsVersion,
             Force = true,
@@ -82,9 +82,10 @@ public sealed class InstallTests
     {
         var console = new TestConsole();
         var logger = new Logger(console);
-        var options = new CommandArguments.InstallArguments()
+        var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = MockServer.DefaultLtsVersion,
+            Verbose = true,
         };
         var installResult = await InstallCommand.Run(env, logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
@@ -103,7 +104,7 @@ public sealed class InstallTests
         var logger = new Logger(console);
         var previewVersion = SemVersion("192.192.192-preview");
         server.RegisterDailyBuild(previewVersion);
-        var options = new CommandArguments.InstallArguments()
+        var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = previewVersion
         };
@@ -155,7 +156,7 @@ public sealed class InstallTests
             var logger = new Logger(console);
             var previewVersion = SemVersion("192.192.192-preview");
             server.RegisterDailyBuild(previewVersion);
-            var options = new CommandArguments.InstallArguments()
+            var options = new DnvmSubCommand.InstallArgs
             {
                 SdkVersion = previewVersion
             };
@@ -276,7 +277,7 @@ public sealed class InstallTests
 
         var console = new TestConsole();
         var logger = new Logger(console);
-        var result = await InstallCommand.Run(env, logger, new()
+        var result = await InstallCommand.Run(env, logger, new InstallCommand.Options()
         {
             SdkVersion = SemVersion("42.42.100")
         });

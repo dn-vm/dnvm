@@ -8,12 +8,14 @@ namespace Dnvm.Test;
 
 public sealed class RestoreTests
 {
-    [Fact]
-    public async Task NoGlobalJson() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task NoGlobalJson(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var console = new TestConsole();
         var logger = new Logger(console);
-        var restoreResult = await RestoreCommand.Run(env, logger);
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
         Assert.Equal(RestoreCommand.Error.NoGlobalJson, restoreResult);
         Assert.Equal("""
         Error: No global.json found in the current directory or any of its parents.
@@ -21,19 +23,23 @@ public sealed class RestoreTests
         """.NormalizeLineEndings(), console.Output.TrimLines());
     });
 
-    [Fact]
-    public async Task GlobalJsonNoSdkSection() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GlobalJsonNoSdkSection(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
         {}
         """);
-        var restoreResult = await RestoreCommand.Run(env, logger);
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
         Assert.Equal(RestoreCommand.Error.NoSdkSection, restoreResult);
     });
 
-    [Fact]
-    public async Task GlobalJsonNoVersion() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GlobalJsonNoVersion(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -41,12 +47,14 @@ public sealed class RestoreTests
             "sdk": {}
         }
         """);
-        var restoreResult = await RestoreCommand.Run(env, logger);
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
         Assert.Equal(RestoreCommand.Error.NoVersion, restoreResult);
     });
 
-    [Fact]
-    public async Task ExactVersionMatch() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ExactVersionMatch(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", $$"""
@@ -58,13 +66,27 @@ public sealed class RestoreTests
         """);
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task ExactMatchDirAbove() => await TestUtils.RunWithServer(UPath.Root / "a" / "b" / "c",
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ExactMatchDirAbove(bool isLocalInstall) => await TestUtils.RunWithServer(UPath.Root / "a" / "b" / "c",
     async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
@@ -78,13 +100,27 @@ public sealed class RestoreTests
         """);
 
         Assert.False(env.CwdFs.DirectoryExists(UPath.Root / ".dotnet"));
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(UPath.Root / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(UPath.Root / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(UPath.Root / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task NewerPatchVersion() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task NewerPatchVersion(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -98,13 +134,28 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 43), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 43);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task LatestPatch() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LatestPatch(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -119,13 +170,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 43), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 43);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task LatestFeature() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LatestFeature(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -141,13 +206,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 100), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 100);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task LatestMinor() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LatestMinor(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -164,13 +243,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 43, 0), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 43, 0);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task LatestMajor() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LatestMajor(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -188,13 +281,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task LatestMajorNoPrerelease() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LatestMajorNoPrerelease(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -213,13 +320,28 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(SemVersion.Parse("43.0.0", SemVersionStyles.Strict), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = SemVersion.Parse("43.0.0", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task PatchAndExact() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PatchAndExact(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -234,13 +356,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task FeatureAndExact() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FeatureAndExact(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -256,13 +392,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task MinorAndExact() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MinorAndExact(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -279,13 +429,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task MajorAndExact() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MajorAndExact(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -303,13 +467,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(SemVersion.Parse("42.42.42", SemVersionStyles.Strict), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = SemVersion.Parse("42.42.42", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task PatchNoExact() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PatchNoExact(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -325,13 +503,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 43), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 43);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task FeatureNoExact() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FeatureNoExact(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -347,13 +539,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 42, 100), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 100);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task MinorNoExact() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MinorNoExact(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -370,13 +576,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(new SemVersion(42, 43, 0), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 43, 0);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task MajorNoExact() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MajorNoExact(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -394,13 +614,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task MajorNoExactNoPrerelease() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MajorNoExactNoPrerelease(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", """
@@ -419,13 +653,27 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
-        Assert.Equal(SemVersion.Parse("43.0.0", SemVersionStyles.Strict), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = SemVersion.Parse("43.0.0", SemVersionStyles.Strict);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 
-    [Fact]
-    public async Task ZipAndExeFiles() => await TestUtils.RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ZipAndExeFiles(bool isLocalInstall) => await TestUtils.RunWithServer(async (server, env) =>
     {
         var logger = new Logger(new TestConsole());
         env.CwdFs.WriteAllText(env.Cwd / "global.json", $$"""
@@ -450,9 +698,20 @@ public sealed class RestoreTests
 
         Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        var restoreResult = await RestoreCommand.Run(env, logger);
+        var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        var expectedVersion = new SemVersion(42, 42, 42);
+        Assert.Equal(expectedVersion, restoreResult);
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+        }
+        else
+        {
+            Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-        Assert.Equal(new SemVersion(42, 42, 42), restoreResult);
-        Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
     });
 }

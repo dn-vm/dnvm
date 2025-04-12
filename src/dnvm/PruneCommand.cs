@@ -8,7 +8,22 @@ namespace Dnvm;
 
 public sealed class PruneCommand
 {
-    public static async Task<int> Run(DnvmEnv env, Logger logger, CommandArguments.PruneArguments args)
+    public sealed record Options
+    {
+        public bool Verbose { get; init; } = false;
+        public bool DryRun { get; init; } = false;
+    }
+
+    public static Task<int> Run(DnvmEnv env, Logger logger, DnvmSubCommand.PruneArgs args)
+    {
+        return Run(env, logger, new Options
+        {
+            Verbose = args.Verbose ?? false,
+            DryRun = args.DryRun ?? false
+        });
+    }
+
+    public static async Task<int> Run(DnvmEnv env, Logger logger, Options options)
     {
         Manifest manifest;
         try
@@ -25,18 +40,14 @@ public sealed class PruneCommand
         var sdksToRemove = GetOutOfDateSdks(manifest);
         foreach (var sdk in sdksToRemove)
         {
-            if (args.DryRun)
+            if (options.DryRun)
             {
                 Console.WriteLine($"Would remove {sdk}");
             }
             else
             {
                 Console.WriteLine($"Removing {sdk}");
-                int result = await UninstallCommand.Run(env, logger, new CommandArguments.UninstallArguments
-                {
-                    SdkVersion = sdk.Version,
-                    Dir = sdk.Dir
-                });
+                int result = await UninstallCommand.Run(env, logger, sdk.Version, sdk.Dir);
                 if (result != 0)
                 {
                     return result;

@@ -18,7 +18,7 @@ public sealed class SelectTests
     [Fact]
     public Task SelectPreview() => TestUtils.RunWithServer(async (mockServer, env) =>
     {
-        var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = new Channel.Latest(),
         });
@@ -27,7 +27,7 @@ public sealed class SelectTests
         var defaultSdkDir = DnvmEnv.DefaultSdkDirName;
         var defaultDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
         Assert.True(homeFs.FileExists(defaultDotnet));
-        result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = new Channel.Preview(),
         });
