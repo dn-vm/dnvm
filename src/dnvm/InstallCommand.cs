@@ -25,7 +25,27 @@ public static partial class InstallCommand
         ManifestIOError,
         InstallError
     }
-    public static async Task<Result> Run(DnvmEnv env, Logger logger, CommandArguments.InstallArguments options)
+
+    public sealed record Options
+    {
+        public required SemVersion SdkVersion { get; init; }
+        public bool Force { get; init; } = false;
+        public SdkDirName? SdkDir { get; init; } = null;
+        public bool Verbose { get; init; } = false;
+    }
+
+    public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.InstallArgs args)
+    {
+        return Run(env, logger, new Options
+        {
+            SdkVersion = args.SdkVersion,
+            Force = args.Force ?? false,
+            SdkDir = args.SdkDir,
+            Verbose = args.Verbose ?? false,
+        });
+    }
+
+    public static async Task<Result> Run(DnvmEnv env, Logger logger, Options options)
     {
         var sdkDir = options.SdkDir ?? DnvmEnv.DefaultSdkDirName;
 
@@ -48,7 +68,7 @@ public static partial class InstallCommand
         var sdkVersion = options.SdkVersion;
         var channel = new Channel.VersionedMajorMinor(sdkVersion.Major, sdkVersion.Minor);
 
-        if (!options.Force && manifest.InstalledSdks.Any(s => s.SdkVersion == sdkVersion && s.SdkDirName == sdkDir))
+        if (!options.Force && ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))
         {
             logger.Log($"Version {sdkVersion} is already installed in directory '{sdkDir.Name}'." +
                 " Skipping installation. To install anyway, pass --force.");
@@ -221,7 +241,7 @@ public static partial class InstallCommand
         var result = JsonSerializer.Serialize(manifest);
         logger.Info("Existing manifest: " + result);
 
-        if (!manifest.InstalledSdks.Any(s => s.SdkVersion == sdkVersion && s.SdkDirName == sdkDir))
+        if (!ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))
         {
             manifest = manifest with
             {

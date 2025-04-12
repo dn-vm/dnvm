@@ -37,7 +37,8 @@ public sealed class CommandLineTests
     {
         var console = new TestConsole();
         var options = CommandLineArguments.ParseRaw(console, []);
-        Assert.Null(options.Command);
+        Assert.NotNull(options);
+        Assert.Null(options.SubCommand);
         Assert.Equal(ExpectedHelpText, console.Output);
     }
 
@@ -47,7 +48,7 @@ public sealed class CommandLineTests
         var options = CommandLineArguments.ParseRaw(new TestConsole(), [
             "restore"
         ]);
-        Assert.True(options!.Command is CommandArguments.RestoreArguments);
+        Assert.True(options!.SubCommand is DnvmSubCommand.RestoreArgs);
     }
 
     [Fact]
@@ -56,7 +57,7 @@ public sealed class CommandLineTests
         var options = CommandLineArguments.ParseRaw(new TestConsole(), [
             "list"
         ]);
-        Assert.True(options!.Command is CommandArguments.ListArguments);
+        Assert.True(options!.SubCommand is DnvmSubCommand.ListArgs);
     }
 
     [Fact]
@@ -66,7 +67,7 @@ public sealed class CommandLineTests
             "select",
             "preview"
         ]);
-        Assert.True(options!.Command is CommandArguments.SelectArguments {
+        Assert.True(options!.SubCommand is DnvmSubCommand.SelectArgs {
             SdkDirName: "preview"
         });
     }
@@ -86,7 +87,7 @@ public sealed class CommandLineTests
             "track",
             "99.99"
         ]);
-        Assert.True(options!.Command is CommandArguments.TrackArguments {
+        Assert.True(options!.SubCommand is DnvmSubCommand.TrackArgs {
             Channel: Channel.VersionedMajorMinor { Major: 99, Minor: 99 }
         });
     }
@@ -98,7 +99,7 @@ public sealed class CommandLineTests
             "track",
             "99.99.9xx"
         ]);
-        Assert.True(options!.Command is CommandArguments.TrackArguments {
+        Assert.True(options!.SubCommand is DnvmSubCommand.TrackArgs {
             Channel: Channel.VersionedFeature { Major: 99, Minor: 99, FeatureLevel: 9 }
         });
     }
@@ -132,7 +133,7 @@ Channel must be one of:
             "install",
             MockServer.DefaultLtsVersion.ToString(),
         ]);
-        Assert.True(options!.Command is CommandArguments.InstallArguments {
+        Assert.True(options!.SubCommand is DnvmSubCommand.InstallArgs {
             SdkVersion: var sdkVersion
         } && sdkVersion == MockServer.DefaultLtsVersion);
     }
@@ -147,7 +148,7 @@ Channel must be one of:
             "-v",
             MockServer.DefaultLtsVersion.ToString(),
         ]);
-        Assert.True(options!.Command is CommandArguments.InstallArguments {
+        Assert.True(options!.SubCommand is DnvmSubCommand.InstallArgs {
             SdkVersion: var sdkVersion,
             Force: true,
             SdkDir: {} sdkDir,
@@ -171,7 +172,7 @@ Channel must be one of:
             "track",
             "lTs"
         ]);
-        Assert.True(options!.Command is CommandArguments.TrackArguments {
+        Assert.True(options!.SubCommand is DnvmSubCommand.TrackArgs {
             Channel: Channel.Lts
         });
     }
@@ -191,7 +192,7 @@ Channel must be one of:
     public void RunHelp(string param)
     {
         var console = new TestConsole();
-        Assert.Null(CommandLineArguments.ParseRaw(console, [ param ]).Command);
+        Assert.Null(CommandLineArguments.ParseRaw(console, [ param ]));
         Assert.Equal(ExpectedHelpText, console.Output);
     }
 
@@ -203,7 +204,7 @@ Channel must be one of:
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "list", param ]).Command);
+            [ "list", param ]));
         Assert.Equal("""
 usage: dnvm list [-h | --help]
 
@@ -224,7 +225,7 @@ Options:
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "select", param ]).Command);
+            [ "select", param ]));
         Assert.Equal("""
 usage: dnvm select [-h | --help] <sdkDirName>
 
@@ -255,7 +256,7 @@ Options:
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "install", param ]).Command);
+            [ "install", param ]));
         Assert.Equal("""
 usage: dnvm install [-f | --force] [-s | --sdk-dir <sdkDir>] [-v | --verbose]
 [-h | --help] <version>
@@ -284,7 +285,7 @@ given name.
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "track", param ]).Command);
+            [ "track", param ]));
         Assert.Equal("""
 usage: dnvm track [--feed-url <feedUrl>] [-v | --verbose] [-f | --force] [-y]
 [--prereqs] [-s | --sdk-dir <sdkDir>] [-h | --help] <channel>
@@ -316,7 +317,7 @@ given name.
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "selfinstall", param ]).Command);
+            [ "selfinstall", param ]));
         Assert.Equal("""
 usage: dnvm selfinstall [-v | --verbose] [-f | --force] [--feed-url <feedUrl>]
 [-y] [--update] [--dest-path <destPath>] [-h | --help]
@@ -345,7 +346,7 @@ be called from dnvm.
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "update", param ]).Command);
+            [ "update", param ]));
         Assert.Equal("""
 usage: dnvm update [--dnvm-url <dnvmReleasesUrl>] [--feed-url <feedUrl>] [-v |
 --verbose] [--self] [-y] [-h | --help]
@@ -372,7 +373,7 @@ Options:
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "uninstall", param ]).Command);
+            [ "uninstall", param ]));
         Assert.Equal("""
 usage: dnvm uninstall [-s | --sdk-dir <sdkDir>] [-h | --help] <sdkVersion>
 
@@ -397,7 +398,7 @@ Options:
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "prune", param ]).Command);
+            [ "prune", param ]));
         Assert.Equal("""
 usage: dnvm prune [-v | --verbose] [--dry-run] [-h | --help]
 
@@ -421,7 +422,7 @@ uninstall.
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "untrack", param ]).Command);
+            [ "untrack", param ]));
         Assert.Equal("""
 usage: dnvm untrack [-h | --help] <channel>
 
@@ -445,14 +446,17 @@ Options:
         var console = new TestConsole();
         Assert.Null(CommandLineArguments.ParseRaw(
             console,
-            [ "restore", param ]).Command);
+            [ "restore", param ]));
         Assert.Equal("""
-usage: dnvm restore [-h | --help]
+usage: dnvm restore [-l | --local] [-f | --force] [-v | --verbose] [-h | --help]
 
-Downloads the SDK in the global.json in or above the current directory to the
-.dotnet folder in the same directory.
+Downloads the SDK in the global.json in or above the current directory.
 
 Options:
+    -l, --local  Install the sdk into the .dotnet folder in the same directory
+as global.json.
+    -f, --force  Force install the SDK, even if already installed.
+    -v, --verbose  Print extra debugging info to the console.
     -h, --help  Show help information.
 
 

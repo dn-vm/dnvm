@@ -4,7 +4,7 @@ using System.Linq;
 using Spectre.Console.Testing;
 using Xunit;
 
-namespace Serde.CmdLine;
+namespace Serde.CmdLine.Test;
 
 public sealed partial class SubCommandTests
 {
@@ -12,7 +12,7 @@ public sealed partial class SubCommandTests
     public void NoSubCommand()
     {
         string[] testArgs = [ "-v" ];
-        var cmd = CmdLine.ParseRaw<TopCommand>(testArgs).Unwrap();
+        var cmd = CmdLine.ParseRawWithHelp<TopCommand>(testArgs).Unwrap();
         Assert.Equal(new TopCommand { Verbose = true, SubCommand = null }, cmd);
     }
 
@@ -20,7 +20,7 @@ public sealed partial class SubCommandTests
     public void FirstCommand()
     {
         string[] testArgs = [ "-v", "first" ];
-        var cmd = CmdLine.ParseRaw<TopCommand>(testArgs).Unwrap();
+        var cmd = CmdLine.ParseRawWithHelp<TopCommand>(testArgs).Unwrap();
         Assert.Equal(new TopCommand { Verbose = true, SubCommand = new SubCommand.FirstCommand() }, cmd);
     }
 

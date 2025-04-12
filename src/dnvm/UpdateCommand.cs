@@ -19,30 +19,58 @@ namespace Dnvm;
 
 public sealed partial class UpdateCommand
 {
+    public sealed record Options
+    {
+        /// <summary>
+        /// URL to the dnvm releases.json file listing the latest releases and their download
+        /// locations.
+        /// </summary>
+        public string? DnvmReleasesUrl { get; init; }
+        public string? FeedUrl { get; init; }
+        public bool Verbose { get; init; } = false;
+        public bool Self { get; init; } = false;
+        /// <summary>
+        /// Implicitly answers 'yes' to every question.
+        /// </summary>
+        public bool Yes { get; init; } = false;
+    }
+
     private readonly DnvmEnv _env;
     private readonly Logger _logger;
-    private readonly CommandArguments.UpdateArguments _args;
+    private readonly Options _opts;
     private readonly IEnumerable<string> _feedUrls;
     private readonly string _releasesUrl;
 
-    public UpdateCommand(DnvmEnv env, Logger logger, CommandArguments.UpdateArguments args)
+    public UpdateCommand(DnvmEnv env, Logger logger, Options opts)
     {
         _logger = logger;
-        _args = args;
-        if (_args.Verbose)
+        _opts = opts;
+        if (_opts.Verbose)
         {
             _logger.LogLevel = LogLevel.Info;
         }
-        _feedUrls = _args.FeedUrl is not null
-            ? [ _args.FeedUrl.TrimEnd('/') ]
+        _feedUrls = _opts.FeedUrl is not null
+            ? [ _opts.FeedUrl.TrimEnd('/') ]
             : env.DotnetFeedUrls;
-        _releasesUrl = _args.DnvmReleasesUrl ?? env.DnvmReleasesUrl;
+        _releasesUrl = _opts.DnvmReleasesUrl ?? env.DnvmReleasesUrl;
         _env = env;
     }
 
-    public static Task<Result> Run(DnvmEnv env, Logger logger, CommandArguments.UpdateArguments args)
+    public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.UpdateArgs args)
     {
-        return new UpdateCommand(env, logger, args).Run();
+        return Run(env, logger, new Options
+        {
+            DnvmReleasesUrl = args.DnvmReleasesUrl,
+            FeedUrl = args.FeedUrl,
+            Verbose = args.Verbose ?? false,
+            Self = args.Self ?? false,
+            Yes = args.Yes ?? false
+        });
+    }
+
+    public static Task<Result> Run(DnvmEnv env, Logger logger, Options options)
+    {
+        return new UpdateCommand(env, logger, options).Run();
     }
 
     public enum Result
@@ -57,7 +85,7 @@ public sealed partial class UpdateCommand
     public async Task<Result> Run()
     {
         var manifest = await ManifestUtils.ReadOrCreateManifest(_env);
-        if (_args.Self)
+        if (_opts.Self)
         {
             return await UpdateSelf(manifest);
         }
@@ -79,7 +107,7 @@ public sealed partial class UpdateCommand
             _logger,
             releaseIndex,
             manifest,
-            _args.Yes,
+            _opts.Yes,
             _releasesUrl);
     }
 

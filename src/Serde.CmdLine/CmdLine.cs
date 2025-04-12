@@ -8,36 +8,59 @@ namespace Serde.CmdLine;
 
 public static class CmdLine
 {
+    [Closed]
+    public abstract record ParsedArgsOrHelpInfos<TArgs>
+    {
+        private ParsedArgsOrHelpInfos() { }
+        public sealed record Parsed(TArgs Args) : ParsedArgsOrHelpInfos<TArgs>;
+        public sealed record Help(IReadOnlyList<ISerdeInfo> HelpInfos) : ParsedArgsOrHelpInfos<TArgs>;
+    }
+
     /// <summary>
     /// Try to parse the command line arguments directly into a command object.
     /// No errors are handled, so exceptions will be thrown if the arguments are invalid.
     /// </summary>
-    public static Result<T, IReadOnlyList<ISerdeInfo>> ParseRaw<T>(
-        string[] args,
-        bool handleHelp = true
-    ) where T : IDeserializeProvider<T>
+    public static ParsedArgsOrHelpInfos<T> ParseRawWithHelp<T>(string[] args)
+        where T : IDeserializeProvider<T>
     {
-        var deserializer = new Deserializer(args, handleHelp);
+        var deserializer = new Deserializer(args, handleHelp: true);
         try
         {
             var cmd = T.Instance.Deserialize(deserializer);
-            if (handleHelp && deserializer.HelpInfos.Count > 0)
+            if (deserializer.HelpInfos.Count > 0)
             {
-                return new Result<T, IReadOnlyList<ISerdeInfo>>.Err(deserializer.HelpInfos);
+                return new ParsedArgsOrHelpInfos<T>.Help(deserializer.HelpInfos);
             }
             else
             {
-                return cmd;
+                return new ParsedArgsOrHelpInfos<T>.Parsed(cmd);
             }
         }
         catch (DeserializeException e)
         {
             // If the deserializer was created and there's at least one help info added, provide a
             // null command and the help infos, ignoring what would otherwise be an error.
-            if (handleHelp && deserializer.HelpInfos.Count > 0)
+            if (deserializer.HelpInfos.Count > 0)
             {
-                return new Result<T, IReadOnlyList<ISerdeInfo>>.Err(deserializer.HelpInfos);
+                return new ParsedArgsOrHelpInfos<T>.Help(deserializer.HelpInfos);
             }
+            throw new ArgumentSyntaxException(e.Message, e);
+        }
+    }
+
+    /// <summary>
+    /// Try to parse the command line arguments directly into a command object.
+    /// No errors are handled, so exceptions will be thrown if the arguments are invalid.
+    /// </summary>
+    public static T ParseRaw<T>(string[] args) where T : IDeserializeProvider<T>
+    {
+        var deserializer = new Deserializer(args, handleHelp: false);
+        try
+        {
+            return T.Instance.Deserialize(deserializer);
+        }
+        catch (DeserializeException e)
+        {
             throw new ArgumentSyntaxException(e.Message, e);
         }
     }
@@ -52,13 +75,13 @@ public static class CmdLine
     {
         try
         {
-            var result = ParseRaw<T>(args);
+            var result = ParseRawWithHelp<T>(args);
             switch (result)
             {
-                case Result<T, IReadOnlyList<ISerdeInfo>>.Ok(var value):
+                case ParsedArgsOrHelpInfos<T>.Parsed(var value):
                     cmd = value;
                     return true;
-                case Result<T, IReadOnlyList<ISerdeInfo>>.Err(var helpInfos):
+                case ParsedArgsOrHelpInfos<T>.Help(var helpInfos):
                     var rootInfo = SerdeInfoProvider.GetDeserializeInfo<T>();
                     var lastInfo = helpInfos.Last();
                     console.WriteLine(CmdLine.GetHelpText(rootInfo, lastInfo, includeHelp: true));
@@ -71,11 +94,17 @@ public static class CmdLine
         catch (ArgumentSyntaxException ex)
         {
             console.WriteLine("error: " + ex.Message);
-            var rootInfo = SerdeInfoProvider.GetDeserializeInfo<T>();
-            console.WriteLine(GetHelpText(rootInfo));
+            console.WriteLine(GetHelpText<T>());
             cmd = default!;
             return false;
         }
+    }
+
+    public static string GetHelpText<T>(bool includeHelp = false)
+        where T : IDeserializeProvider<T>
+    {
+        var rootInfo = SerdeInfoProvider.GetDeserializeInfo<T>();
+        return GetHelpText(rootInfo, includeHelp);
     }
 
     public static string GetHelpText(ISerdeInfo rootInfo, bool includeHelp = false) => GetHelpText(rootInfo, rootInfo, includeHelp);

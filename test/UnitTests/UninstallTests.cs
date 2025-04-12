@@ -15,15 +15,15 @@ public sealed class UninstallTests
     [Fact]
     public Task LtsAndPreview() => RunWithServer(async (server, env) =>
     {
-        var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = new Channel.Latest(),
         });
         Assert.Equal(TrackCommand.Result.Success, result);
-        result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = new Channel.Preview(),
-            SdkDir = "preview"
+            SdkDir = new("preview")
         });
         Assert.Equal(TrackCommand.Result.Success, result);
         var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[0].LatestSdk, SemVersionStyles.Strict);
@@ -33,10 +33,7 @@ public sealed class UninstallTests
             .AddSdk(previewVersion, new Channel.Preview(), new SdkDirName("preview"));
         var manifest = await env.ReadManifest();
         Assert.Equal(expectedManifest, manifest);
-        var unResult = await UninstallCommand.Run(env, _logger, new CommandArguments.UninstallArguments
-        {
-            SdkVersion = ltsVersion
-        });
+        var unResult = await UninstallCommand.Run(env, _logger, ltsVersion);
         Assert.Equal(0, unResult);
         manifest = await env.ReadManifest();
         var previewOnly = Manifest.Empty
@@ -61,12 +58,12 @@ public sealed class UninstallTests
     [Fact]
     public Task UninstallMessage() => RunWithServer(async (server, env) =>
     {
-        var result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = new Channel.Latest(),
         });
         Assert.Equal(TrackCommand.Result.Success, result);
-        result = await TrackCommand.Run(env, _logger, new CommandArguments.TrackArguments
+        result = await TrackCommand.Run(env, _logger, new DnvmSubCommand.TrackArgs
         {
             Channel = new Channel.Preview(),
             SdkDir = "preview"
@@ -77,10 +74,7 @@ public sealed class UninstallTests
         var previewVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[1].LatestSdk, SemVersionStyles.Strict);
 
         var uninstallConsole = new TestConsole();
-        var unResult = await UninstallCommand.Run(env, new Logger(uninstallConsole), new CommandArguments.UninstallArguments
-        {
-            SdkVersion = previewVersion
-        });
+        var unResult = await UninstallCommand.Run(env, new Logger(uninstallConsole), previewVersion);
         Assert.Equal(0, unResult);
         Assert.DoesNotContain("SdkDirName", uninstallConsole.Output);
         Assert.DoesNotContain(ltsVersion.ToString(), uninstallConsole.Output);

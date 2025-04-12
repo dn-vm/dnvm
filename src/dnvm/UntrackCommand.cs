@@ -17,7 +17,7 @@ public sealed class UntrackCommand
         public record ManifestReadError : Result;
     }
 
-    public static async Task<int> Run(DnvmEnv env, Logger logger, CommandArguments.UntrackArguments options)
+    public static async Task<int> Run(DnvmEnv env, Logger logger, Channel channel)
     {
         Manifest manifest;
         try
@@ -29,7 +29,7 @@ public sealed class UntrackCommand
             logger.Log("Failed to read manifest file");
             return 1;
         }
-        var result = RunHelper(options.Channel, manifest, logger);
+        var result = RunHelper(channel, manifest, logger);
         if (result is Result.Success({} newManifest))
         {
             env.WriteManifest(newManifest);
