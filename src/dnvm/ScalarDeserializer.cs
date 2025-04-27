@@ -1,5 +1,6 @@
 
 using System;
+using System.Buffers;
 using Serde;
 
 namespace Dnvm;
@@ -37,6 +38,9 @@ public sealed class ScalarDeserializer(string s) : IDeserializer
     public uint ReadU32() => uint.Parse(s);
 
     public ulong ReadU64() => ulong.Parse(s);
+    public DateTimeOffset ReadDateTimeOffset() => DateTimeOffset.Parse(s);
+    public void ReadBytes(IBufferWriter<byte> writer)
+        => throw new DeserializeException("Found bytes, expected scalar");
 
     void IDisposable.Dispose() { }
 
