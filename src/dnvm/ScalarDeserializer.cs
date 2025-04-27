@@ -38,7 +38,9 @@ public sealed class ScalarDeserializer(string s) : IDeserializer
     public uint ReadU32() => uint.Parse(s);
 
     public ulong ReadU64() => ulong.Parse(s);
-    public DateTimeOffset ReadDateTimeOffset() => DateTimeOffset.Parse(s);
+
+    public DateTime ReadDateTime()
+        => DateTime.Parse(s);
     public void ReadBytes(IBufferWriter<byte> writer)
         => throw new DeserializeException("Found bytes, expected scalar");
 
@@ -51,10 +53,4 @@ public sealed class ScalarDeserializer(string s) : IDeserializer
 
     ITypeDeserializer IDeserializer.ReadType(ISerdeInfo typeInfo)
         => throw new DeserializeException("Found nullable ref, expected scalar");
-
-    public DateTime ReadDateTime()
-        => DateTime.Parse(s);
-
-    public void ReadBytes(IBufferWriter<byte> writer)
-        => throw new DeserializeException("Found bytes, expected scalar");
 }
