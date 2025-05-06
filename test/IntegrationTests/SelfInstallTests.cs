@@ -281,7 +281,7 @@ echo "DNVM_HOME: $DNVM_HOME"
                 var pathMatch = $";{Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User)};";
                 Assert.Contains($";{env.RealPath(UPath.Root)};", pathMatch);
                 var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName));
-                Assert.DoesNotContain($";{sdkInstallDir};", pathMatch);
+                Assert.Contains($";{sdkInstallDir};", pathMatch);
                 Assert.Equal(sdkInstallDir, Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User)!);
                 Assert.Equal(env.RealPath(UPath.Root), Environment.GetEnvironmentVariable(DNVM_HOME, EnvironmentVariableTarget.User)!);
             }
