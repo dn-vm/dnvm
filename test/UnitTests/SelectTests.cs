@@ -35,9 +35,11 @@ public sealed class SelectTests
         var previewDotnet = DnvmEnv.GetSdkPath(defaultSdkDir) / Utilities.DotnetExeName;
         Assert.True(homeFs.FileExists(previewDotnet));
 
-        // Check that the dotnet link/cmd points to the default SDK
-        var dotnetSymlink = env.RealPath(DnvmEnv.SymlinkPath);
-        AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
+        if (!OperatingSystem.IsWindows())
+        {
+            // Check that the dotnet link/cmd points to the default SDK
+            AssertSdkDir(defaultSdkDir, env);
+        }
 
         // Select the preview SDK
         var manifest = await env.ReadManifest();
@@ -46,7 +48,7 @@ public sealed class SelectTests
         manifest = (await SelectCommand.RunWithManifest(env, defaultSdkDir, manifest, _logger)).Unwrap();
 
         Assert.Equal(defaultSdkDir, manifest.CurrentSdkDir);
-        AssertSymlinkTarget(dotnetSymlink, defaultSdkDir);
+        AssertSdkDir(defaultSdkDir, env);
     });
 
     [Fact]
@@ -77,9 +79,22 @@ Valid SDK directory names:
 """.Replace(Environment.NewLine, "\n"), _console.Output);
     });
 
-    private static void AssertSymlinkTarget(string dotnetSymlink, SdkDirName dirName)
+    private static void AssertSdkDir(
+        SdkDirName dirName,
+        DnvmEnv env)
     {
-        var finfo = new FileInfo(dotnetSymlink);
-        Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DotnetExeName), finfo.LinkTarget);
+        if (OperatingSystem.IsWindows())
+        {
+            // On Windows read the PATH environment variable and check that it contains the target SDK directory
+            var path = env.GetUserEnvVar("PATH") ?? string.Empty;
+            Assert.Contains(env.RealPath(DnvmEnv.GetSdkPath(dirName)), path.Split(";"));
+        }
+        else
+        {
+            // On unix read the target symlink and check that it points to the correct directory
+            var dotnetSymlinkPath = env.RealPath(DnvmEnv.SymlinkPath);
+            var finfo = new FileInfo(dotnetSymlinkPath);
+            Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DotnetExeName), finfo.LinkTarget);
+        }
     }
 }

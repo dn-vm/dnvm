@@ -236,7 +236,7 @@ public static partial class InstallCommand
         var curMuxerVersion = manifest.MuxerVersion(sdkDir);
         var error = await InstallSdkToDir(curMuxerVersion, release.Runtime.Version, env.HttpClient, link, env.DnvmHomeFs, sdkInstallPath, env.TempFs, logger);
 
-        CreateSymlinkIfMissing(logger, env, sdkDir);
+        SelectCommand.SelectDir(logger, env, manifest.CurrentSdkDir, sdkDir);
 
         var result = JsonSerializer.Serialize(manifest);
         logger.Info("Existing manifest: " + result);
@@ -324,14 +324,6 @@ public static partial class InstallCommand
         return null;
     }
 
-    internal static void CreateSymlinkIfMissing(Logger logger, DnvmEnv dnvmEnv, SdkDirName sdkDirName)
-    {
-        if (!dnvmEnv.DnvmHomeFs.FileExists(DnvmEnv.SymlinkPath))
-        {
-            RetargetSymlink(logger, dnvmEnv, sdkDirName);
-        }
-    }
-
     internal static string ConstructArchiveName(
         string? versionString,
         RID rid,
@@ -340,45 +332,5 @@ public static partial class InstallCommand
         return versionString is null
             ? $"dotnet-sdk-{rid}{suffix}"
             : $"dotnet-sdk-{versionString}-{rid}{suffix}";
-    }
-
-    /// <summary>
-    /// Creates a symlink from the dotnet exe in the dnvm home directory to the dotnet exe in the
-    /// sdk install directory.
-    /// </summary>
-    internal static void RetargetSymlink(Logger logger, DnvmEnv dnvmEnv, SdkDirName sdkDirName)
-    {
-        var dotnetExePath = DnvmEnv.GetSdkPath(sdkDirName)/Utilities.DotnetExeName;
-        var realDotnetPath = dnvmEnv.RealPath(dotnetExePath);
-        logger.Info($"Retargeting symlink in {dnvmEnv.RealPath(UPath.Root)} to {realDotnetPath}");
-        if (!dnvmEnv.DnvmHomeFs.FileExists(dotnetExePath))
-        {
-            logger.Info("SDK install not found, skipping symlink creation.");
-            return;
-        }
-
-        var homeFs = dnvmEnv.DnvmHomeFs;
-        // Delete if it already exists
-        try
-        {
-            homeFs.DeleteFile(DnvmEnv.SymlinkPath);
-        }
-        catch { }
-
-        // Create a symlink. We assume that the user has enabled developer mode in Windows,
-        // which is required to create symlinks.
-        try
-        {
-            homeFs.CreateSymbolicLink(DnvmEnv.SymlinkPath, dotnetExePath);
-        }
-        catch (IOException)
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                Console.WriteLine("Failed to create symlink. " +
-                    "Please make sure you have developer mode enabled.");
-            }
-            throw;
-        }
     }
 }

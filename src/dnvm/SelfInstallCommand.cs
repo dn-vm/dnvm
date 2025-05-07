@@ -165,7 +165,7 @@ public class SelfInstallCommand
         InstallFailed,
     }
 
-    public async Task<Result> Run(UPath targetPath, Channel channel, SdkDirName sdkDirName, bool updateUserEnv)
+    public async Task<Result> Run(UPath targetPath, Channel channel, SdkDirName newDirName, bool updateUserEnv)
     {
         var procPath = Utilities.ProcessPath;
         _logger.Info("Location of running exe: " + procPath);
@@ -196,7 +196,7 @@ public class SelfInstallCommand
             Force = _opts.Force,
             Verbose = _opts.Verbose,
             FeedUrl = _opts.FeedUrl,
-            SdkDir = sdkDirName,
+            SdkDir = newDirName,
             Yes = _opts.Yes
         });
 
@@ -206,12 +206,22 @@ public class SelfInstallCommand
             return Result.InstallFailed;
         }
 
-        InstallCommand.RetargetSymlink(_logger, _env, sdkDirName);
+        SdkDirName oldDirName;
+        try
+        {
+            var manifest = await _env.ReadManifest();
+            oldDirName = manifest.CurrentSdkDir;
+        }
+        catch
+        {
+            oldDirName = newDirName;
+        }
+        SelectCommand.SelectDir(_logger, _env, oldDirName, newDirName);
 
         // Set up path
         if (updateUserEnv)
         {
-            await UpdateEnv(_logger, _env, sdkDirName);
+            await UpdateEnv(_logger, _env, newDirName);
         }
 
         return Result.Success;
@@ -242,7 +252,8 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
 
-        InstallCommand.RetargetSymlink(logger, dnvmEnv, sdkDirName);
+        // Select the SDK directory if not already selected
+        SelectCommand.SelectDir(logger, dnvmEnv, sdkDirName, sdkDirName);
 
         logger.Info("Updating environment");
         await UpdateEnv(logger, dnvmEnv, sdkDirName);
@@ -473,12 +484,14 @@ public class SelfInstallCommand
     [SupportedOSPlatform("windows")]
     private static void WindowsAddToPath(Logger logger, DnvmEnv dnvmEnv, string pathToAdd)
     {
-        logger.Info("Adding to user path: " + pathToAdd);
+        logger.Info("Checking for path to add: " + pathToAdd);
         var currentPathVar = dnvmEnv.GetUserEnvVar("PATH");
-        if (!(";" + currentPathVar + ";").Contains(pathToAdd))
+        if (!$";{currentPathVar};".Contains($";{pathToAdd};"))
         {
+            logger.Info("Adding to PATH: " + pathToAdd);
             dnvmEnv.SetUserEnvVar("PATH", pathToAdd + ";" + currentPathVar);
         }
+        logger.Info("PATH: " + dnvmEnv.GetUserEnvVar("PATH"));
         logger.Info("PATH updated.");
     }
 
