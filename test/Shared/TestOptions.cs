@@ -31,7 +31,7 @@ public sealed class TestEnv : IDisposable
                 cwdFs,
                 cwd,
                 isPhysical: true,
-                getUserEnvVar: s => _envVars[s],
+                getUserEnvVar: s => _envVars.TryGetValue(s, out var val) ? val : null,
                 setUserEnvVar: (name, val) => _envVars[name] = val,
                 [ dotnetFeedUrl ],
                 releasesUrl);

@@ -11,7 +11,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources/env.sh" />
-    <EmbeddedResource Include="Resources/dotnet.exe" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,16 +20,13 @@
     <PackageReference Include="Semver" />
 
     <PackageReference Include="Serde" />
+    <PackageReference Include="Serde.CmdLine" />
 
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="StaticCs" />
     <PackageReference Include="StaticCs.Collections" />
     <PackageReference Include="StaticCs.Result" />
     <PackageReference Include="zio" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Serde.CmdLine\Serde.CmdLine.csproj" />
   </ItemGroup>
 
 </Project>
