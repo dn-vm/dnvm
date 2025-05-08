@@ -234,7 +234,11 @@ public static partial class InstallCommand
 
         logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
         var curMuxerVersion = manifest.MuxerVersion(sdkDir);
-        var error = await InstallSdkToDir(curMuxerVersion, release.Runtime.Version, env.HttpClient, link, env.DnvmHomeFs, sdkInstallPath, env.TempFs, logger);
+        var err = await InstallSdkToDir(curMuxerVersion, release.Runtime.Version, env.HttpClient, link, env.DnvmHomeFs, sdkInstallPath, env.TempFs, logger);
+        if (err is not null)
+        {
+            return err;
+        }
 
         SelectCommand.SelectDir(logger, env, manifest.CurrentSdkDir, sdkDir);
 
