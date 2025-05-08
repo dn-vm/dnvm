@@ -279,7 +279,7 @@ public static class Utilities
         {
             // We want to copy over all the files from the extraction directory to the target
             // directory, with one exception: the top-level "dotnet exe" (muxer). That has special logic.
-            await CopyMuxer(existingMuxerVersion, runtimeVersion, tempFs, tempExtractDir, destFs, destDir);
+            CopyMuxer(existingMuxerVersion, runtimeVersion, tempFs, tempExtractDir, destFs, destDir);
 
             var extractFullName = tempExtractDir.FullName;
             foreach (var dir in tempFs.EnumerateDirectories(tempExtractDir))
@@ -308,36 +308,19 @@ public static class Utilities
         return null;
     }
 
-    private static async Task CopyMuxer(
+    private static void CopyMuxer(
         SemVersion? existingMuxerVersion,
         SemVersion newRuntimeVersion,
         IFileSystem tempFs,
         UPath tempExtractDir,
         IFileSystem destFs,
         UPath destDir)
-    {   //The "dotnet" exe (muxer) is special in three ways:
+    {   //The "dotnet" exe (muxer) is special in two ways:
         // 1. It is shared between all SDKs, so it may be locked by another process.
         // 2. It should always be the newest version, so we don't want to overwrite it if the SDK
         //    we're installing is older than the one already installed.
-        // 3. Our symlink strategy on Windows requires a muxer from .NET 9 or later. If we're
-        //    installing an SDK older than .NET 9, we need to copy the muxer from an embedded resource.
         //
         var muxerTargetPath = destDir / DotnetExeName;
-
-        // TODO: For now, on Windows, we will always copy the backup muxer if it's newer than the
-        // SDK since we didn't reliably detect the muxer version in the past. This can be removed
-        // in future updates.
-        if (OperatingSystem.IsWindows() && newRuntimeVersion.CompareSortOrderTo(Program.BackupMuxerVersion) < 0)
-        {
-            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"dnvm.Resources.{DotnetExeName}");
-            if (stream is null)
-            {
-                throw new InvalidOperationException("Could not find embedded muxer resource");
-            }
-            using var fileStream = destFs.OpenFile(muxerTargetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-            await stream.CopyToAsync(fileStream);
-            return;
-        }
 
         if (newRuntimeVersion.CompareSortOrderTo(existingMuxerVersion) <= 0)
         {
@@ -345,23 +328,8 @@ public static class Utilities
             return;
         }
 
-        // We need to copy either the muxer from the temp directory or the embedded resource.
-        if (OperatingSystem.IsWindows() && newRuntimeVersion.CompareSortOrderTo(Program.BackupMuxerVersion) < 0)
-        {
-            // The new SDK is older than the backup muxer, so we need to copy the embedded resource.
-            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"dnvm.Resources.{DotnetExeName}");
-            if (stream is null)
-            {
-                throw new InvalidOperationException("Could not find embedded muxer resource");
-            }
-            using var fileStream = destFs.OpenFile(muxerTargetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-            await stream.CopyToAsync(fileStream);
-        }
-        else
-        {
-            // The new SDK is newer than the backup muxer, so we can copy the muxer from the temp directory.
-            ForceReplaceFile(tempFs, tempExtractDir / DotnetExeName, destFs, muxerTargetPath);
-        }
+        // The new SDK is newer than the existing muxer, so we need to replace it.
+        ForceReplaceFile(tempFs, tempExtractDir / DotnetExeName, destFs, muxerTargetPath);
     }
 
     public static T Unwrap<T>(this T? t, [CallerArgumentExpression(parameterName: nameof(t))] string? expr = null) where T : class
