@@ -97,8 +97,7 @@ public sealed partial class UpdateCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            _logger.Error("Could not fetch the releases index: ");
-            _logger.Error(e.Message);
+            _logger.Error($"Could not fetch the releases index: {e.Message}");
             return CouldntFetchIndex;
         }
 
@@ -290,8 +289,7 @@ public sealed partial class UpdateCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error("Could not fetch releases from URL: " + releasesUrl);
-            logger.Error(e.Message);
+            logger.Error($"Could not fetch releases from URL '{releasesUrl}': {e.Message}");
             return (false, null);
         }
 
@@ -388,8 +386,7 @@ public sealed partial class UpdateCommand
             const string usageString = "usage: ";
             if (ps.ExitCode != 0)
             {
-                logger?.Error("Could not run downloaded dnvm:");
-                logger?.Error(error);
+                logger?.Error($"Could not run downloaded dnvm: {error}");
                 return false;
             }
             else if (!output.Contains(usageString))
