@@ -43,7 +43,7 @@ public static class SelectCommand
 
         if (!validDirs.Contains(newDir))
         {
-            logger.Log($"Invalid SDK directory name: {newDir.Name}");
+            logger.Error($"Invalid SDK directory name: {newDir.Name}");
             logger.Log("Valid SDK directory names:");
             foreach (var dir in validDirs)
             {

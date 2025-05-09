@@ -206,8 +206,7 @@ public static partial class RestoreCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error("Could not fetch the releases index: ");
-            logger.Error(e.Message);
+            logger.Error($"Could not fetch the releases index: {e.Message}");
             return Error.CouldntFetchReleaseIndex;
         }
 

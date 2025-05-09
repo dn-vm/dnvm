@@ -26,7 +26,7 @@ public sealed class UntrackCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Log("Failed to read manifest file");
+            logger.Error("Failed to read manifest file");
             return 1;
         }
         var result = RunHelper(channel, manifest, logger);
