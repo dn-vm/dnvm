@@ -1,9 +1,9 @@
-
 pushd $PSScriptRoot
 
-dotnet tool restore
+# Extract version from Directory.Build.props
+[xml]$props = Get-Content "$PSScriptRoot/Directory.Build.props"
+$version = $props.Project.PropertyGroup.SemVer
 
-$version=$(dotnet gitversion /showvariable semver)
 $rid='win-x64'
 
 dotnet publish --sc -r $rid -c Release src/dnvm/dnvm.csproj
