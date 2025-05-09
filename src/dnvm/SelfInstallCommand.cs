@@ -78,7 +78,7 @@ public class SelfInstallCommand
 
         if (!Utilities.IsSingleFile)
         {
-            logger.Log("Cannot self-install into target location: the current executable is not deployed as a single file.");
+            logger.Error("Cannot self-install into target location: the current executable is not deployed as a single file.");
             return Result.SelfInstallFailed;
         }
 
@@ -108,7 +108,7 @@ public class SelfInstallCommand
         var targetPath = DnvmEnv.DnvmExePath;
         if (!opt.Force && env.DnvmHomeFs.FileExists(targetPath))
         {
-            logger.Log("dnvm is already installed at: " + targetPath);
+            logger.Error("dnvm is already installed at: " + targetPath);
             logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
             return Result.SelfInstallFailed;
         }
@@ -187,7 +187,7 @@ public class SelfInstallCommand
         }
         catch (Exception e)
         {
-            _logger.Log($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
+            _logger.Error($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
             return Result.SelfInstallFailed;
         }
 

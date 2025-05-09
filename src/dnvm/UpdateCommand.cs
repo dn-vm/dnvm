@@ -123,7 +123,7 @@ public sealed partial class UpdateCommand
         // Check for dnvm updates
         if (await CheckForSelfUpdates(env.HttpClient, logger, releasesUrl, manifest.PreviewsEnabled) is (true, _))
         {
-            logger.Log("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
+            logger.Warn("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
         }
 
         try
