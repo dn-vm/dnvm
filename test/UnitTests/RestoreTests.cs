@@ -18,7 +18,9 @@ public sealed class RestoreTests
         var restoreResult = await RestoreCommand.Run(env, logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
         Assert.Equal(RestoreCommand.Error.NoGlobalJson, restoreResult);
         Assert.Equal("""
+
         Error: No global.json found in the current directory or any of its parents.
+
 
         """.NormalizeLineEndings(), console.Output.TrimLines());
     });
