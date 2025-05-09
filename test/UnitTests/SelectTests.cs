@@ -72,7 +72,9 @@ public sealed class SelectTests
         Assert.Equal(SelectCommand.Result.BadDirName, result);
 
         Assert.Equal("""
-Invalid SDK directory name: bad
+
+Error: Invalid SDK directory name: bad
+
 Valid SDK directory names:
   dn
 

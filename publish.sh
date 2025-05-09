@@ -24,9 +24,9 @@ fi
 
 cd "$(dirname "$0")"
 
-dotnet tool restore
+# Extract version from Directory.Build.props
+version=$(grep "<SemVer>" Directory.Build.props | sed -E 's/.*<SemVer>([^<]+)<\/SemVer>.*/\1/')
 
-version=$(dotnet gitversion /showvariable semver)
 if [[ -z "${rid}" ]]; then
     if [[ $(uname) == 'Darwin' ]]; then
         osname='osx'

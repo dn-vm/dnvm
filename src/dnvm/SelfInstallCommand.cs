@@ -78,7 +78,7 @@ public class SelfInstallCommand
 
         if (!Utilities.IsSingleFile)
         {
-            logger.Log("Cannot self-install into target location: the current executable is not deployed as a single file.");
+            logger.Error("Cannot self-install into target location: the current executable is not deployed as a single file.");
             return Result.SelfInstallFailed;
         }
 
@@ -108,7 +108,7 @@ public class SelfInstallCommand
         var targetPath = DnvmEnv.DnvmExePath;
         if (!opt.Force && env.DnvmHomeFs.FileExists(targetPath))
         {
-            logger.Log("dnvm is already installed at: " + targetPath);
+            logger.Error("dnvm is already installed at: " + targetPath);
             logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
             return Result.SelfInstallFailed;
         }
@@ -118,7 +118,7 @@ public class SelfInstallCommand
         {
             Console.WriteLine("Which channel would you like to start tracking?");
             Console.WriteLine("Available channels:");
-            List<Channel> channels = [ new Channel.Latest(), new Channel.Sts(), new Channel.Lts(), new Channel.Preview() ];
+            List<Channel> channels = [new Channel.Latest(), new Channel.Sts(), new Channel.Lts(), new Channel.Preview()];
             for (int i = 0; i < channels.Count; i++)
             {
                 var c = channels[i];
@@ -187,11 +187,12 @@ public class SelfInstallCommand
         }
         catch (Exception e)
         {
-            _logger.Log($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
+            _logger.Error($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
             return Result.SelfInstallFailed;
         }
 
-        var result = await TrackCommand.Run(_env, _logger, new TrackCommand.Options {
+        var result = await TrackCommand.Run(_env, _logger, new TrackCommand.Options
+        {
             Channel = channel,
             Force = _opts.Force,
             Verbose = _opts.Verbose,
@@ -363,12 +364,10 @@ public class SelfInstallCommand
                 // dotnet.exe is in one of the system path variables. Produce a warning
                 // that the dnvm dotnet.exe will not appear on the path as long as the
                 // system variable is present.
-                logger.Log("");
                 logger.Warn("Found 'dotnet.exe' inside the System PATH environment variable. " +
-                    "System PATH is always preferred over user path on Windows, so the dnvm-installed " +
+                    "System PATH is always preferred over User path on Windows, so the dnvm-installed " +
                     "dotnet.exe will not be accessible until it is removed. " +
                     "It is strongly recommended to remove dotnet from your System PATH now.");
-                logger.Log("");
             }
             logger.Log("Adding install directory to user path: " + dnvmHome);
             WindowsAddToPath(logger, env, dnvmHome);
