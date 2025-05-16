@@ -1,4 +1,3 @@
-
 using System.Collections.Immutable;
 using System.Runtime.InteropServices.Marshalling;
 using System.Security.Cryptography;
@@ -348,5 +347,63 @@ public sealed class UpdateTests
             SdkDirName = DnvmEnv.DefaultSdkDirName,
             InstalledSdkVersions = [ MockServer.DefaultPreviewVersion ]
         }], manifest.RegisteredChannels);
+    });
+
+    [Fact]
+    public async Task MultipleTracked() => await TestUtils.RunWithServer(async (mockServer, env) =>
+    {
+        mockServer.ClearVersions();
+
+        var initialVersion = new SemVersion(6, 0, 0);
+        mockServer.RegisterReleaseVersion(initialVersion, "lts", "active");
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
+        {
+            Channel = new Channel.Lts(),
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+        // Explicitly add the LTS channel to the manifest since it's impossible to create this
+        // manifest through the command line
+        var manifest = await env.ReadManifest();
+        manifest = manifest.TrackChannel(new RegisteredChannel
+        {
+            ChannelName = new Channel.Lts(),
+            SdkDirName = new("custom-sdk-dir"),
+        });
+        env.WriteManifest(manifest);
+        var updatedVersion = new SemVersion(6, 0, 1);
+        mockServer.RegisterReleaseVersion(updatedVersion, "lts", "active");
+
+        var updateResult = await UpdateCommand.Run(env, _logger, new UpdateCommand.Options
+        {
+            Yes = true,
+        });
+        Assert.Equal(UpdateCommand.Result.Success, updateResult);
+        manifest = await env.ReadManifest();
+        Assert.Equal([
+            new InstalledSdk
+            {
+                SdkVersion = initialVersion,
+                ReleaseVersion = initialVersion,
+                RuntimeVersion = initialVersion,
+                AspNetVersion = initialVersion,
+                SdkDirName = DnvmEnv.DefaultSdkDirName
+            },
+            new InstalledSdk
+            {
+                SdkVersion = updatedVersion,
+                ReleaseVersion = updatedVersion,
+                RuntimeVersion = updatedVersion,
+                AspNetVersion = updatedVersion,
+                SdkDirName = DnvmEnv.DefaultSdkDirName
+            },
+            new InstalledSdk
+            {
+                SdkVersion = updatedVersion,
+                ReleaseVersion = updatedVersion,
+                RuntimeVersion = updatedVersion,
+                AspNetVersion = updatedVersion,
+                SdkDirName = new("custom-sdk-dir")
+            }
+        ], manifest.InstalledSdks);
     });
 }

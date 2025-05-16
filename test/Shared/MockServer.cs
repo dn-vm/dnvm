@@ -75,11 +75,17 @@ public sealed class MockServer : IAsyncDisposable
         };
     }
 
+    public void ClearVersions()
+    {
+        ChannelIndexMap.Clear();
+        ReleasesIndexJson = DotnetReleasesIndex.Empty;
+    }
+
     [MemberNotNull(nameof(ReleasesIndexJson))]
     public ChannelReleaseIndex.Release RegisterReleaseVersion(SemVersion version, string releaseType, string supportPhase)
     {
         var majorMinor = version.ToMajorMinor();
-        ReleasesIndexJson ??= new DotnetReleasesIndex{ ChannelIndices = [ ] };
+        ReleasesIndexJson ??= DotnetReleasesIndex.Empty;
         var channel = ReleasesIndexJson.ChannelIndices.SingleOrDefault(c => c.MajorMinorVersion == majorMinor);
         if (channel is null)
         {
