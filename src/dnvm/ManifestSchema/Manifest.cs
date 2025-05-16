@@ -23,7 +23,7 @@ public sealed partial record Manifest
     public EqArray<InstalledSdk> InstalledSdks { get; init; } = [];
     public EqArray<RegisteredChannel> RegisteredChannels { get; init; } = [];
 
-    internal Manifest TrackChannel(RegisteredChannel channel)
+    public Manifest TrackChannel(RegisteredChannel channel)
     {
         var existing = RegisteredChannels.FirstOrNull(c =>
             c.ChannelName == channel.ChannelName && c.SdkDirName == channel.SdkDirName);

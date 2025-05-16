@@ -185,12 +185,15 @@ public sealed partial class UpdateCommand
                     {
                         var latestSdkVersion = SemVersion.Parse(newestAvailable.LatestSdk, SemVersionStyles.Strict);
 
-                        var oldTracked = manifest.RegisteredChannels.Single(t => t.ChannelName == c);
-                        var newTracked = oldTracked with
+
+                        foreach (var oldTracked in manifest.RegisteredChannels.Where(t => t.ChannelName == c))
                         {
-                            InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
-                        };
-                        manifest = manifest with { RegisteredChannels = manifest.RegisteredChannels.Replace(oldTracked, newTracked) };
+                            var newTracked = oldTracked with
+                            {
+                                InstalledSdkVersions = oldTracked.InstalledSdkVersions.Add(latestSdkVersion)
+                            };
+                            manifest = manifest with { RegisteredChannels = manifest.RegisteredChannels.Replace(oldTracked, newTracked) };
+                        }
                     }
                 }
             }
