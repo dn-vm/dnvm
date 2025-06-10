@@ -9,12 +9,11 @@ namespace Dnvm.Test;
 
 public sealed class ListTests
 {
-    private readonly TestConsole _console = new();
     private readonly Logger _logger;
 
     public ListTests()
     {
-       _logger = new Logger(_console);
+       _logger = new Logger(new StringWriter());
     }
 
     [Fact]
@@ -35,7 +34,8 @@ public sealed class ListTests
                 SdkDirName = new("preview") }, new Channel.Preview());
 
         const string fakeHome = "/home";
-        ListCommand.PrintSdks(_logger, manifest, fakeHome);
+        var console = new TestConsole();
+        ListCommand.PrintSdks(console, manifest, fakeHome);
         var output = $"""
 DNVM_HOME: {fakeHome}
 
@@ -54,7 +54,7 @@ Tracked channels:
  • preview
 """;
 
-        Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
+        Assert.Equal(output, string.Join(Environment.NewLine, console.Lines));
     }
 
     [Fact]
@@ -89,7 +89,7 @@ Tracked channels:
  • latest
 """;
 
-        Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
+        Assert.Equal(output, string.Join(Environment.NewLine, ((TestConsole)testEnv.DnvmEnv.Console).Lines));
     }
 
     [Fact]
@@ -99,20 +99,22 @@ Tracked channels:
             .AddSdk(new SemVersion(42, 42, 42), new Channel.Latest())
             .AddSdk(new SemVersion(10, 10, 10), new Channel.Lts());
 
-        var env = new Dictionary<string, string>();
+        var envVars = new Dictionary<string, string>();
         using var userHome = TestUtils.CreateTempDirectory();
-        var home = new DnvmEnv(
+        var console = new TestConsole();
+        var env = new DnvmEnv(
             userHome.Path,
             new MemoryFileSystem(),
             new MemoryFileSystem(),
             UPath.Root,
             isPhysical: false,
-            getUserEnvVar: s => env[s],
-            setUserEnvVar: (name, val) => env[name] = val
+            getUserEnvVar: s => envVars[s],
+            setUserEnvVar: (name, val) => envVars[name] = val,
+            console
         );
-        home.WriteManifest(manifest);
+        env.WriteManifest(manifest);
 
-        var ret = await ListCommand.Run(_logger, home);
+        var ret = await ListCommand.Run(_logger, env);
         Assert.Equal(0, ret);
         var output = """
 DNVM_HOME: /
@@ -132,16 +134,15 @@ Tracked channels:
  • lts
 """;
 
-        Assert.Equal(output, string.Join(Environment.NewLine, _console.Lines));
+        Assert.Equal(output, string.Join(Environment.NewLine, console.Lines));
 
-        var console = new TestConsole();
-        var logger = new Logger(console);
-        if (UntrackCommand.RunHelper(new Channel.Latest(), manifest, logger) is not UntrackCommand.Result.Success({} newManifest))
+        var consolePrefix = console.Lines.Count;
+        if (UntrackCommand.RunHelper(new Channel.Latest(), manifest, env.Console) is not UntrackCommand.Result.Success({ } newManifest))
         {
             throw new InvalidOperationException();
         }
-        home.WriteManifest(newManifest);
-        ret = await ListCommand.Run(logger, home);
+        env.WriteManifest(newManifest);
+        ret = await ListCommand.Run(_logger, env);
         output = """
 DNVM_HOME: /
 
@@ -159,6 +160,6 @@ Tracked channels:
  • lts
 """;
 
-        Assert.Equal(output, string.Join(Environment.NewLine, console.Lines));
+        Assert.Equal(output, string.Join(Environment.NewLine, console.Lines.Skip(consolePrefix)));
     }
 }

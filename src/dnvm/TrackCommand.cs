@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Semver;
 using Serde.Json;
+using Spectre.Console;
 using StaticCs;
 using Zio;
 using static Dnvm.Utilities;
@@ -36,8 +37,10 @@ public sealed class TrackCommand
     private readonly DnvmEnv _env;
 
     private readonly Logger _logger;
-    private readonly Options _opts;
     private readonly IEnumerable<string> _feedUrls;
+    private readonly SdkDirName _sdkDir;
+    private readonly bool _force;
+    private readonly Channel _channel;
 
     public enum Result
     {
@@ -57,14 +60,16 @@ public sealed class TrackCommand
     {
         _env = env;
         _logger = logger;
-        _opts = opts;
-        if (_opts.Verbose)
+        if (opts.Verbose)
         {
-            _logger.LogLevel = LogLevel.Info;
+            _logger.Enabled = true;
         }
         _feedUrls = opts.FeedUrl is not null
-            ? [ opts.FeedUrl.TrimEnd('/') ]
+            ? [opts.FeedUrl.TrimEnd('/')]
             : env.DotnetFeedUrls;
+        _sdkDir = opts.SdkDir;
+        _force = opts.Force;
+        _channel = opts.Channel;
     }
 
     public static Task<Result> Run(DnvmEnv env, Logger logger, Options opts)
@@ -93,7 +98,8 @@ public sealed class TrackCommand
     public async Task<Result> Run()
     {
         var dnvmHome = _env.RealPath(UPath.Root);
-        var sdkInstallPath = Path.Combine(dnvmHome, _opts.SdkDir.Name);
+        var sdkInstallPath = Path.Combine(dnvmHome, _sdkDir.Name);
+        var console = _env.Console;
         try
         {
             Directory.CreateDirectory(dnvmHome);
@@ -101,7 +107,7 @@ public sealed class TrackCommand
         }
         catch (UnauthorizedAccessException)
         {
-            _logger.Error($"Cannot write to install location. Ensure you have appropriate permissions.");
+            console.Error($"Cannot write to install location. Ensure you have appropriate permissions.");
             return Result.InstallLocationNotWritable;
         }
 
@@ -112,26 +118,26 @@ public sealed class TrackCommand
         }
         catch (InvalidDataException)
         {
-            _logger.Error("Manifest file corrupted");
+            console.Error("Manifest file corrupted");
             return Result.ManifestFileCorrupted;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            _logger.Error("Error reading manifest file: " + e.Message);
+            console.Error("Error reading manifest file: " + e.Message);
             return Result.ManifestIOError;
         }
 
-        var channel = _opts.Channel;
+        var channel = _channel;
         if (manifest.TrackedChannels().Any(c => c.ChannelName == channel))
         {
-            _logger.Log($"Channel '{channel.GetDisplayName()}' is already being tracked." +
+            console.WriteLine($"Channel '{channel.GetDisplayName()}' is already being tracked." +
                 " Did you mean to run 'dnvm update'?");
             return Result.ChannelAlreadyTracked;
         }
 
         manifest = manifest.TrackChannel(new RegisteredChannel {
             ChannelName = channel,
-            SdkDirName = _opts.SdkDir,
+            SdkDirName = _sdkDir,
             InstalledSdkVersions = EqArray<SemVersion>.Empty
         });
 
@@ -140,9 +146,9 @@ public sealed class TrackCommand
             _env,
             _logger,
             channel,
-            _opts.Force,
+            _force,
             _feedUrls,
-            _opts.SdkDir);
+            _sdkDir);
     }
 
     internal static async Task<Result> InstallLatestFromChannel(
@@ -154,6 +160,8 @@ public sealed class TrackCommand
         IEnumerable<string> feedUrls,
         SdkDirName sdkDir)
     {
+        var console = dnvmEnv.Console;
+
         DotnetReleasesIndex versionIndex;
         try
         {
@@ -161,7 +169,7 @@ public sealed class TrackCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error($"Could not fetch the releases index: {e.Message}");
+            console.Error($"Could not fetch the releases index: {e.Message}");
             return Result.CouldntFetchIndex;
         }
 
@@ -177,12 +185,12 @@ public sealed class TrackCommand
             // case go through without attempting to install anything.
             if (channel is Channel.VersionedMajorMinor or Channel.VersionedFeature)
             {
-                logger.Error($"Could not find channel '{channel}' in the dotnet releases index.");
+                console.Error($"Could not find channel '{channel}' in the dotnet releases index.");
                 return Result.UnknownChannel;
             }
             else
             {
-                logger.Log($"""
+                console.WriteLine($"""
 No builds available for channel '{channel}'. This often happens for preview channels when the first
 preview has not yet been released.
 Proceeding without SDK installation.
@@ -195,7 +203,7 @@ Proceeding without SDK installation.
         // Proceed with SDK installation
 
         var latestSdkVersion = SemVersion.Parse(latestChannelIndex.LatestSdk, SemVersionStyles.Strict);
-        logger.Log("Found latest version: " + latestSdkVersion);
+        console.WriteLine("Found latest version: " + latestSdkVersion);
 
         var result = await InstallCommand.TryGetReleaseFromIndex(dnvmEnv.HttpClient, versionIndex, channel, latestSdkVersion);
         if (result is not ({} component, {} release))
@@ -205,7 +213,7 @@ Proceeding without SDK installation.
 
         if (!force && manifest.InstalledSdks.Any(s => s.SdkVersion == latestSdkVersion && s.SdkDirName == sdkDir))
         {
-            logger.Log($"Version {latestSdkVersion} is already installed in directory '{sdkDir.Name}'." +
+            console.WriteLine($"Version {latestSdkVersion} is already installed in directory '{sdkDir.Name}'." +
                 " Skipping installation. To install anyway, pass --force.");
         }
         else
@@ -231,11 +239,11 @@ Proceeding without SDK installation.
         // both channels. One channel will "win" when installing it, and then the next will skip
         // installation. If the version is only added to one channel's tracking list, the result is
         // not deterministic. By adding it to both, it doesn't matter what order we update channels in.
-        logger.Info($"Adding installed version '{latestSdkVersion}' to manifest.");
+        logger.Log($"Adding installed version '{latestSdkVersion}' to manifest.");
         var oldTracked = manifest.RegisteredChannels.Single(t => t.ChannelName == channel);
         if (oldTracked.InstalledSdkVersions.Contains(latestSdkVersion))
         {
-            logger.Info("Version already tracked");
+            logger.Log("Version already tracked");
         }
         else
         {
@@ -245,10 +253,10 @@ Proceeding without SDK installation.
             manifest = manifest with { RegisteredChannels = manifest.RegisteredChannels.Replace(oldTracked, newTracked) };
         }
 
-        logger.Info("Writing manifest");
+        logger.Log("Writing manifest");
         dnvmEnv.WriteManifest(manifest);
 
-        logger.Log("Successfully installed");
+        console.WriteLine("Successfully installed");
 
         return Result.Success;
     }

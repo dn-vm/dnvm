@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Semver;
 using Serde;
 using Serde.Json;
+using Spectre.Console;
 using StaticCs;
 using Zio;
 using static Dnvm.InstallCommand;
@@ -166,9 +167,11 @@ public static partial class RestoreCommand
             cwd = cwd.GetDirectory();
         }
 
-        if (globalJsonPathOpt is not {} globalJsonPath)
+        var console = env.Console;
+
+        if (globalJsonPathOpt is not { } globalJsonPath)
         {
-            logger.Error("No global.json found in the current directory or any of its parents.");
+            console.Error("No global.json found in the current directory or any of its parents.");
             return Error.NoGlobalJson;
         }
 
@@ -180,19 +183,19 @@ public static partial class RestoreCommand
         }
         catch (IOException e)
         {
-            logger.Error("Failed to read global.json: " + e.Message);
+            console.Error("Failed to read global.json: " + e.Message);
             return Error.IoError;
         }
 
         if (json.Sdk is not {} sdk)
         {
-            logger.Error("global.json does not contain an SDK section.");
+            console.Error("global.json does not contain an SDK section.");
             return Error.NoSdkSection;
         }
 
         if (sdk.Version is not {} version)
         {
-            logger.Error("SDK section in global.json does not contain a version.");
+            console.Error("SDK section in global.json does not contain a version.");
             return Error.NoVersion;
         }
 
@@ -206,7 +209,7 @@ public static partial class RestoreCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error($"Could not fetch the releases index: {e.Message}");
+            console.Error($"Could not fetch the releases index: {e.Message}");
             return Error.CouldntFetchReleaseIndex;
         }
 
@@ -240,11 +243,11 @@ public static partial class RestoreCommand
 
         if (release is null)
         {
-            logger.Error("No SDK found that matches the requested version.");
+            console.Error("No SDK found that matches the requested version.");
             return Error.CantFindRequestedVersion;
         }
 
-        logger.Log($"Found version {sdk.Version} in global.json. Selected version {release.Sdk.Version} based on roll forward rules.");
+        console.WriteLine($"Found version {sdk.Version} in global.json. Selected version {release.Sdk.Version} based on roll forward rules.");
         var downloadUrl = release.Sdk.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString() && f.Url.EndsWith(Utilities.ZipSuffix)).Url;
 
         if (options.Local)
@@ -253,6 +256,7 @@ public static partial class RestoreCommand
                 curMuxerVersion: null, // we shouldn't have a muxer yet, and we can overwrite it if we do
                 release.Sdk.Version,
                 env.HttpClient,
+                env.Console,
                 downloadUrl,
                 env.CwdFs,
                 installDir,
@@ -273,18 +277,18 @@ public static partial class RestoreCommand
             }
             catch (InvalidDataException)
             {
-                logger.Error("Manifest file corrupted");
+                console.Error("Manifest file corrupted");
                 return Error.ManifestFileCorrupted;
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
-                logger.Error("Error reading manifest file: " + e.Message);
+                console.Error("Error reading manifest file: " + e.Message);
                 return Error.ManifestIOError;
             }
 
             if (!options.Force && ManifestUtils.IsSdkInstalled(manifest, release.Sdk.Version, manifest.CurrentSdkDir))
             {
-                logger.Log($"Version {release.Sdk.Version} is already installed in directory '{manifest.CurrentSdkDir.Name}'." +
+                console.WriteLine($"Version {release.Sdk.Version} is already installed in directory '{manifest.CurrentSdkDir.Name}'." +
                     " Skipping installation. To install anyway, pass --force.");
                 return release.Sdk.Version;
             }

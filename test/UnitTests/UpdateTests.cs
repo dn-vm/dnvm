@@ -20,7 +20,7 @@ public sealed class UpdateTests
 
     public UpdateTests()
     {
-        _logger = new Logger(new TestConsole());
+        _logger = new Logger(new StringWriter());
     }
 
     private static Task TestWithServer(Func<MockServer, DnvmEnv, Task> test)
@@ -55,16 +55,14 @@ public sealed class UpdateTests
             ]
         };
         var releasesIndex = mockServer.ReleasesIndexJson;
-        var console = new TestConsole();
-        var logger = new Logger(console);
         _ = await UpdateCommand.UpdateSdks(
             env,
-            logger,
+            _logger,
             releasesIndex,
             manifest,
             yes: false,
             env.DnvmReleasesUrl!);
-        Assert.Contains("dnvm is out of date", console.Output);
+        Assert.Contains("dnvm is out of date", ((TestConsole)env.Console).Output);
     });
 
     [Fact]

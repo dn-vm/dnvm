@@ -37,23 +37,25 @@ public sealed partial class UpdateCommand
 
     private readonly DnvmEnv _env;
     private readonly Logger _logger;
-    private readonly Options _opts;
     private readonly IEnumerable<string> _feedUrls;
     private readonly string _releasesUrl;
+    private readonly bool _yes;
+    private readonly bool _self;
 
     public UpdateCommand(DnvmEnv env, Logger logger, Options opts)
     {
         _logger = logger;
-        _opts = opts;
-        if (_opts.Verbose)
+        if (opts.Verbose)
         {
-            _logger.LogLevel = LogLevel.Info;
+            _logger.Enabled = true;
         }
-        _feedUrls = _opts.FeedUrl is not null
-            ? [ _opts.FeedUrl.TrimEnd('/') ]
+        _feedUrls = opts.FeedUrl is not null
+            ? [opts.FeedUrl.TrimEnd('/')]
             : env.DotnetFeedUrls;
-        _releasesUrl = _opts.DnvmReleasesUrl ?? env.DnvmReleasesUrl;
+        _releasesUrl = opts.DnvmReleasesUrl ?? env.DnvmReleasesUrl;
         _env = env;
+        _yes = opts.Yes;
+        _self = opts.Self;
     }
 
     public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.UpdateArgs args)
@@ -85,7 +87,7 @@ public sealed partial class UpdateCommand
     public async Task<Result> Run()
     {
         var manifest = await ManifestUtils.ReadOrCreateManifest(_env);
-        if (_opts.Self)
+        if (_self)
         {
             return await UpdateSelf(manifest);
         }
@@ -97,7 +99,7 @@ public sealed partial class UpdateCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            _logger.Error($"Could not fetch the releases index: {e.Message}");
+            _env.Console.Error($"Could not fetch the releases index: {e.Message}");
             return CouldntFetchIndex;
         }
 
@@ -106,7 +108,7 @@ public sealed partial class UpdateCommand
             _logger,
             releaseIndex,
             manifest,
-            _opts.Yes,
+            _yes,
             _releasesUrl);
     }
 
@@ -118,11 +120,11 @@ public sealed partial class UpdateCommand
         bool yes,
         string releasesUrl)
     {
-        logger.Log("Looking for available updates");
+        env.Console.WriteLine("Looking for available updates");
         // Check for dnvm updates
-        if (await CheckForSelfUpdates(env.HttpClient, logger, releasesUrl, manifest.PreviewsEnabled) is (true, _))
+        if (await CheckForSelfUpdates(env.HttpClient, env.Console, logger, releasesUrl, manifest.PreviewsEnabled) is (true, _))
         {
-            logger.Warn("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
+            env.Console.WriteLine("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
         }
 
         try
@@ -130,7 +132,7 @@ public sealed partial class UpdateCommand
             var updateResults = FindPotentialUpdates(manifest, releasesIndex);
             if (updateResults.Count > 0)
             {
-                logger.Log("Found versions available for update");
+                env.Console.WriteLine("Found versions available for update");
                 var table = new Table();
                 table.AddColumn("Channel");
                 table.AddColumn("Installed");
@@ -139,8 +141,8 @@ public sealed partial class UpdateCommand
                 {
                     table.AddRow(c.ToString(), newestInstalled?.ToString() ?? "(none)", newestAvailable.LatestSdk);
                 }
-                logger.Console.Write(table);
-                logger.Log("Install updates? [y/N]: ");
+                env.Console.Write(table);
+                env.Console.WriteLine("Install updates? [y/N]: ");
                 var response = yes ? "y" : Console.ReadLine();
                 if (response?.Trim().ToLowerInvariant() == "y")
                 {
@@ -153,7 +155,7 @@ public sealed partial class UpdateCommand
                         var result = await InstallCommand.TryGetReleaseFromIndex(env.HttpClient, releasesIndex, c, latestSdkVersion);
                         if (result is not ({} component, {} release))
                         {
-                            logger.Error($"Index does not contain release for channel '{c}' with version '{latestSdkVersion}'."
+                            env.Console.Error($"Index does not contain release for channel '{c}' with version '{latestSdkVersion}'."
                                 + "This is either a bug or the .NET index is incorrect. Please a file a bug at https://github.com/dn-vm/dnvm.");
                             return UpdateFailed;
                         }
@@ -174,7 +176,7 @@ public sealed partial class UpdateCommand
 
                         if (result is not Result<Manifest, InstallCommand.InstallError>.Ok(var newManifest))
                         {
-                            logger.Error($"Failed to install version '{latestSdkVersion}'");
+                            env.Console.Error($"Failed to install version '{latestSdkVersion}'");
                             return UpdateFailed;
                         }
                         manifest = newManifest;
@@ -200,11 +202,11 @@ public sealed partial class UpdateCommand
         }
         finally
         {
-            logger.Info("Writing manifest");
+            logger.Log("Writing manifest");
             env.WriteManifest(manifest);
         }
 
-        logger.Log("Successfully installed");
+        env.Console.WriteLine("Successfully installed");
         return Success;
     }
 
@@ -232,12 +234,12 @@ public sealed partial class UpdateCommand
     {
         if (!Utilities.IsSingleFile)
         {
-            _logger.Error("Cannot self-update: the current executable is not deployed as a single file.");
+            _env.Console.Error("Cannot self-update: the current executable is not deployed as a single file.");
             return Result.NotASingleFile;
         }
 
         DnvmReleases.Release release;
-        switch (await CheckForSelfUpdates(_env.HttpClient, _logger, _releasesUrl, manifest.PreviewsEnabled))
+        switch (await CheckForSelfUpdates(_env.HttpClient, _env.Console, _logger, _releasesUrl, manifest.PreviewsEnabled))
         {
             case (false, null):
                 return Result.SelfUpdateFailed;
@@ -255,35 +257,36 @@ public sealed partial class UpdateCommand
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         async Task HandleDownload(string tempDownloadPath)
         {
-            _logger.Info("Extraction directory: " + tempArchiveDir);
+            _logger.Log("Extraction directory: " + tempArchiveDir);
             string? retMsg = await Utilities.ExtractArchiveToDir(tempDownloadPath, tempArchiveDir);
             if (retMsg != null)
             {
-                _logger.Error("Extraction failed: " + retMsg);
+                _env.Console.Error("Extraction failed: " + retMsg);
             }
         }
 
         await DownloadBinaryToTempAndDelete(artifactDownloadLink, HandleDownload);
-        _logger.Info($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
+        _logger.Log($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.DnvmExeName);
-        bool success = await ValidateBinary(_logger, dnvmTmpPath);
+        bool success = await ValidateBinary(_env.Console, _logger, dnvmTmpPath);
         if (!success)
         {
             return SelfUpdateFailed;
         }
-        var exitCode = RunSelfInstall(_logger, dnvmTmpPath, Utilities.ProcessPath);
+        var exitCode = RunSelfInstall(_env.Console, _logger, dnvmTmpPath, Utilities.ProcessPath);
         return exitCode == 0 ? Success : SelfUpdateFailed;
     }
 
     private static async Task<(bool UpdateAvailable, DnvmReleases.Release? Releases)> CheckForSelfUpdates(
         ScopedHttpClient httpClient,
+        IAnsiConsole console,
         Logger logger,
         string releasesUrl,
         bool previewsEnabled)
     {
-        logger.Log("Checking for updates to dnvm");
-        logger.Info("Using dnvm releases URL: " + releasesUrl);
+        console.WriteLine("Checking for updates to dnvm");
+        console.WriteLine("Using dnvm releases URL: " + releasesUrl);
 
         string releasesJson;
         try
@@ -292,19 +295,19 @@ public sealed partial class UpdateCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error($"Could not fetch releases from URL '{releasesUrl}': {e.Message}");
+            console.Error($"Could not fetch releases from URL '{releasesUrl}': {e.Message}");
             return (false, null);
         }
 
         DnvmReleases releases;
         try
         {
-            logger.Info("Releases JSON: " + releasesJson);
+            logger.Log("Releases JSON: " + releasesJson);
             releases = JsonSerializer.Deserialize<DnvmReleases>(releasesJson);
         }
         catch (Exception e)
         {
-            logger.Error("Could not deserialize Releases JSON: " + e.Message);
+            console.Error("Could not deserialize Releases JSON: " + e.Message);
             return (false, null);
         }
 
@@ -317,19 +320,19 @@ public sealed partial class UpdateCommand
 
         if (previewsEnabled && preview is not null && newest.ComparePrecedenceTo(preview) < 0)
         {
-            logger.Log($"Preview version '{preview}' is newer than latest version '{newest}'");
+            console.WriteLine($"Preview version '{preview}' is newer than latest version '{newest}'");
             newest = preview;
             release = releases.LatestPreview;
         }
 
         if (currentVersion.ComparePrecedenceTo(newest) < 0)
         {
-            logger.Log("Found newer version: " + newest);
+            console.WriteLine("Found newer version: " + newest);
             return (true, release);
         }
         else
         {
-            logger.Log("No newer version found. Dnvm is up-to-date.");
+            console.WriteLine("No newer version found. Dnvm is up-to-date.");
             return (false, release);
         }
     }
@@ -341,7 +344,7 @@ public sealed partial class UpdateCommand
             Arch = Architecture.X64
         }).ToString();
         var artifactDownloadLink = release.Artifacts[rid];
-        _logger.Info("Artifact download link: " + artifactDownloadLink);
+        _logger.Log("Artifact download link: " + artifactDownloadLink);
         return artifactDownloadLink;
     }
 
@@ -366,7 +369,7 @@ public sealed partial class UpdateCommand
         await action(tempDownloadPath);
     }
 
-    public static async Task<bool> ValidateBinary(Logger? logger, string fileName)
+    public static async Task<bool> ValidateBinary(IAnsiConsole console, Logger? logger, string fileName)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -389,13 +392,13 @@ public sealed partial class UpdateCommand
             const string usageString = "usage: ";
             if (ps.ExitCode != 0)
             {
-                logger?.Error($"Could not run downloaded dnvm: {error}");
+                console.Error($"Could not run downloaded dnvm: {error}");
                 return false;
             }
             else if (!output.Contains(usageString))
             {
-                logger?.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
-                logger?.Log(output);
+                console.Error($"Downloaded dnvm did not contain \"{usageString}\": ");
+                console.WriteLine(output);
                 return false;
             }
             return true;
@@ -403,18 +406,18 @@ public sealed partial class UpdateCommand
         return false;
     }
 
-    public static int RunSelfInstall(Logger logger, string newFileName, string oldPath)
+    public static int RunSelfInstall(IAnsiConsole console, Logger logger, string newFileName, string oldPath)
     {
         var psi = new ProcessStartInfo
         {
             FileName = newFileName,
             ArgumentList = { "selfinstall", "--update", "--dest-path", $"{oldPath}" }
         };
-        if (logger.LogLevel >= LogLevel.Info)
+        if (logger.Enabled)
         {
             psi.ArgumentList.Add("--verbose");
         }
-        logger.Log("Running selfinstall: " + string.Join(" ", psi.ArgumentList));
+        console.WriteLine("Running selfinstall: " + string.Join(" ", psi.ArgumentList));
         var proc = Process.Start(psi);
         proc!.WaitForExit();
         return proc.ExitCode;

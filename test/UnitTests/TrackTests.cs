@@ -10,12 +10,12 @@ namespace Dnvm.Test;
 
 public sealed class TrackTests
 {
-    private readonly TestConsole _console = new();
+    private readonly TextWriter _log = new StringWriter();
     private readonly Logger _logger;
 
     public TrackTests()
     {
-        _logger = new Logger(_console);
+        _logger = new Logger(_log);
     }
 
     [Fact]
@@ -190,17 +190,16 @@ public sealed class TrackTests
     [Fact]
     public Task TrackPreviouslyTracked() => RunWithServer(async (mockServer, env) =>
     {
-        var logger = new Logger(new TestConsole());
         var channel = new Channel.Latest();
-        var result = await TrackCommand.Run(env, logger, new TrackCommand.Options
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = channel,
         });
         Assert.Equal(TrackCommand.Result.Success, result);
 
-        var untrackCode = await UntrackCommand.Run(env, logger, channel);
+        var untrackCode = await UntrackCommand.Run(env, channel);
         Assert.Equal(0, untrackCode);
-        result = await TrackCommand.Run(env, logger, new TrackCommand.Options
+        result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
         {
             Channel = channel,
         });
@@ -225,7 +224,7 @@ public sealed class TrackTests
             Channel = new Channel.Preview()
         });
         Assert.Equal(TrackCommand.Result.Success, result);
-        Assert.Contains("Proceeding without SDK installation", _console.Output);
+        Assert.Contains("Proceeding without SDK installation", ((TestConsole)env.Console).Output);
         var manifest = await env.ReadManifest();
         Assert.Equal([ new RegisteredChannel {
             ChannelName = new Channel.Preview(),

@@ -1,4 +1,5 @@
-﻿using System.Net.Http;
+﻿using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Semver;
 using Spectre.Console;
@@ -20,7 +21,7 @@ public static class Program
         }
         console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.ShortSha);
         console.WriteLine();
-        var logger = new Logger(console);
+        var logger = new Logger(Console.Error);
 
         var parsedArgs = CommandLineArguments.TryParse(console, args);
         if (parsedArgs is null)
@@ -32,7 +33,7 @@ public static class Program
         // Self-install is special, since we don't know the DNVM_HOME yet.
         if (parsedArgs.SubCommand is DnvmSubCommand.SelfInstallArgs selfInstallArgs)
         {
-            return (int)await SelfInstallCommand.Run(logger, selfInstallArgs);
+            return (int)await SelfInstallCommand.Run(logger, console, selfInstallArgs);
         }
 
         using var env = DnvmEnv.CreateDefault();
@@ -69,7 +70,7 @@ public static class Program
             DnvmSubCommand.UpdateArgs a => (int)await UpdateCommand.Run(env, logger, a),
             DnvmSubCommand.ListArgs => (int)await ListCommand.Run(logger, env),
             DnvmSubCommand.SelectArgs a => (int)await SelectCommand.Run(env, logger, new(a.SdkDirName)),
-            DnvmSubCommand.UntrackArgs a => await UntrackCommand.Run(env, logger, a.Channel),
+            DnvmSubCommand.UntrackArgs a => await UntrackCommand.Run(env, a.Channel),
             DnvmSubCommand.UninstallArgs a => await UninstallCommand.Run(env, logger, a.SdkVersion, a.SdkDir),
             DnvmSubCommand.PruneArgs a => await PruneCommand.Run(env, logger, a),
             DnvmSubCommand.RestoreArgs a => await RestoreCommand.Run(env, logger, a) switch {

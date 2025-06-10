@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using Serde;
+using Spectre.Console;
 using Zio;
 using Zio.FileSystems;
 using static System.Environment;
@@ -56,9 +57,9 @@ public class SelfInstallCommand
             : new[] { _opts.FeedUrl.TrimEnd('/') };
     }
 
-    public static Task<Result> Run(Logger logger, DnvmSubCommand.SelfInstallArgs args)
+    public static Task<Result> Run(Logger logger, IAnsiConsole console, DnvmSubCommand.SelfInstallArgs args)
     {
-        return Run(logger, new Options
+        return Run(logger, console, new Options
         {
             Verbose = args.Verbose ?? false,
             Force = args.Force ?? false,
@@ -69,28 +70,28 @@ public class SelfInstallCommand
         });
     }
 
-    public static async Task<Result> Run(Logger logger, Options opt)
+    public static async Task<Result> Run(Logger logger, IAnsiConsole console, Options opt)
     {
         if (opt.Verbose)
         {
-            logger.LogLevel = LogLevel.Info;
+            logger.Enabled = true;
         }
 
         if (!Utilities.IsSingleFile)
         {
-            logger.Error("Cannot self-install into target location: the current executable is not deployed as a single file.");
+            console.Error("Cannot self-install into target location: the current executable is not deployed as a single file.");
             return Result.SelfInstallFailed;
         }
 
         DnvmEnv? env = null;
         if (opt.Update is true)
         {
-            logger.Log("Running self-update install");
+            console.WriteLine("Running self-update install");
             env = DnvmEnv.CreateDefault(dotnetFeedUrl: opt.FeedUrl);
             return await SelfUpdate(opt.DestPath, logger, env);
         }
 
-        logger.Log("Starting dnvm install");
+        console.WriteLine("Starting dnvm install");
 
         if (!opt.Yes)
         {
@@ -108,8 +109,8 @@ public class SelfInstallCommand
         var targetPath = DnvmEnv.DnvmExePath;
         if (!opt.Force && env.DnvmHomeFs.FileExists(targetPath))
         {
-            logger.Error("dnvm is already installed at: " + targetPath);
-            logger.Log("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
+            console.Error("dnvm is already installed at: " + targetPath);
+            console.WriteLine("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
             return Result.SelfInstallFailed;
         }
 
@@ -153,7 +154,7 @@ public class SelfInstallCommand
             updateUserEnv = Console.ReadLine()?.Trim().ToLowerInvariant() is not "n";
         }
 
-        logger.Log("Proceeding with installation.");
+        console.WriteLine("Proceeding with installation.");
 
         return await new SelfInstallCommand(env, logger, opt).Run(targetPath, channel, sdkDirName, updateUserEnv);
     }
@@ -168,12 +169,12 @@ public class SelfInstallCommand
     public async Task<Result> Run(UPath targetPath, Channel channel, SdkDirName newDirName, bool updateUserEnv)
     {
         var procPath = Utilities.ProcessPath;
-        _logger.Info("Location of running exe: " + procPath);
+        _logger.Log("Location of running exe: " + procPath);
 
         try
         {
             using var physicalFs = new PhysicalFileSystem();
-            _logger.Info($"Copying file from '{procPath}' to '{targetPath}'");
+            _logger.Log($"Copying file from '{procPath}' to '{targetPath}'");
             physicalFs.CopyFileCross(
                 physicalFs.ConvertPathFromInternal(procPath),
                 _env.DnvmHomeFs,
@@ -183,11 +184,11 @@ public class SelfInstallCommand
             {
                 Utilities.ChmodExec(_env.DnvmHomeFs, targetPath);
             }
-            _logger.Log("Dnvm installed successfully.");
+            _env.Console.WriteLine("Dnvm installed successfully.");
         }
         catch (Exception e)
         {
-            _logger.Error($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
+            _env.Console.Error($"Could not copy file from '{procPath}' to '{targetPath}': {e.Message}");
             return Result.SelfInstallFailed;
         }
 
@@ -203,7 +204,7 @@ public class SelfInstallCommand
 
         if (result is not (TrackCommand.Result.Success or TrackCommand.Result.ChannelAlreadyTracked))
         {
-            _logger.Info("Track failed: " + result);
+            _logger.Log("Track failed: " + result);
             return Result.InstallFailed;
         }
 
@@ -245,10 +246,10 @@ public class SelfInstallCommand
         }
 
         var dnvmHome = dnvmEnv.RealPath(UPath.Root);
-        logger.Info($"Installing to {dnvmHome}");
+        logger.Log($"Installing to {dnvmHome}");
 
         destPath ??= dnvmEnv.RealPath(DnvmEnv.DnvmExePath);
-        if (!ReplaceBinary(destPath, logger))
+        if (!ReplaceBinary(destPath, dnvmEnv.Console, logger))
         {
             return Result.SelfInstallFailed;
         }
@@ -256,22 +257,22 @@ public class SelfInstallCommand
         // Select the SDK directory if not already selected
         SelectCommand.SelectDir(logger, dnvmEnv, sdkDirName, sdkDirName);
 
-        logger.Info("Updating environment");
+        logger.Log("Updating environment");
         await UpdateEnv(logger, dnvmEnv, sdkDirName);
 
-        logger.Info($"selfinstall completed successfully");
+        logger.Log($"selfinstall completed successfully");
         return Result.Success;
 
-        static bool ReplaceBinary(string destPath, Logger logger)
+        static bool ReplaceBinary(string destPath, IAnsiConsole console, Logger logger)
         {
             var srcPath = Utilities.ProcessPath;
             try
             {
                 string backupPath = destPath + ".bak";
-                logger.Info($"Swapping {destPath} with downloaded file at {srcPath}");
+                logger.Log($"Swapping {destPath} with downloaded file at {srcPath}");
                 File.Move(destPath, backupPath, overwrite: true);
                 File.Move(srcPath, destPath, overwrite: false);
-                logger.Log("Process successfully upgraded");
+                console.WriteLine("Process successfully upgraded");
                 // Set last write time
                 File.SetLastWriteTimeUtc(destPath, DateTime.UtcNow);
                 if (Environment.OSVersion.Platform == PlatformID.Unix)
@@ -283,7 +284,7 @@ public class SelfInstallCommand
             }
             catch (Exception e)
             {
-                logger.Error("Couldn't replace existing binary: " + e.Message);
+                console.Error("Couldn't replace existing binary: " + e.Message);
                 return false;
             }
         }
@@ -354,44 +355,45 @@ public class SelfInstallCommand
 
     private static async Task<int> UpdateEnv(Logger logger, DnvmEnv env, SdkDirName sdkDir)
     {
+        var console = env.Console;
         var dnvmHome = env.RealPath(UPath.Root);
         var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(sdkDir));
         if (OperatingSystem.IsWindows())
         {
-            logger.Info("Setting environment variables in Windows");
+            logger.Log("Setting environment variables in Windows");
             if (FindDotnetInSystemPath())
             {
                 // dotnet.exe is in one of the system path variables. Produce a warning
                 // that the dnvm dotnet.exe will not appear on the path as long as the
                 // system variable is present.
-                logger.Warn("Found 'dotnet.exe' inside the System PATH environment variable. " +
+                console.Warn("Found 'dotnet.exe' inside the System PATH environment variable. " +
                     "System PATH is always preferred over User path on Windows, so the dnvm-installed " +
                     "dotnet.exe will not be accessible until it is removed. " +
                     "It is strongly recommended to remove dotnet from your System PATH now.");
             }
-            logger.Log("Adding install directory to user path: " + dnvmHome);
-            WindowsAddToPath(logger, env, dnvmHome);
-            logger.Log("Setting DOTNET_ROOT: " + sdkInstallDir);
+            console.WriteLine("Adding install directory to user path: " + dnvmHome);
+            WindowsAddToPath(env, dnvmHome);
+            console.WriteLine("Setting DOTNET_ROOT: " + sdkInstallDir);
             env.SetUserEnvVar("DOTNET_ROOT", sdkInstallDir);
             if (dnvmHome != DnvmEnv.DefaultDnvmHome)
             {
-                logger.Log("Setting DNVM_HOME: " + dnvmHome);
+                console.WriteLine("Setting DNVM_HOME: " + dnvmHome);
                 env.SetUserEnvVar("DNVM_HOME", dnvmHome);
             }
 
-            logger.Log("");
-            logger.Log("Finished setting environment variables. Please close and re-open your terminal.");
-            logger.Info("Completed updating environment variables.");
+            console.WriteLine("");
+            console.WriteLine("Finished setting environment variables. Please close and re-open your terminal.");
+            logger.Log("Completed updating environment variables.");
         }
         // Assume everything else is unix
         else
         {
             WriteEnvShFile(logger, dnvmHome, env, sdkInstallDir);
-            await AddToShellFiles(logger, dnvmHome, env.UserHome);
+            await AddToShellFiles(console, logger, dnvmHome, env.UserHome);
         }
         return 0;
 
-        static void WriteEnvShFile(Logger logger, string dnvmHome, DnvmEnv dnvmEnv, string sdkInstallDir)
+        static void WriteEnvShFile(Logger logger, string dnvmHome, DnvmEnv env, string sdkInstallDir)
         {
             var newContent = GetEnvShContent()
                 .Replace("{install_loc}", dnvmHome)
@@ -404,13 +406,13 @@ public class SelfInstallCommand
                     $"export DNVM_HOME={dnvmHome}" + Environment.NewLine;
             }
 
-            logger.Info("Writing env sh file");
-            dnvmEnv.DnvmHomeFs.WriteAllText(DnvmEnv.EnvPath, newContent);
+            logger.Log("Writing env sh file");
+            env.DnvmHomeFs.WriteAllText(DnvmEnv.EnvPath, newContent);
 
         }
-        static async Task AddToShellFiles(Logger logger, string dnvmHome, string userHome)
+        static async Task AddToShellFiles(IAnsiConsole console, Logger logger, string dnvmHome, string userHome)
         {
-            logger.Info("Setting environment variables in shell files");
+            logger.Log("Setting environment variables in shell files");
 
             string resolvedEnvPath = Path.Combine(dnvmHome, "env");
             // Using the full path to the install directory is usually fine, but on Unix systems
@@ -425,15 +427,15 @@ public class SelfInstallCommand
     fi
     """;
             // Scan shell files for shell suffix and add it if it doesn't exist
-            logger.Log("Scanning for shell files to update");
+            console.WriteLine("Scanning for shell files to update");
             var filesToUpdate = new List<string>();
             foreach (var shellFileName in ProfileShellFiles)
             {
                 var shellPath = Path.Combine(userHome, shellFileName);
-                logger.Info("Checking for file: " + shellPath);
+                logger.Log("Checking for file: " + shellPath);
                 if (File.Exists(shellPath))
                 {
-                    logger.Log("Found " + shellPath);
+                    console.WriteLine("Found " + shellPath);
                     filesToUpdate.Add(shellPath);
                 }
                 else
@@ -448,14 +450,14 @@ public class SelfInstallCommand
                 {
                     if (!await FileContainsLine(shellPath, $". \"{portableEnvPath}\""))
                     {
-                        logger.Log("Adding env import to: " + shellPath);
+                        console.WriteLine("Adding env import to: " + shellPath);
                         await File.AppendAllTextAsync(shellPath, userShSuffix);
                     }
                 }
                 catch (Exception e)
                 {
                     // Ignore if the file can't be accessed
-                    logger.Info($"Couldn't write to file {shellPath}: {e.Message}");
+                    logger.Log($"Couldn't write to file {shellPath}: {e.Message}");
                 }
             }
         }
@@ -481,17 +483,19 @@ public class SelfInstallCommand
     }
 
     [SupportedOSPlatform("windows")]
-    private static void WindowsAddToPath(Logger logger, DnvmEnv dnvmEnv, string pathToAdd)
+    private static void WindowsAddToPath(DnvmEnv dnvmEnv, string pathToAdd)
     {
-        logger.Info("Checking for path to add: " + pathToAdd);
+        var console = dnvmEnv.Console;
+
+        console.WriteLine("Checking for path to add: " + pathToAdd);
         var currentPathVar = dnvmEnv.GetUserEnvVar("PATH");
         if (!$";{currentPathVar};".Contains($";{pathToAdd};"))
         {
-            logger.Info("Adding to PATH: " + pathToAdd);
+            console.WriteLine("Adding to PATH: " + pathToAdd);
             dnvmEnv.SetUserEnvVar("PATH", pathToAdd + ";" + currentPathVar);
         }
-        logger.Info("PATH: " + dnvmEnv.GetUserEnvVar("PATH"));
-        logger.Info("PATH updated.");
+        console.WriteLine("PATH: " + dnvmEnv.GetUserEnvVar("PATH"));
+        console.WriteLine("PATH updated.");
     }
 
     private static ImmutableArray<string> ProfileShellFiles => ImmutableArray.Create<string>(

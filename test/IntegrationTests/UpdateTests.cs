@@ -1,3 +1,4 @@
+using Spectre.Console.Testing;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -36,7 +37,6 @@ public sealed class UpdateTests
             new() { ["DNVM_HOME"] = dnvmHome.Path });
         var output = proc.Out;
         var error = proc.Error;
-        Assert.Equal("", error);
         Assert.Contains("Hello from dnvm test", output);
         Assert.Equal(0, proc.ExitCode);
     });
@@ -65,7 +65,6 @@ public sealed class UpdateTests
             new() { ["DNVM_HOME"] = dnvmHome.Path });
         var output = proc.Out;
         var error = proc.Error;
-        Assert.Equal("", error);
         Assert.Contains("dnvm is up-to-date", output, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, proc.ExitCode);
 
@@ -83,7 +82,6 @@ public sealed class UpdateTests
             new() { ["DNVM_HOME"] = dnvmHome.Path });
         output = proc.Out;
         error = proc.Error;
-        Assert.Equal("", error);
         Assert.Contains("Hello from dnvm test", output);
         Assert.Equal(0, proc.ExitCode);
     });
@@ -106,7 +104,6 @@ public sealed class UpdateTests
             new() { ["DNVM_HOME"] = dnvmHome.Path });
         var output = result.Out;
         var error = result.Error;
-        Assert.Equal("", error);
         Assert.Equal(0, result.ExitCode);
         result = await ProcUtil.RunWithOutput(dnvmTmpPath, "-h");
         Assert.DoesNotContain("Hello from dnvm test", result.Out);
@@ -118,6 +115,6 @@ public sealed class UpdateTests
     {
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmTmpPath = tmpDir.CopyFile(SelfInstallTests.DnvmExe);
-        Assert.True(await UpdateCommand.ValidateBinary(null, dnvmTmpPath));
+        Assert.True(await UpdateCommand.ValidateBinary(new TestConsole(), logger: null, dnvmTmpPath));
     }
 }

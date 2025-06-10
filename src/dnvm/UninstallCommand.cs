@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Semver;
+using Spectre.Console;
 using Zio;
 
 namespace Dnvm;
@@ -19,7 +20,7 @@ public sealed class UninstallCommand
         }
         catch (Exception e)
         {
-            logger.Error($"Error reading manifest: {e.Message}");
+            env.Console.Error($"Error reading manifest: {e.Message}");
             throw;
         }
 
@@ -50,7 +51,7 @@ public sealed class UninstallCommand
 
         if (sdksToRemove.Count == 0)
         {
-            logger.Error($"SDK version {sdkVersion} is not installed.");
+            env.Console.Error($"SDK version {sdkVersion} is not installed.");
             return 1;
         }
 
@@ -76,7 +77,7 @@ public sealed class UninstallCommand
             var verString = version.ToString();
             var sdkDir = DnvmEnv.GetSdkPath(dir) / "sdk" / verString;
 
-            logger.Log($"Deleting SDK {verString} from {dir.Name}");
+            env.Console.WriteLine($"Deleting SDK {verString} from {dir.Name}");
 
             env.DnvmHomeFs.DeleteDirectory(sdkDir, isRecursive: true);
         }
@@ -91,7 +92,7 @@ public sealed class UninstallCommand
             var hostfxrDir = DnvmEnv.GetSdkPath(dir) / "host" / "fxr" / verString;
             var packsHostDir = DnvmEnv.GetSdkPath(dir) / "packs" / $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}" / verString;
 
-            logger.Log($"Deleting Runtime {verString} from {dir.Name}");
+            env.Console.WriteLine($"Deleting Runtime {verString} from {dir.Name}");
 
             env.DnvmHomeFs.DeleteDirectory(netcoreappDir, isRecursive: true);
             env.DnvmHomeFs.DeleteDirectory(hostfxrDir, isRecursive: true);
@@ -107,7 +108,7 @@ public sealed class UninstallCommand
             var aspnetDir = DnvmEnv.GetSdkPath(dir) / "shared" / "Microsoft.AspNetCore.App" / verString;
             var templatesDir = DnvmEnv.GetSdkPath(dir) / "templates" / verString;
 
-            logger.Log($"Deleting ASP.NET pack {verString} from {dir.Name}");
+            env.Console.WriteLine($"Deleting ASP.NET pack {verString} from {dir.Name}");
 
             env.DnvmHomeFs.DeleteDirectory(aspnetDir, isRecursive: true);
             env.DnvmHomeFs.DeleteDirectory(templatesDir, isRecursive: true);
@@ -123,7 +124,7 @@ public sealed class UninstallCommand
 
             if (env.DnvmHomeFs.DirectoryExists(winDir))
             {
-                logger.Log($"Deleting Windows Desktop pack {verString} from {dir.Name}");
+                env.Console.WriteLine($"Deleting Windows Desktop pack {verString} from {dir.Name}");
 
                 env.DnvmHomeFs.DeleteDirectory(winDir, isRecursive: true);
             }

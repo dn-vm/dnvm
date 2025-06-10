@@ -11,6 +11,14 @@ namespace Dnvm.Test;
 
 public sealed class InstallTests
 {
+    private readonly TextWriter _log = new StringWriter();
+    private readonly Logger _logger;
+
+    public InstallTests()
+    {
+        _logger = new Logger(_log);
+    }
+
     [Fact]
     public Task LtsInstall() => RunWithServer(async (server, env) =>
     {
@@ -18,12 +26,11 @@ public sealed class InstallTests
         var dotnetFile = sdkInstallDir / Utilities.DotnetExeName;
         Assert.False(env.DnvmHomeFs.FileExists(dotnetFile));
 
-        var logger = new Logger(new TestConsole());
         var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = MockServer.DefaultLtsVersion
         };
-        var installResult = await InstallCommand.Run(env, logger, options);
+        var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
         Assert.True(env.DnvmHomeFs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.DnvmHomeFs.ReadAllText(dotnetFile));
@@ -36,20 +43,19 @@ public sealed class InstallTests
     [Fact]
     public Task AlreadyInstalled() => RunWithServer(async (server, env) =>
     {
-        var console = new TestConsole();
-        var logger = new Logger(console);
         var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = MockServer.DefaultLtsVersion,
         };
-        var installResult = await InstallCommand.Run(env, logger, options);
+        var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
 
         var manifest = await env.ReadManifest();
         var expectedManifest = Manifest.Empty.AddSdk(MockServer.DefaultLtsVersion);
         Assert.Equal(expectedManifest, manifest);
 
-        installResult = await InstallCommand.Run(env, logger, options);
+        var console = (TestConsole)env.Console;
+        installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
         Assert.Contains("already installed", console.Output);
     });
@@ -58,13 +64,12 @@ public sealed class InstallTests
     public Task AlreadyInstalledForce() => RunWithServer(async (server, env) =>
     {
         var console = new TestConsole();
-        var logger = new Logger(console);
         var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = MockServer.DefaultLtsVersion,
             Force = true,
         };
-        var installResult = await InstallCommand.Run(env, logger, options);
+        var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
 
         var manifest = await env.ReadManifest();
@@ -72,7 +77,7 @@ public sealed class InstallTests
         Assert.Equal(expectedManifest, manifest);
 
         console.Clear(home: false);
-        installResult = await InstallCommand.Run(env, logger, options);
+        installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
         Assert.DoesNotContain("already installed", console.Output);
     });
@@ -80,17 +85,16 @@ public sealed class InstallTests
     [Fact]
     public Task InstallProgressInConsole() => RunWithServer(async (server, env) =>
     {
-        var console = new TestConsole();
-        var logger = new Logger(console);
         var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = MockServer.DefaultLtsVersion,
             Verbose = true,
         };
-        var installResult = await InstallCommand.Run(env, logger, options);
+        var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
 
         // If the progress bar is displayed, there should be at least two occurrences
+        var console = (TestConsole)env.Console;
         var index = console.Output.IndexOf("Downloading SDK");
         Assert.NotEqual(-1, index);
         index = console.Output.Substring(index + 1).IndexOf("Downloading SDK");
@@ -100,15 +104,13 @@ public sealed class InstallTests
     [Fact]
     public Task InstallReleaseFromServer() => RunWithServer(async (server, env) =>
     {
-        var console = new TestConsole();
-        var logger = new Logger(console);
         var previewVersion = SemVersion("192.192.192-preview");
         server.RegisterDailyBuild(previewVersion);
         var options = new DnvmSubCommand.InstallArgs
         {
             SdkVersion = previewVersion
         };
-        var installResult = await InstallCommand.Run(env, logger, options);
+        var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
 
         var manifest = await env.ReadManifest();
@@ -152,15 +154,13 @@ public sealed class InstallTests
 
         try
         {
-            var console = new TestConsole();
-            var logger = new Logger(console);
             var previewVersion = SemVersion("192.192.192-preview");
             server.RegisterDailyBuild(previewVersion);
             var options = new DnvmSubCommand.InstallArgs
             {
                 SdkVersion = previewVersion
             };
-            var installResult = await InstallCommand.Run(env, logger, options);
+            var installResult = await InstallCommand.Run(env, _logger, options);
             Assert.Equal(InstallCommand.Result.Success, installResult);
 
             var manifest = await env.ReadManifest();
@@ -276,8 +276,7 @@ public sealed class InstallTests
         };
 
         var console = new TestConsole();
-        var logger = new Logger(console);
-        var result = await InstallCommand.Run(env, logger, new InstallCommand.Options()
+        var result = await InstallCommand.Run(env, _logger, new InstallCommand.Options()
         {
             SdkVersion = SemVersion("42.42.100")
         });

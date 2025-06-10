@@ -47,6 +47,7 @@ public static partial class InstallCommand
 
     public static async Task<Result> Run(DnvmEnv env, Logger logger, Options options)
     {
+        var console = env.Console;
         var sdkDir = options.SdkDir ?? DnvmEnv.DefaultSdkDirName;
 
         Manifest manifest;
@@ -56,12 +57,12 @@ public static partial class InstallCommand
         }
         catch (InvalidDataException)
         {
-            logger.Error("Manifest file corrupted");
+            console.Error("Manifest file corrupted");
             return Result.ManifestFileCorrupted;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error("Error reading manifest file: " + e.Message);
+            console.Error("Error reading manifest file: " + e.Message);
             return Result.ManifestIOError;
         }
 
@@ -70,7 +71,7 @@ public static partial class InstallCommand
 
         if (!options.Force && ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))
         {
-            logger.Log($"Version {sdkVersion} is already installed in directory '{sdkDir.Name}'." +
+            console.WriteLine($"Version {sdkVersion} is already installed in directory '{sdkDir.Name}'." +
                 " Skipping installation. To install anyway, pass --force.");
             return Result.Success;
         }
@@ -82,7 +83,7 @@ public static partial class InstallCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error($"Could not fetch the releases index: {e.Message}");
+            console.Error($"Could not fetch the releases index: {e.Message}");
             return Result.CouldntFetchReleaseIndex;
         }
 
@@ -90,7 +91,7 @@ public static partial class InstallCommand
             ?? await TryGetReleaseFromServer(env, sdkVersion);
         if (result is not ({ } sdkComponent, { } release))
         {
-            logger.Error($"SDK version '{sdkVersion}' could not be found in .NET releases index or server.");
+            console.Error($"SDK version '{sdkVersion}' could not be found in .NET releases index or server.");
             return Result.UnknownChannel;
         }
 
@@ -229,11 +230,20 @@ public static partial class InstallCommand
         var sdkInstallPath = UPath.Root / sdkDir.Name;
         var downloadFile = sdkComponent.Files.Single(f => f.Rid == ridString && f.Url.EndsWith(Utilities.ZipSuffix));
         var link = downloadFile.Url;
-        logger.Info("Download link: " + link);
+        logger.Log("Download link: " + link);
 
-        logger.Log($"Downloading SDK {sdkVersion} for {ridString}");
+        env.Console.WriteLine($"Downloading SDK {sdkVersion} for {ridString}");
         var curMuxerVersion = manifest.MuxerVersion(sdkDir);
-        var err = await InstallSdkToDir(curMuxerVersion, release.Runtime.Version, env.HttpClient, link, env.DnvmHomeFs, sdkInstallPath, env.TempFs, logger);
+        var err = await InstallSdkToDir(
+            curMuxerVersion,
+            release.Runtime.Version,
+            env.HttpClient,
+            env.Console,
+            link,
+            env.DnvmHomeFs,
+            sdkInstallPath,
+            env.TempFs,
+            logger);
         if (err is not null)
         {
             return err;
@@ -242,7 +252,7 @@ public static partial class InstallCommand
         SelectCommand.SelectDir(logger, env, manifest.CurrentSdkDir, sdkDir);
 
         var result = JsonSerializer.Serialize(manifest);
-        logger.Info("Existing manifest: " + result);
+        logger.Log("Existing manifest: " + result);
 
         if (!ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))
         {
@@ -268,6 +278,7 @@ public static partial class InstallCommand
         SemVersion? curMuxerVersion,
         SemVersion runtimeVersion,
         ScopedHttpClient httpClient,
+        IAnsiConsole console,
         string downloadUrl,
         IFileSystem destFs,
         UPath destPath,
@@ -280,21 +291,23 @@ public static partial class InstallCommand
         // Download and extract into a temp directory
         using var tempDir = new DirectoryResource(Directory.CreateTempSubdirectory().FullName);
         string archivePath = Path.Combine(tempDir.Path, archiveName);
-        logger.Info("Archive path: " + archivePath);
+        logger.Log("Archive path: " + archivePath);
 
-        var downloadError = await logger.DownloadWithProgress(
+        var downloadError = await SpectreUtil.DownloadWithProgress(
             httpClient,
+            console,
+            logger,
             archivePath,
             downloadUrl,
             "Downloading SDK");
 
         if (downloadError is not null)
         {
-            logger.Error(downloadError);
+            console.Error(downloadError);
             return InstallError.DownloadFailed;
         }
 
-        logger.Log($"Installing to {destPath}");
+        console.WriteLine($"Installing to {destPath}");
         string? extractResult = await Utilities.ExtractSdkToDir(
             curMuxerVersion,
             runtimeVersion,
@@ -305,21 +318,21 @@ public static partial class InstallCommand
         File.Delete(archivePath);
         if (extractResult != null)
         {
-            logger.Error("Extract failed: " + extractResult);
+            console.Error("Extract failed: " + extractResult);
             return InstallError.ExtractFailed;
         }
 
         var dotnetExePath = destPath / Utilities.DotnetExeName;
         if (!OperatingSystem.IsWindows())
         {
-            logger.Info("chmoding downloaded host");
+            logger.Log("chmoding downloaded host");
             try
             {
                 Utilities.ChmodExec(destFs, dotnetExePath);
             }
             catch (Exception e)
             {
-                logger.Error("chmod failed: " + e.Message);
+                console.Error("chmod failed: " + e.Message);
                 return InstallError.ExtractFailed;
             }
         }

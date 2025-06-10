@@ -39,15 +39,16 @@ public static class SelectCommand
 
     public static Task<Result<Manifest, Result>> RunWithManifest(DnvmEnv env, SdkDirName newDir, Manifest manifest, Logger logger)
     {
+        var console = env.Console;
         var validDirs = manifest.RegisteredChannels.Select(c => c.SdkDirName).ToList();
 
         if (!validDirs.Contains(newDir))
         {
-            logger.Error($"Invalid SDK directory name: {newDir.Name}");
-            logger.Log("Valid SDK directory names:");
+            console.Error($"Invalid SDK directory name: {newDir.Name}");
+            console.WriteLine("Valid SDK directory names:");
             foreach (var dir in validDirs)
             {
-                logger.Log($"  {dir.Name}");
+                console.WriteLine($"  {dir.Name}");
             }
             return Task.FromResult<Result<Manifest, Result>>(Result.BadDirName);
         }
@@ -99,10 +100,10 @@ public static class SelectCommand
     {
         var dotnetExePath = DnvmEnv.GetSdkPath(sdkDirName) / Utilities.DotnetExeName;
         var realDotnetPath = dnvmEnv.RealPath(dotnetExePath);
-        logger.Info($"Retargeting symlink in {dnvmEnv.RealPath(UPath.Root)} to {realDotnetPath}");
+        logger.Log($"Retargeting symlink in {dnvmEnv.RealPath(UPath.Root)} to {realDotnetPath}");
         if (!dnvmEnv.DnvmHomeFs.FileExists(dotnetExePath))
         {
-            logger.Info("SDK install not found, skipping symlink creation.");
+            logger.Log("SDK install not found, skipping symlink creation.");
             return;
         }
 

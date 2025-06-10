@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Spectre.Console;
 
 namespace Dnvm;
 
@@ -17,7 +18,7 @@ public sealed class UntrackCommand
         public record ManifestReadError : Result;
     }
 
-    public static async Task<int> Run(DnvmEnv env, Logger logger, Channel channel)
+    public static async Task<int> Run(DnvmEnv env, Channel channel)
     {
         Manifest manifest;
         try
@@ -26,10 +27,10 @@ public sealed class UntrackCommand
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.Error("Failed to read manifest file");
+            env.Console.Error("Failed to read manifest file");
             return 1;
         }
-        var result = RunHelper(channel, manifest, logger);
+        var result = RunHelper(channel, manifest, env.Console);
         if (result is Result.Success({} newManifest))
         {
             env.WriteManifest(newManifest);
@@ -38,11 +39,11 @@ public sealed class UntrackCommand
         return 1;
     }
 
-    public static Result RunHelper(Channel channel, Manifest manifest, Logger logger)
+    public static Result RunHelper(Channel channel, Manifest manifest, IAnsiConsole console)
     {
         if (!manifest.TrackedChannels().Any(c => c.ChannelName == channel))
         {
-            logger.Log("Channel '{channel}' is not tracked");
+            console.WriteLine("Channel '{channel}' is not tracked");
             return new Result.ChannelUntracked();
         }
 

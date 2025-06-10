@@ -97,7 +97,7 @@ public sealed class SelfInstallTests
     });
 
     [ConditionalFact(typeof(UnixOnly))]
-    public Task SelfInstallDialog() => RunWithServer(async (mockServer, env) =>
+    public async Task SelfInstallDialog() => await RunWithServer(async (mockServer, env) =>
     {
         var buffer = new char[1024];
         var psi = new ProcessStartInfo
@@ -163,15 +163,13 @@ Please select a channel [default: Latest]:
         await proc.StandardInput.WriteLineAsync("y");
 
         var actualLines = new List<string>();
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 3; i++)
         {
             actualLines.Add((await proc.StandardOutput.ReadLineAsync()).Unwrap());
         }
 
         AssertLogEquals($"""
 Proceeding with installation.
-Location of running exe: {DnvmExe}
-Copying file from '{DnvmExe}' to '{DnvmEnv.DnvmExePath}'
 Dnvm installed successfully.
 Found latest version: 99.99.99-preview
 """, actualLines);
@@ -179,16 +177,12 @@ Found latest version: 99.99.99-preview
         do
         {
             lines = await proc.StandardOutput.ReadLineAsync();
-        } while (lines != null && !lines.Contains("Writing env sh file"));
+        } while (lines != null && !lines.Contains("Scanning for shell files"));
 
-        lines = await proc.StandardOutput.ReadToEndAsync();
+        lines += await proc.StandardOutput.ReadToEndAsync();
         actualLines = lines.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         AssertLogEquals($"""
-Setting environment variables in shell files
 Scanning for shell files to update
-Checking for file: {env.UserHome}/.profile
-Checking for file: {env.UserHome}/.bashrc
-Checking for file: {env.UserHome}/.zshrc
 """, actualLines);
         Assert.Contains(env.RealPath(UPath.Root), env.DnvmHomeFs.ReadAllText(DnvmEnv.EnvPath));
     });
@@ -196,6 +190,8 @@ Checking for file: {env.UserHome}/.zshrc
     private static void AssertLogEquals(string expected, IList<string> actualLines)
     {
         var expectedLines = expected.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+        Assert.True(actualLines.Count >= expectedLines.Length,
+            $"Expected at least {expectedLines.Length} lines, but got {actualLines.Count} lines: {string.Join(", ", actualLines)}");
         int i = 0;
         foreach (var line in expectedLines)
         {
