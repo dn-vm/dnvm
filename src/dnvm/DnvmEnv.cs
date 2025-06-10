@@ -1,13 +1,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Serde.Json;
+using Spectre.Console;
 using Zio;
 using Zio.FileSystems;
 using static System.Environment;
@@ -15,7 +15,7 @@ using static System.Environment;
 namespace Dnvm;
 
 /// <summary>
-/// Represents the environment of a dnvm process.
+/// Represents the external environment of a dnvm process.
 /// <summary>
 public sealed partial class DnvmEnv
 {
@@ -31,6 +31,7 @@ public sealed partial class DnvmEnv
     public string DnvmReleasesUrl { get; }
     public string UserHome { get; }
     public ScopedHttpClient HttpClient { get; }
+    public IAnsiConsole Console { get; }
 
     public DnvmEnv(
         string userHome,
@@ -40,6 +41,7 @@ public sealed partial class DnvmEnv
         bool isPhysical,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
+        IAnsiConsole console,
         IEnumerable<string>? dotnetFeedUrls = null,
         string releasesUrl = DefaultReleasesUrl,
         HttpClient? httpClient = null)
@@ -55,6 +57,7 @@ public sealed partial class DnvmEnv
             PhysicalFs,
             PhysicalFs.ConvertPathFromInternal(Path.GetTempPath()),
             owned: false);
+        Console = console;
         GetUserEnvVar = getUserEnvVar;
         SetUserEnvVar = setUserEnvVar;
         DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
@@ -110,6 +113,7 @@ public sealed partial class DnvmEnv : IDisposable
         return CreatePhysical(dnvmHome,
             n => Environment.GetEnvironmentVariable(n, EnvironmentVariableTarget.User),
             (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User),
+            AnsiConsole.Console,
             dotnetFeedUrl);
     }
 
@@ -117,6 +121,7 @@ public sealed partial class DnvmEnv : IDisposable
         string realPath,
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
+        IAnsiConsole console,
         string? dotnetFeedUrl = null)
     {
         Directory.CreateDirectory(realPath);
@@ -129,6 +134,7 @@ public sealed partial class DnvmEnv : IDisposable
             isPhysical: true,
             getUserEnvVar,
             setUserEnvVar,
+            console,
             dotnetFeedUrls: dotnetFeedUrl is not null ? [ dotnetFeedUrl ] : null);
     }
 

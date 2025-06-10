@@ -8,6 +8,7 @@
     <PackageReference Include="xunit.core" />
     <PackageReference Include="xunit.abstractions" />
     <PackageReference Include="staticcs.async" />
+    <PackageReference Include="Spectre.Console.Testing" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -44,14 +44,14 @@ public sealed record DirectoryResource(
 public static class SpectreUtil
 {
     public static Task<string?> DownloadWithProgress(
-        this Logger logger,
         ScopedHttpClient client,
+        IAnsiConsole console,
+        Logger logger,
         string filePath,
         string url,
         string description,
         int? bufferSizeParam = null)
     {
-        var console = logger.Console;
         return console.Progress()
             .AutoRefresh(true)
             .Columns(
@@ -76,7 +76,7 @@ public static class SpectreUtil
             // Use 1/100 of the file size as the buffer size, up to 1 MB.
             const int oneMb = 1024 * 1024;
             var bufferSize = bufferSizeParam ?? (int)Math.Min(contentLength / 100, oneMb);
-            logger.Info($"Buffer size: {bufferSize} bytes");
+            logger.Log($"Buffer size: {bufferSize} bytes");
 
             var progressTask = ctx.AddTask(description, maxValue: contentLength);
             console.MarkupLine($"Starting download (size: {contentLength / oneMb:0.00} MB)");

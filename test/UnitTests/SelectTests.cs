@@ -7,12 +7,11 @@ namespace Dnvm.Test;
 
 public sealed class SelectTests
 {
-    private readonly TestConsole _console = new();
     private readonly Logger _logger;
 
     public SelectTests(ITestOutputHelper output)
     {
-        _logger = new Logger(_console);
+        _logger = new Logger(new StringWriter());
     }
 
     [Fact]
@@ -78,7 +77,7 @@ Error: Invalid SDK directory name: bad
 Valid SDK directory names:
   dn
 
-""".Replace(Environment.NewLine, "\n"), _console.Output);
+""".Replace(Environment.NewLine, "\n"), ((TestConsole)env.Console).Output);
     });
 
     private static void AssertSdkDir(

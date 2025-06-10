@@ -11,12 +11,12 @@ public static class ListCommand
 {
     /// <summary>
     /// Prints a list of installed SDK versions and their locations.
-    public static async Task<int> Run(Logger logger, DnvmEnv home)
+    public static async Task<int> Run(Logger logger, DnvmEnv env)
     {
         Manifest manifest;
         try
         {
-            manifest = await home.ReadManifest();
+            manifest = await env.ReadManifest();
         }
         catch (Exception e)
         {
@@ -25,17 +25,17 @@ public static class ListCommand
             return 1;
         }
 
-        PrintSdks(logger, manifest, home.RealPath(UPath.Root));
+        PrintSdks(env.Console, manifest, env.RealPath(UPath.Root));
 
         return 0;
     }
 
-    public static void PrintSdks(Logger logger, Manifest manifest, string homePath)
+    public static void PrintSdks(IAnsiConsole console, Manifest manifest, string homePath)
     {
-        logger.Log($"DNVM_HOME: {homePath}");
-        logger.Log();
-        logger.Log("Installed SDKs:");
-        logger.Log();
+        console.WriteLine($"DNVM_HOME: {homePath}");
+        console.WriteLine();
+        console.WriteLine("Installed SDKs:");
+        console.WriteLine();
         var table = new Table();
         table.AddColumn(new TableColumn(" "));
         table.AddColumn("Version");
@@ -49,14 +49,14 @@ public static class ListCommand
                 .Select(c => c.ChannelName.GetLowerName());
             table.AddRow(selected, sdk.SdkVersion.ToString(), string.Join(", ", channels), sdk.SdkDirName.Name);
         }
-        logger.Console.Write(table);
+        console.Write(table);
 
-        logger.Log();
-        logger.Log("Tracked channels:");
-        logger.Log();
+        console.WriteLine();
+        console.WriteLine("Tracked channels:");
+        console.WriteLine();
         foreach (var c in manifest.TrackedChannels())
         {
-            logger.Log($" • {c.ChannelName.GetLowerName()}");
+            console.WriteLine($" • {c.ChannelName.GetLowerName()}");
         }
     }
 }

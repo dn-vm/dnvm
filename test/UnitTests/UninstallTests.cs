@@ -10,7 +10,7 @@ namespace Dnvm.Test;
 
 public sealed class UninstallTests
 {
-    private readonly Logger _logger = new Logger(new TestConsole());
+    private readonly Logger _logger = new Logger(new StringWriter());
 
     [Fact]
     public Task LtsAndPreview() => RunWithServer(async (server, env) =>
@@ -73,10 +73,12 @@ public sealed class UninstallTests
         var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[0].LatestSdk, SemVersionStyles.Strict);
         var previewVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[1].LatestSdk, SemVersionStyles.Strict);
 
-        var uninstallConsole = new TestConsole();
-        var unResult = await UninstallCommand.Run(env, new Logger(uninstallConsole), previewVersion);
+        var console = (TestConsole)env.Console;
+        var trimOutput = console.Output;
+        var unResult = await UninstallCommand.Run(env, _logger, previewVersion);
+        var actualOutput = console.Output[trimOutput.Length..];
         Assert.Equal(0, unResult);
-        Assert.DoesNotContain("SdkDirName", uninstallConsole.Output);
-        Assert.DoesNotContain(ltsVersion.ToString(), uninstallConsole.Output);
+        Assert.DoesNotContain("SdkDirName", actualOutput);
+        Assert.DoesNotContain(ltsVersion.ToString(), actualOutput);
     });
 }

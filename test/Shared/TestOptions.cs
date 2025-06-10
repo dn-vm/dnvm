@@ -1,4 +1,5 @@
 
+using Spectre.Console.Testing;
 using Zio;
 using Zio.FileSystems;
 
@@ -33,6 +34,7 @@ public sealed class TestEnv : IDisposable
                 isPhysical: true,
                 getUserEnvVar: s => _envVars.TryGetValue(s, out var val) ? val : null,
                 setUserEnvVar: (name, val) => _envVars[name] = val,
+                new TestConsole(),
                 [ dotnetFeedUrl ],
                 releasesUrl);
     }
