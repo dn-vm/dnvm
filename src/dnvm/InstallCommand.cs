@@ -120,11 +120,15 @@ public static partial class InstallCommand
                 where sdk.Version == sdkVersion
                 select (sdk, r);
 
-            return result.FirstOrDefault();
+            if (result.Any())
+            {
+                return result.First();
+            }
         }
 
         return null;
     }
+
 
     private static async Task<(ChannelReleaseIndex.Component, ChannelReleaseIndex.Release)?> TryGetReleaseFromServer(
         DnvmEnv env,
@@ -132,11 +136,11 @@ public static partial class InstallCommand
     {
         foreach (var feedUrl in env.DotnetFeedUrls)
         {
-            var downloadUrl = $"/Sdk/{sdkVersion}/productCommit-{Utilities.CurrentRID}.json";
+            var downloadUrl = $"{feedUrl.TrimEnd('/')}/Sdk/{sdkVersion}/productCommit-{Utilities.CurrentRID}.json";
             try
             {
-                var productCommitData = JsonSerializer.Deserialize<CommitData>(await env.HttpClient.GetStringAsync(feedUrl.TrimEnd('/') + downloadUrl));
-                if (productCommitData.Installer.Version != sdkVersion)
+                var productCommitData = JsonSerializer.Deserialize<CommitData>(await env.HttpClient.GetStringAsync(downloadUrl));
+                if (productCommitData.Sdk.Version != sdkVersion)
                 {
                     throw new InvalidOperationException("Fetched product commit data does not match requested SDK version");
                 }
@@ -177,7 +181,7 @@ public static partial class InstallCommand
             }
             catch
             {
-                continue;
+                // Swallow exception
             }
         }
         return null;
@@ -191,7 +195,6 @@ public static partial class InstallCommand
     [GenerateDeserialize]
     private partial record CommitData
     {
-        public required Component Installer { get; init; }
         public required Component Sdk { get; init; }
         public required Component Aspnetcore { get; init; }
         public required Component Runtime { get; init; }

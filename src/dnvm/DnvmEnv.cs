@@ -73,7 +73,7 @@ public sealed partial class DnvmEnv : IDisposable
     public const string ManifestFileName = "dnvmManifest.json";
     public static EqArray<string> DefaultDotnetFeedUrls { get;} = [
         "https://builds.dotnet.microsoft.com/dotnet",
-        "https://dotnetcli.blob.core.windows.net/dotnet",
+        "https://ci.dot.net/public",
     ];
     public const string DefaultReleasesUrl = "https://github.com/dn-vm/dn-vm.github.io/raw/gh-pages/releases.json";
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
