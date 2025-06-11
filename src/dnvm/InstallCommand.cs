@@ -130,7 +130,7 @@ public static partial class InstallCommand
     }
 
 
-    private static async Task<(ChannelReleaseIndex.Component, ChannelReleaseIndex.Release)?> TryGetReleaseFromServer(
+    internal static async Task<(ChannelReleaseIndex.Component, ChannelReleaseIndex.Release)?> TryGetReleaseFromServer(
         DnvmEnv env,
         SemVersion sdkVersion)
     {
@@ -271,7 +271,7 @@ public static partial class InstallCommand
                 })
             };
 
-            env.WriteManifest(manifest);
+            await env.WriteManifest(manifest);
         }
 
         return manifest;

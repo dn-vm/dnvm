@@ -57,7 +57,7 @@ public static class Program
     {
         var manifest = await ManifestUtils.ReadOrCreateManifest(env);
         manifest = manifest with { PreviewsEnabled = true };
-        env.WriteManifest(manifest);
+        await env.WriteManifest(manifest);
         return 0;
     }
 

@@ -238,13 +238,20 @@ public static partial class RestoreCommand
             RollForwardOptions.LatestFeature => Search(LatestFeatureComparison, preferExact: false),
             RollForwardOptions.LatestMinor => Search(LatestMinorComparison, preferExact: false),
             RollForwardOptions.LatestMajor => Search(LatestMajorComparison, preferExact: false),
-            RollForwardOptions.Disable => Search(SemVersion.CompareSortOrder, preferExact: false),
+            RollForwardOptions.Disable => Search(SemVersion.ComparePrecedence, preferExact: false),
         };
 
         if (release is null)
         {
-            console.Error("No SDK found that matches the requested version.");
-            return Error.CantFindRequestedVersion;
+            // Try to find the exact version on the server
+            var result = await InstallCommand.TryGetReleaseFromServer(env, version);
+            if (result is not (_, { } releaseFromServer))
+            {
+                console.Error("No SDK found that matches the requested version.");
+                return Error.CantFindRequestedVersion;
+            }
+
+            release = releaseFromServer;
         }
 
         console.WriteLine($"Found version {sdk.Version} in global.json. Selected version {release.Sdk.Version} based on roll forward rules.");
@@ -324,9 +331,19 @@ public static partial class RestoreCommand
         {
             return (a.Patch / 100).CompareTo(b.Patch / 100);
         }
-        // If the patch version is >= we will consider the versions 'equal', meaning that they are
-        // compatible.
-        return ((a.Patch % 100) >= (b.Patch % 100)) ? 0 : -1;
+        var aPatch = a.Patch % 100;
+        var bPatch = b.Patch % 100;
+        if (aPatch != bPatch)
+        {
+            // If the patch version is greater than, we will consider the versions 'equal', meaning
+            // that they are compatible.
+            return aPatch >= bPatch ? 0 : -1;
+        }
+        if (a.Prerelease != b.Prerelease)
+        {
+            return a.Prerelease.CompareTo(b.Prerelease) >= 0 ? 0 : -1;
+        }
+        return 0;
     }
 
     /// <summary>
@@ -346,6 +363,10 @@ public static partial class RestoreCommand
         if (a.Patch != b.Patch)
         {
             return a.Patch >= b.Patch ? 0 : -1;
+        }
+        if (a.Prerelease != b.Prerelease)
+        {
+            return a.Prerelease.CompareTo(b.Prerelease) >= 0 ? 0 : -1;
         }
         return 0;
     }
@@ -367,6 +388,10 @@ public static partial class RestoreCommand
         {
             return a.Patch >= b.Patch ? 0 : -1;
         }
+        if (a.Prerelease != b.Prerelease)
+        {
+            return a.Prerelease.CompareTo(b.Prerelease) >= 0 ? 0 : -1;
+        }
         return 0;
     }
 
@@ -386,6 +411,10 @@ public static partial class RestoreCommand
         if (a.Patch != b.Patch)
         {
             return a.Patch >= b.Patch ? 0 : -1;
+        }
+        if (a.Prerelease != b.Prerelease)
+        {
+            return a.Prerelease.CompareTo(b.Prerelease) >= 0 ? 0 : -1;
         }
         return 0;
     }

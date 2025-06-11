@@ -203,7 +203,7 @@ public sealed partial class UpdateCommand
         finally
         {
             logger.Log("Writing manifest");
-            env.WriteManifest(manifest);
+            await env.WriteManifest(manifest);
         }
 
         env.Console.WriteLine("Successfully installed");

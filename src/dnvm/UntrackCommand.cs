@@ -33,7 +33,7 @@ public sealed class UntrackCommand
         var result = RunHelper(channel, manifest, env.Console);
         if (result is Result.Success({} newManifest))
         {
-            env.WriteManifest(newManifest);
+            await env.WriteManifest(newManifest);
             return 0;
         }
         return 1;

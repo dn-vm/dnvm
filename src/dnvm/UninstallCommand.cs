@@ -65,7 +65,7 @@ public sealed class UninstallCommand
         DeleteWins(env, winToRemove, logger);
 
         manifest = UninstallSdk(manifest, sdkVersion);
-        env.WriteManifest(manifest);
+        await env.WriteManifest(manifest);
 
         return 0;
     }

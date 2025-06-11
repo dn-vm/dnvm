@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,14 +26,13 @@ public static class SelectCommand
         switch (await RunWithManifest(dnvmEnv, sdkDirName, manifest, logger))
         {
             case Result<Manifest, Result>.Ok(var newManifest):
-                dnvmEnv.WriteManifest(newManifest);
+                await dnvmEnv.WriteManifest(newManifest);
                 return Result.Success;
             case Result<Manifest, Result>.Err(var error):
                 return error;
             default:
                 throw ExceptionUtilities.Unreachable;
         }
-        ;
     }
 
     public static Task<Result<Manifest, Result>> RunWithManifest(DnvmEnv env, SdkDirName newDir, Manifest manifest, Logger logger)
