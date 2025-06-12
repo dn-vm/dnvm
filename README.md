@@ -1,18 +1,39 @@
 # dnvm
 
-dnvm is the "dotnet version manager." This is a rethinking of the original dnvm project. This dnvm is a command-line interface for installing and updating different dotnet SDKs. It currently only supports installing user-local SDKs, as opposed to machine-wide.
+dnvm is the "dotnet version manager." Dnvm is a command-line interface for installing and updating different dotnet SDKs. 
 
+## Getting started 
+
+dnvm installs .NET SDKs to the dnvm home path, which is `~/.local/dnvm` on Linux, ` ~/Library/Application\ Support/dnvm/` on Mac, and `%LOCALAPPDATA%/dnvm` on Windows. Dnvm lets you install the latest release from channels through the `track` command, update SDK versions through the `update` command, remove old SDKs through the `prune` command, and install specific SDKs through the `install` command.
+
+The `--help` command can help you find more information on all available commands.
+
+## Channels
+
+The simplest way to use dnvm is to track a channel. Channels are of two types: named channels and versions. Named channels are things like `latest`, `lts`, and `sts`. These correspond to the support status of various SDKs. For example, `lts` always corresponds to the currently supported .NET LTS SDK, while `latest` means the newest non-preview SDK in current support, LTS or STS.
+
+## Help
 ```
-dnvm 0.5.3 28de6c1feb5c9b660c1df4a98231a0287928b762
+$ dnvm -h
+dnvm 0.9.2 12418b16
 
-usage: dnvm <command> [<args>]
+usage: dnvm [--enable-dnvm-previews] [-h | --help] <command>
 
-    track          Start tracking a new channel
-    selfinstall    Install dnvm to the local machine
-    update         Update the installed SDKs or dnvm itself
-    list           List installed SDKs
-    select         Select the active SDK directory
-    untrack        Remove a channel from the list of tracked channels
-    uninstall      Uninstall an SDK
-    prune          Remove all SDKs with older patch versions.
+Install and manage .NET SDKs.
+
+Options:
+    --enable-dnvm-previews  Enable dnvm previews.
+    -h, --help  Show help information.
+
+Commands:
+    install  Install an SDK.
+    track  Start tracking a new channel.
+    selfinstall  Install dnvm to the local machine.
+    update  Update the installed SDKs or dnvm itself.
+    list  List installed SDKs.
+    select  Select the active SDK directory.
+    untrack  Remove a channel from the list of tracked channels.
+    uninstall  Uninstall an SDK.
+    prune  Remove all SDKs with older patch versions.
+    restore  Restore the SDK listed in the global.json file.
 ```
