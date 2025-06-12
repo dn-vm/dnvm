@@ -367,7 +367,7 @@ public sealed class UpdateTests
             ChannelName = new Channel.Lts(),
             SdkDirName = new("custom-sdk-dir"),
         });
-        env.WriteManifest(manifest);
+        await env.WriteManifest(manifest);
         var updatedVersion = new SemVersion(6, 0, 1);
         mockServer.RegisterReleaseVersion(updatedVersion, "lts", "active");
 

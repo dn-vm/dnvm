@@ -148,10 +148,11 @@ public sealed partial class DnvmEnv : IDisposable
         return await ManifestUtils.DeserializeNewOrOldManifest(HttpClient, text, DotnetFeedUrls);
     }
 
-    public void WriteManifest(Manifest manifest)
+    public Task WriteManifest(Manifest manifest)
     {
         var text = JsonSerializer.Serialize(manifest);
         DnvmHomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
+        return Task.CompletedTask;
     }
 
     public void Dispose()

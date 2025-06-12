@@ -1,6 +1,7 @@
 
 using Semver;
 using Spectre.Console.Testing;
+using StaticCs;
 using Xunit;
 using Zio;
 
@@ -693,6 +694,106 @@ public sealed class RestoreTests
 
             var manifest = await env.ReadManifest();
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
+            Assert.Equal(expectedManifest, manifest);
+        }
+    });
+
+    [Theory]
+    [InlineData(true, "major")]
+    [InlineData(false, "minor")]
+    [InlineData(false, "latestMajor")]
+    [InlineData(false, "patch")]
+    [InlineData(false, "latestPatch")]
+    public async Task RestoreMissing_Preview(bool isLocalInstall, string rollForward)=> await TestUtils.RunWithServer(async (server, env) =>
+    {
+        // Arrange: Install an existing lower SDK version
+        var existingVersion = SemVersion.Parse("10.0.100-preview.5.25277.114", SemVersionStyles.Strict);
+        server.ClearVersions();
+        server.RegisterReleaseVersion(existingVersion, "preview", "active");
+
+        // Simulate the existing SDK as already installed
+        if (isLocalInstall)
+        {
+            var dotnetDir = env.Cwd / ".dotnet" / "sdk" / existingVersion.ToString();
+            env.CwdFs.CreateDirectory(dotnetDir);
+        }
+        else
+        {
+            var manifest = Manifest.Empty.AddSdk(existingVersion);
+            await env.WriteManifest(manifest);
+        }
+
+        // Write global.json requesting a higher version with rollForward: minor
+        var requestedVersion = SemVersion.Parse("10.0.100-preview.6.25272.112", SemVersionStyles.Strict);
+        env.CwdFs.WriteAllText(env.Cwd / "global.json", $$"""
+        {
+            "sdk": {
+                "version": "{{requestedVersion}}",
+                "allowPrerelease": true,
+                "rollForward": "{{rollForward}}"
+            }
+        }
+        """);
+
+        // Act
+        var restoreResult = await RestoreCommand.Run(env, _logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+
+        // Assert: The requested version should not be found, since it's not on the server
+        Assert.Equal(RestoreCommand.Error.CantFindRequestedVersion, restoreResult);
+    });
+
+    [Theory]
+    [InlineData(true, "major")]
+    [InlineData(false, "minor")]
+    [InlineData(false, "latestMajor")]
+    [InlineData(false, "patch")]
+    [InlineData(false, "latestPatch")]
+    public async Task RestoreDailyBuildPreview(bool isLocalInstall, string rollForward)=> await TestUtils.RunWithServer(async (server, env) =>
+    {
+        // Arrange: Install an existing lower SDK version
+        var existingVersion = SemVersion.Parse("10.0.100-preview.5.25277.114", SemVersionStyles.Strict);
+        server.ClearVersions();
+        server.RegisterReleaseVersion(existingVersion, "preview", "active");
+        var requestedVersion = SemVersion.Parse("10.0.100-preview.6.25272.112", SemVersionStyles.Strict);
+        server.RegisterDailyBuild(requestedVersion);
+
+        // Simulate the existing SDK as already installed
+        if (isLocalInstall)
+        {
+            var dotnetDir = env.Cwd / ".dotnet" / "sdk" / existingVersion.ToString();
+            env.CwdFs.CreateDirectory(dotnetDir);
+        }
+        else
+        {
+            var manifest = Manifest.Empty.AddSdk(existingVersion);
+            await env.WriteManifest(manifest);
+        }
+
+        env.CwdFs.WriteAllText(env.Cwd / "global.json", $$"""
+        {
+            "sdk": {
+                "version": "{{requestedVersion}}",
+                "allowPrerelease": true,
+                "rollForward": "{{rollForward}}"
+            }
+        }
+        """);
+
+        var restoreResult = await RestoreCommand.Run(env, _logger, new DnvmSubCommand.RestoreArgs() { Local = isLocalInstall });
+        // Should be restored to the daily build version
+        Assert.Equal(requestedVersion, restoreResult);
+
+        if (isLocalInstall)
+        {
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
+            Assert.True(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet" / "sdk" / requestedVersion.ToString()));
+        }
+        else
+        {
+            var manifest = await env.ReadManifest();
+            var expectedManifest = Manifest.Empty
+                .AddSdk(existingVersion)
+                .AddSdk(requestedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
     });

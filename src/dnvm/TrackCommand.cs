@@ -195,7 +195,7 @@ No builds available for channel '{channel}'. This often happens for preview chan
 preview has not yet been released.
 Proceeding without SDK installation.
 """);
-                dnvmEnv.WriteManifest(manifest);
+                await dnvmEnv.WriteManifest(manifest);
                 return Result.Success;
             }
         }
@@ -254,7 +254,7 @@ Proceeding without SDK installation.
         }
 
         logger.Log("Writing manifest");
-        dnvmEnv.WriteManifest(manifest);
+        await dnvmEnv.WriteManifest(manifest);
 
         console.WriteLine("Successfully installed");
 
