@@ -1,10 +1,11 @@
-
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.Runtime.InteropServices;
 using Semver;
 using Spectre.Console.Testing;
 using Xunit;
 using Zio;
+using Zio.FileSystems;
 using static Dnvm.Test.TestUtils;
 
 namespace Dnvm.Test;
@@ -281,6 +282,28 @@ public sealed class InstallTests
             SdkVersion = SemVersion("42.42.100")
         });
         Assert.Equal(InstallCommand.Result.Success, result);
+    });
+
+    [Fact]
+    public Task InstallToCustomDirectory() => RunWithServer(async (server, env) =>
+    {
+        // Create a custom directory for installation
+        var targetFs = new MemoryFileSystem();
+        var targetDir = UPath.Root / "dotnet";
+        targetFs.CreateDirectory(targetDir);
+
+        var dotnetFile = targetDir / Utilities.DotnetExeName;
+        Assert.False(targetFs.FileExists(dotnetFile));
+
+        var options = new InstallCommand.Options
+        {
+            SdkVersion = MockServer.DefaultLtsVersion,
+            TargetDir = (targetDir, targetFs),
+        };
+        var installResult = await InstallCommand.Run(env, _logger, options);
+        Assert.Equal(InstallCommand.Result.Success, installResult);
+        Assert.True(targetFs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, targetFs.ReadAllText(dotnetFile));
     });
 
     static SemVersion SemVersion(string version) => Semver.SemVersion.Parse(version, SemVersionStyles.Strict);

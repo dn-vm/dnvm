@@ -152,6 +152,11 @@ public static class Utilities
     [UnsupportedOSPlatform("windows")]
     public static void ChmodExec(IFileSystem vfs, UPath upath)
     {
+        if (vfs is MemoryFileSystem)
+        {
+            // We only end up here in tests, so we can skip chmod
+            return;
+        }
         var realPath = vfs.ConvertPathToInternal(upath);
         var mod = File.GetUnixFileMode(realPath);
         File.SetUnixFileMode(realPath, mod | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);

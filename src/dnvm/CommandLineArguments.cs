@@ -45,6 +45,9 @@ public abstract partial record DnvmSubCommand
 
         [CommandOption("-v|--verbose", Description = "Print debugging messages to the console.")]
         public bool? Verbose { get; init; } = null;
+
+        [CommandOption("-d|--directory", Description = "Install the SDK into the target directory instead of the DNVM_HOME directory.")]
+        public string? Dir { get; init; } = null;
     }
 
     [Command("track", Summary = "Start tracking a new channel.")]

@@ -11,6 +11,7 @@ using Serde.Json;
 using Spectre.Console;
 using StaticCs;
 using Zio;
+using Zio.FileSystems;
 
 namespace Dnvm;
 
@@ -32,6 +33,7 @@ public static partial class InstallCommand
         public bool Force { get; init; } = false;
         public SdkDirName? SdkDir { get; init; } = null;
         public bool Verbose { get; init; } = false;
+        public (UPath Dir, IFileSystem DirFs)? TargetDir { get; init; } = null;
     }
 
     public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.InstallArgs args)
@@ -42,6 +44,7 @@ public static partial class InstallCommand
             Force = args.Force ?? false,
             SdkDir = args.SdkDir,
             Verbose = args.Verbose ?? false,
+            TargetDir = args.Dir is not null ? (args.Dir, DnvmEnv.PhysicalFs) : null,
         });
     }
 
@@ -49,6 +52,16 @@ public static partial class InstallCommand
     {
         var console = env.Console;
         var sdkDir = options.SdkDir ?? DnvmEnv.DefaultSdkDirName;
+
+        if (options.TargetDir is ({ } targetDir, { } targetFs))
+        {
+            return await InstallToDir(
+                targetDir,
+                targetFs,
+                env,
+                options.SdkVersion,
+                logger);
+        }
 
         Manifest manifest;
         try
@@ -101,6 +114,58 @@ public static partial class InstallCommand
             return Result.InstallError;
         }
 
+        return Result.Success;
+    }
+
+    private static async Task<Result> InstallToDir(
+        UPath dir,
+        IFileSystem targetFs,
+        DnvmEnv env,
+        SemVersion sdkVersion,
+        Logger logger
+    )
+    {
+        var console = env.Console;
+        DotnetReleasesIndex versionIndex;
+        try
+        {
+            versionIndex = await DotnetReleasesIndex.FetchLatestIndex(env.HttpClient, env.DotnetFeedUrls);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            console.Error($"Could not fetch the releases index: {e.Message}");
+            return Result.CouldntFetchReleaseIndex;
+        }
+
+        var channel = new Channel.VersionedMajorMinor(sdkVersion.Major, sdkVersion.Minor);
+        var result = await TryGetReleaseFromIndex(env.HttpClient, versionIndex, channel, sdkVersion)
+            ?? await TryGetReleaseFromServer(env, sdkVersion);
+        if (result is not ({ } sdkComponent, { } release))
+        {
+            console.Error($"SDK version '{sdkVersion}' could not be found in .NET releases index or server.");
+            return Result.UnknownChannel;
+        }
+
+        var ridString = Utilities.CurrentRID.ToString();
+        var downloadFile = sdkComponent.Files.Single(f => f.Rid == ridString && f.Url.EndsWith(Utilities.ZipSuffix));
+        var link = downloadFile.Url;
+        logger.Log("Download link: " + link);
+
+        env.Console.WriteLine($"Downloading SDK {sdkVersion} for {ridString}");
+        var err = await InstallSdkToDir(
+            curMuxerVersion: null,
+            release.Runtime.Version,
+            env.HttpClient,
+            env.Console,
+            link,
+            targetFs,
+            dir,
+            env.TempFs,
+            logger);
+        if (err is not null)
+        {
+            return Result.InstallError;
+        }
         return Result.Success;
     }
 

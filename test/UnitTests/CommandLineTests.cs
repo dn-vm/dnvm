@@ -259,7 +259,7 @@ Options:
             [ "install", param ]));
         Assert.Equal("""
 usage: dnvm install [-f | --force] [-s | --sdk-dir <sdkDir>] [-v | --verbose]
-[-h | --help] <version>
+[-d | --directory <dir>] [-h | --help] <version>
 
 Install an SDK.
 
@@ -271,6 +271,8 @@ Options:
     -s, --sdk-dir  <sdkDir>  Install the SDK into a separate directory with the
 given name.
     -v, --verbose  Print debugging messages to the console.
+    -d, --directory  <dir>  Install the SDK into the target directory instead of
+the DNVM_HOME directory.
     -h, --help  Show help information.
 
 
