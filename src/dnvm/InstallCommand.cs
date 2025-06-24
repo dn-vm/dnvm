@@ -319,7 +319,7 @@ public static partial class InstallCommand
 
         SelectCommand.SelectDir(logger, env, manifest.CurrentSdkDir, sdkDir);
 
-        var result = JsonSerializer.Serialize(manifest);
+        var result = JsonSerializer.Serialize(manifest.ToManifestV8());
         logger.Log("Existing manifest: " + result);
 
         if (!ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))

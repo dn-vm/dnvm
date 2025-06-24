@@ -150,7 +150,7 @@ public sealed partial class DnvmEnv : IDisposable
 
     public Task WriteManifest(Manifest manifest)
     {
-        var text = JsonSerializer.Serialize(manifest);
+        var text = JsonSerializer.Serialize(manifest.ToManifestV8());
         DnvmHomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
         return Task.CompletedTask;
     }

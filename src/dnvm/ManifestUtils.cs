@@ -132,10 +132,10 @@ public static partial class ManifestUtils
         var version = JsonSerializer.Deserialize<ManifestVersionOnly>(manifestSrc).Version;
         // Handle versions that don't need the release index to convert
         Manifest? manifest = version switch {
-            ManifestV5.VersionField => JsonSerializer.Deserialize<ManifestV5>(manifestSrc).Convert().Convert().Convert(),
-            ManifestV6.VersionField => JsonSerializer.Deserialize<ManifestV6>(manifestSrc).Convert().Convert(),
-            ManifestV7.VersionField => JsonSerializer.Deserialize<ManifestV7>(manifestSrc).Convert(),
-            Manifest.VersionField => JsonSerializer.Deserialize<Manifest>(manifestSrc),
+            ManifestV5.VersionField => JsonSerializer.Deserialize<ManifestV5>(manifestSrc).Convert().Convert().Convert().Convert(),
+            ManifestV6.VersionField => JsonSerializer.Deserialize<ManifestV6>(manifestSrc).Convert().Convert().Convert(),
+            ManifestV7.VersionField => JsonSerializer.Deserialize<ManifestV7>(manifestSrc).Convert().Convert(),
+            ManifestV8.VersionField => JsonSerializer.Deserialize<ManifestV8>(manifestSrc).Convert(),
             _ => null
         };
         if (manifest is not null)
@@ -149,13 +149,13 @@ public static partial class ManifestUtils
         {
             // The first version didn't have a version field
             null => (await JsonSerializer.Deserialize<ManifestV1>(manifestSrc)
-                .Convert().Convert().Convert().Convert(httpClient, releasesIndex)).Convert().Convert().Convert(),
+                .Convert().Convert().Convert().Convert(httpClient, releasesIndex)).Convert().Convert().Convert().Convert(),
             ManifestV2.VersionField => (await JsonSerializer.Deserialize<ManifestV2>(manifestSrc)
-                .Convert().Convert().Convert(httpClient, releasesIndex)).Convert().Convert().Convert(),
+                .Convert().Convert().Convert(httpClient, releasesIndex)).Convert().Convert().Convert().Convert(),
             ManifestV3.VersionField => (await JsonSerializer.Deserialize<ManifestV3>(manifestSrc)
-                .Convert().Convert(httpClient, releasesIndex)).Convert().Convert().Convert(),
+                .Convert().Convert(httpClient, releasesIndex)).Convert().Convert().Convert().Convert(),
             ManifestV4.VersionField => (await JsonSerializer.Deserialize<ManifestV4>(manifestSrc)
-                .Convert(httpClient, releasesIndex)).Convert().Convert().Convert(),
+                .Convert(httpClient, releasesIndex)).Convert().Convert().Convert().Convert(),
             _ => throw new InvalidDataException("Unknown manifest version: " + version)
         };
     }
