@@ -7,22 +7,68 @@ using StaticCs.Collections;
 
 namespace Dnvm;
 
-[GenerateSerde]
 public sealed partial record Manifest
 {
     public static readonly Manifest Empty = new();
-
-    // Serde doesn't serialize consts, so we have a separate property below for serialization.
-    public const int VersionField = 8;
-
-    [SerdeMemberOptions(SkipDeserialize = true)]
-    public int Version => VersionField;
 
     public bool PreviewsEnabled { get; init; } = false;
     public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
     public EqArray<InstalledSdk> InstalledSdks { get; init; } = [];
     public EqArray<RegisteredChannel> RegisteredChannels { get; init; } = [];
+}
 
+public static class ManifestConvert
+{
+    public static Manifest Convert(this ManifestV8 manifestV8)
+    {
+        return new Manifest
+        {
+            PreviewsEnabled = manifestV8.PreviewsEnabled,
+            CurrentSdkDir = manifestV8.CurrentSdkDir,
+            InstalledSdks = manifestV8.InstalledSdks.SelectAsArray(sdk => new InstalledSdk
+            {
+                ReleaseVersion = sdk.ReleaseVersion,
+                SdkVersion = sdk.SdkVersion,
+                RuntimeVersion = sdk.RuntimeVersion,
+                AspNetVersion = sdk.AspNetVersion,
+                SdkDirName = sdk.SdkDirName
+            }),
+            RegisteredChannels = manifestV8.RegisteredChannels.SelectAsArray(channel => new RegisteredChannel
+            {
+                ChannelName = channel.ChannelName,
+                SdkDirName = channel.SdkDirName,
+                InstalledSdkVersions = channel.InstalledSdkVersions.ToEq(),
+                Untracked = channel.Untracked
+            })
+        };
+    }
+}
+
+public sealed partial record Manifest
+{
+    public ManifestV8 ToManifestV8()
+    {
+        return new ManifestV8
+        (
+            PreviewsEnabled: PreviewsEnabled,
+            CurrentSdkDir: CurrentSdkDir,
+            InstalledSdks: InstalledSdks.SelectAsArray(sdk => new InstalledSdkV8
+            {
+                ReleaseVersion = sdk.ReleaseVersion,
+                SdkVersion = sdk.SdkVersion,
+                RuntimeVersion = sdk.RuntimeVersion,
+                AspNetVersion = sdk.AspNetVersion,
+                SdkDirName = sdk.SdkDirName
+            }),
+            RegisteredChannels: RegisteredChannels.SelectAsArray(channel => new RegisteredChannelV8
+            {
+                ChannelName = channel.ChannelName,
+                SdkDirName = channel.SdkDirName,
+                InstalledSdkVersions = channel.InstalledSdkVersions.ToEq(),
+                Untracked = channel.Untracked
+            })
+        );
+    }
     public Manifest TrackChannel(RegisteredChannel channel)
     {
         var existing = RegisteredChannels.FirstOrNull(c =>
@@ -65,7 +111,6 @@ public sealed partial record Manifest
     }
 }
 
-[GenerateSerde]
 public partial record RegisteredChannel
 {
     public required Channel ChannelName { get; init; }
@@ -77,7 +122,6 @@ public partial record RegisteredChannel
     public bool Untracked { get; init; } = false;
 }
 
-[GenerateSerde]
 public partial record InstalledSdk
 {
     [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
@@ -90,28 +134,4 @@ public partial record InstalledSdk
     public required SemVersion AspNetVersion { get; init; }
 
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
-}
-
-public static partial class ManifestConvert
-{
-    public static Manifest Convert(this ManifestV7 v7) => new Manifest
-    {
-        InstalledSdks = v7.InstalledSdks.SelectAsArray(v => v.Convert()).ToEq(),
-        RegisteredChannels = v7.RegisteredChannels.SelectAsArray(c => c.Convert()).ToEq(),
-    };
-
-    public static InstalledSdk Convert(this InstalledSdkV7 v7) => new InstalledSdk {
-        ReleaseVersion = v7.ReleaseVersion,
-        SdkVersion = v7.SdkVersion,
-        RuntimeVersion = v7.RuntimeVersion,
-        AspNetVersion = v7.AspNetVersion,
-        SdkDirName = v7.SdkDirName,
-    };
-
-    public static RegisteredChannel Convert(this RegisteredChannelV7 v7) => new RegisteredChannel {
-        ChannelName = v7.ChannelName,
-        SdkDirName = v7.SdkDirName,
-        InstalledSdkVersions = v7.InstalledSdkVersions,
-        Untracked = v7.Untracked,
-    };
 }
