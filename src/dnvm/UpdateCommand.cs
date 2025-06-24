@@ -86,7 +86,7 @@ public sealed partial class UpdateCommand
 
     public async Task<Result> Run()
     {
-        var manifest = await ManifestUtils.ReadOrCreateManifest(_env);
+        var manifest = await DnvmEnv.ReadOrCreateManifest(_env);
         if (_self)
         {
             return await UpdateSelf(manifest);

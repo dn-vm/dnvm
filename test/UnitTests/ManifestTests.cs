@@ -1,6 +1,7 @@
 
 using Dnvm;
 using Semver;
+using Serde.Json;
 using Xunit;
 
 namespace Dnvm.Test;
@@ -19,7 +20,7 @@ public sealed class ManifestTests
     ]
 }
 """;
-        var parsed = await ManifestUtils.DeserializeNewOrOldManifest(env.HttpClient, manifest, env.DotnetFeedUrls);
+        var parsed = await ManifestSerialize.DeserializeNewOrOldManifest(env.HttpClient, manifest, env.DotnetFeedUrls);
         Assert.Equal("dn", parsed!.CurrentSdkDir.Name);
     });
 
@@ -36,7 +37,8 @@ public sealed class ManifestTests
     ]
 }
 """;
-        server.ReleasesIndexJson = new() {
+        server.ReleasesIndexJson = new()
+        {
             ChannelIndices = [
                 new DotnetReleasesIndex.ChannelIndex {
                     ReleaseType = "lts",
@@ -59,7 +61,8 @@ public sealed class ManifestTests
         server.ChannelIndexMap.Clear();
         var runtimeVersion = new SemVersion(7, 0, 2);
         var sdkVersion = SemVersion.Parse("7.0.203", SemVersionStyles.Strict);
-        server.ChannelIndexMap.Add("7.0", new() {
+        server.ChannelIndexMap.Add("7.0", new()
+        {
             Releases = [
                 new ChannelReleaseIndex.Release {
                     AspNetCore = new() { Version = runtimeVersion, Files = [ ] },
@@ -73,7 +76,8 @@ public sealed class ManifestTests
         });
         runtimeVersion = SemVersion.Parse("8.0.0-preview.3.23178.7", SemVersionStyles.Strict);
         sdkVersion = SemVersion.Parse("8.0.100-preview.3.23178.7", SemVersionStyles.Strict);
-        server.ChannelIndexMap.Add("8.0", new ChannelReleaseIndex() {
+        server.ChannelIndexMap.Add("8.0", new ChannelReleaseIndex()
+        {
             Releases = [
                 new ChannelReleaseIndex.Release {
                     AspNetCore = new() { Version = runtimeVersion, Files = [ ] },
@@ -86,7 +90,7 @@ public sealed class ManifestTests
             ]
         });
 
-        var v5 = (await ManifestUtils.DeserializeNewOrOldManifest(env.HttpClient, manifest, env.DotnetFeedUrls))!;
+        var v5 = (await ManifestSerialize.DeserializeNewOrOldManifest(env.HttpClient, manifest, env.DotnetFeedUrls))!;
         Assert.Equal(new Channel.Latest(), v5.RegisteredChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[0].SdkVersion)).ChannelName);
         Assert.Equal(new Channel.Preview(), v5.RegisteredChannels.Single(c => c.InstalledSdkVersions.Contains(v5.InstalledSdks[1].SdkVersion)).ChannelName);
     });
@@ -95,11 +99,77 @@ public sealed class ManifestTests
     public Task ManifestV3Convert() => TestUtils.RunWithServer(async (server, env) =>
     {
         var v3 = ManifestV3.Empty
-            .AddSdk(new InstalledSdkV3 { Version = "42.42.42" }, new Channel.Latest())
+            .AddSdk(new InstalledSdkV3 { Version = "42.42.42", SdkDirName = new(DnvmEnv.DefaultSdkDirName.Name) }, new Channel.Latest())
             .AddSdk(new InstalledSdkV3 { Version = "99.99.99-preview", SdkDirName = new("preview") },
                     new Channel.Preview());
         var v5 = await v3.Convert().Convert(env.HttpClient, server.ReleasesIndexJson);
         Assert.Equal(new Channel.Latest(), v5.InstalledSdkVersions[0].Channel);
         Assert.Equal(new Channel.Preview(), v5.InstalledSdkVersions[1].Channel);
     });
+
+    [Fact]
+    public void WriteManifestV9()
+    {
+        var manifest = new Manifest
+        {
+            InstalledSdks = [
+                new InstalledSdk
+                {
+                    ReleaseVersion = new SemVersion(7, 0, 2),
+                    SdkVersion = new SemVersion(7, 0, 203),
+                    RuntimeVersion = new SemVersion(7, 0, 2),
+                    AspNetVersion = new SemVersion(7, 0, 2),
+                    SdkDirName = new SdkDirName("dn")
+                }
+            ],
+            RegisteredChannels = [
+                new RegisteredChannel
+                {
+                    ChannelName = new Channel.Latest(),
+                    SdkDirName = new SdkDirName("dn"),
+                    InstalledSdkVersions = [ new SemVersion(7, 0, 203) ]
+                },
+                new RegisteredChannel
+                {
+                    ChannelName = new Channel.Preview(),
+                    SdkDirName = new SdkDirName("preview"),
+                    InstalledSdkVersions = [ SemVersion.Parse("8.0.100-preview.3.23178.7", SemVersionStyles.Strict) ]
+                }
+            ],
+            CurrentSdkDir = new SdkDirName("dn"),
+            PreviewsEnabled = false
+        };
+        var expected = """
+{
+    "version":9,
+    "previewsEnabled": false,
+    "currentSdkDir": "dn",
+    "installedSdks":[
+        {
+            "releaseVersion":"7.0.2",
+            "sdkVersion":"7.0.203",
+            "runtimeVersion":"7.0.2",
+            "aspNetVersion":"7.0.2",
+            "sdkDirName": "dn"
+        }
+    ],
+    "registeredChannels":[
+        {
+            "channelName":"latest",
+            "sdkDirName": "dn",
+            "installedSdkVersions":["7.0.203"],
+            "untracked": false
+        },
+        {
+            "channelName":"preview",
+            "sdkDirName": "preview",
+            "installedSdkVersions":["8.0.100-preview.3.23178.7"],
+            "untracked": false
+        }
+    ]
+}
+""";
+        var serialized = ManifestSerialize.Serialize(manifest);
+        Assert.Equal(JsonSerializer.DeserializeJsonValue(expected), JsonSerializer.DeserializeJsonValue(serialized));
+    }
 }

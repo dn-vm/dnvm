@@ -55,7 +55,7 @@ public static class Program
 
     public static async Task<int> EnableDnvmPreviews(DnvmEnv env)
     {
-        var manifest = await ManifestUtils.ReadOrCreateManifest(env);
+        var manifest = await DnvmEnv.ReadOrCreateManifest(env);
         manifest = manifest with { PreviewsEnabled = true };
         await env.WriteManifest(manifest);
         return 0;

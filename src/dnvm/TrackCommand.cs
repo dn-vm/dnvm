@@ -114,7 +114,7 @@ public sealed class TrackCommand
         Manifest manifest;
         try
         {
-            manifest = await ManifestUtils.ReadOrCreateManifest(_env);
+            manifest = await DnvmEnv.ReadOrCreateManifest(_env);
         }
         catch (InvalidDataException)
         {

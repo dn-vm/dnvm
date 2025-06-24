@@ -1,11 +1,49 @@
 
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Semver;
 using Serde;
+using Serde.Json;
 using StaticCs.Collections;
 
 namespace Dnvm;
+
+/// <summary>
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
+/// </summary>
+public sealed record SdkDirName(string Name)
+{
+    public string Name { get; init; } = Name.ToLower();
+}
+
+public partial record RegisteredChannel
+{
+    public required Channel ChannelName { get; init; }
+    public required SdkDirName SdkDirName { get; init; }
+    [SerdeMemberOptions(
+        SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
+        DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
+    public EqArray<SemVersion> InstalledSdkVersions { get; init; } = EqArray<SemVersion>.Empty;
+    public bool Untracked { get; init; } = false;
+}
+
+public partial record InstalledSdk
+{
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
+    public required SemVersion ReleaseVersion { get; init; }
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
+    public required SemVersion SdkVersion { get; init; }
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
+    public required SemVersion RuntimeVersion { get; init; }
+    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
+    public required SemVersion AspNetVersion { get; init; }
+
+    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
+}
 
 public sealed partial record Manifest
 {
@@ -17,58 +55,92 @@ public sealed partial record Manifest
     public EqArray<RegisteredChannel> RegisteredChannels { get; init; } = [];
 }
 
-public static class ManifestConvert
+partial record Manifest
 {
-    public static Manifest Convert(this ManifestV8 manifestV8)
+    public EqArray<RegisteredChannel> TrackedChannels()
     {
-        return new Manifest
+        return RegisteredChannels.Where(x => !x.Untracked).ToEq();
+    }
+
+    /// <summary>
+    /// Calculates the version of the installed muxer. This is
+    /// Max(<all installed _runtime_ versions>).
+    /// If no SDKs are installed, returns null.
+    /// </summary>
+    public SemVersion? MuxerVersion(SdkDirName dir)
+    {
+        var installedSdks = InstalledSdks
+            .Where(s => s.SdkDirName == dir)
+            .ToList();
+        if (installedSdks.Count == 0)
         {
-            PreviewsEnabled = manifestV8.PreviewsEnabled,
-            CurrentSdkDir = manifestV8.CurrentSdkDir,
-            InstalledSdks = manifestV8.InstalledSdks.SelectAsArray(sdk => new InstalledSdk
+            return null;
+        }
+        return installedSdks
+            .Select(s => s.RuntimeVersion)
+            .Max(SemVersion.SortOrderComparer);
+    }
+
+    public Manifest AddSdk(
+        SemVersion semVersion,
+        Channel? c = null,
+        SdkDirName? sdkDirParam = null)
+    {
+        if (sdkDirParam is not { } sdkDir)
+        {
+            sdkDir = DnvmEnv.DefaultSdkDirName;
+        }
+        var installedSdk = new InstalledSdk()
+        {
+            SdkDirName = sdkDir,
+            SdkVersion = semVersion,
+            RuntimeVersion = semVersion,
+            AspNetVersion = semVersion,
+            ReleaseVersion = semVersion,
+        };
+        return AddSdk(installedSdk, c);
+    }
+
+    public Manifest AddSdk(InstalledSdk sdk, Channel? c = null)
+    {
+        var installedSdks = this.InstalledSdks;
+        if (!installedSdks.Contains(sdk))
+        {
+            installedSdks = installedSdks.Add(sdk);
+        }
+        EqArray<RegisteredChannel> allChannels = this.RegisteredChannels;
+        if (allChannels.FirstOrNull(x => !x.Untracked && x.ChannelName == c && x.SdkDirName == sdk.SdkDirName) is { } oldTracked)
+        {
+            var installedSdkVersions = oldTracked.InstalledSdkVersions;
+            var newTracked = installedSdkVersions.Contains(sdk.SdkVersion)
+                ? oldTracked
+                : oldTracked with
+                {
+                    InstalledSdkVersions = installedSdkVersions.Add(sdk.SdkVersion)
+                };
+            allChannels = allChannels.Replace(oldTracked, newTracked);
+        }
+        else if (c is not null)
+        {
+            allChannels = allChannels.Add(new RegisteredChannel
             {
-                ReleaseVersion = sdk.ReleaseVersion,
-                SdkVersion = sdk.SdkVersion,
-                RuntimeVersion = sdk.RuntimeVersion,
-                AspNetVersion = sdk.AspNetVersion,
-                SdkDirName = sdk.SdkDirName
-            }),
-            RegisteredChannels = manifestV8.RegisteredChannels.SelectAsArray(channel => new RegisteredChannel
-            {
-                ChannelName = channel.ChannelName,
-                SdkDirName = channel.SdkDirName,
-                InstalledSdkVersions = channel.InstalledSdkVersions.ToEq(),
-                Untracked = channel.Untracked
-            })
+                ChannelName = c,
+                SdkDirName = sdk.SdkDirName,
+                InstalledSdkVersions = [sdk.SdkVersion]
+            });
+        }
+        return this with
+        {
+            InstalledSdks = installedSdks,
+            RegisteredChannels = allChannels,
         };
     }
-}
 
-public sealed partial record Manifest
-{
-    public ManifestV8 ToManifestV8()
+    public bool IsSdkInstalled(SemVersion version, SdkDirName dirName)
     {
-        return new ManifestV8
-        (
-            PreviewsEnabled: PreviewsEnabled,
-            CurrentSdkDir: CurrentSdkDir,
-            InstalledSdks: InstalledSdks.SelectAsArray(sdk => new InstalledSdkV8
-            {
-                ReleaseVersion = sdk.ReleaseVersion,
-                SdkVersion = sdk.SdkVersion,
-                RuntimeVersion = sdk.RuntimeVersion,
-                AspNetVersion = sdk.AspNetVersion,
-                SdkDirName = sdk.SdkDirName
-            }),
-            RegisteredChannels: RegisteredChannels.SelectAsArray(channel => new RegisteredChannelV8
-            {
-                ChannelName = channel.ChannelName,
-                SdkDirName = channel.SdkDirName,
-                InstalledSdkVersions = channel.InstalledSdkVersions.ToEq(),
-                Untracked = channel.Untracked
-            })
-        );
+        return this.InstalledSdks.Any(s => s.SdkVersion == version && s.SdkDirName == dirName);
     }
+
     public Manifest TrackChannel(RegisteredChannel channel)
     {
         var existing = RegisteredChannels.FirstOrNull(c =>
@@ -111,27 +183,3 @@ public sealed partial record Manifest
     }
 }
 
-public partial record RegisteredChannel
-{
-    public required Channel ChannelName { get; init; }
-    public required SdkDirName SdkDirName { get; init; }
-    [SerdeMemberOptions(
-        SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
-        DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
-    public EqArray<SemVersion> InstalledSdkVersions { get; init; } = EqArray<SemVersion>.Empty;
-    public bool Untracked { get; init; } = false;
-}
-
-public partial record InstalledSdk
-{
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
-    public required SemVersion ReleaseVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
-    public required SemVersion SdkVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
-    public required SemVersion RuntimeVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
-    public required SemVersion AspNetVersion { get; init; }
-
-    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
-}

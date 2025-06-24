@@ -7,6 +7,17 @@ using StaticCs.Collections;
 
 namespace Dnvm;
 
+/// <summary>
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
+/// </summary>
+[GenerateSerde]
+public sealed partial record SdkDirNameV3(string Name)
+{
+    public string Name { get; init; } = Name.ToLower();
+    public static implicit operator SdkDirNameV3(SdkDirName dirName) => new SdkDirNameV3(dirName.Name);
+}
+
 [GenerateSerde]
 public sealed partial record ManifestV3
 {
@@ -53,7 +64,7 @@ public sealed partial record ManifestV3
 public sealed partial record TrackedChannelV3
 {
     public required Channel ChannelName { get; init; }
-    public required SdkDirName SdkDirName { get; init; }
+    public required SdkDirNameV3 SdkDirName { get; init; }
     public ImmutableArray<string> InstalledSdkVersions { get; init; } = ImmutableArray<string>.Empty;
 
     public bool Equals(TrackedChannelV3? other)
@@ -81,7 +92,7 @@ public sealed partial record TrackedChannelV3
 public sealed partial record InstalledSdkV3
 {
     public required string Version { get; init; }
-    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
+    public required SdkDirNameV3 SdkDirName { get; init; }
 }
 
 static class ManifestConvertV3

@@ -8,26 +8,20 @@ using StaticCs.Collections;
 namespace Dnvm;
 
 /// <summary>
-/// Serializes the <see cref="SdkDirName.Name"/> directly as a string.
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
 /// </summary>
-internal sealed class SdkDirNameV8 : ISerde<SdkDirName>, ISerdeProvider<SdkDirNameV8, SdkDirNameV8, SdkDirName>
+[GenerateSerde]
+public sealed partial record SdkDirNameV8(string Name)
 {
-    public static SdkDirNameV8 Instance { get; } = new();
-    public ISerdeInfo SerdeInfo => StringProxy.SerdeInfo;
-
-    public SdkDirName Deserialize(IDeserializer deserializer)
-        => new SdkDirName(StringProxy.Instance.Deserialize(deserializer));
-
-    public void Serialize(SdkDirName value, ISerializer serializer)
-    {
-        serializer.WriteString(value.Name);
-    }
+    public string Name { get; init; } = Name.ToLower();
+    public static implicit operator SdkDirNameV8(SdkDirNameV7 dirName) => new SdkDirNameV8(dirName.Name);
 }
 
 [GenerateSerde]
 public sealed partial record ManifestV8(
     bool PreviewsEnabled,
-    SdkDirName CurrentSdkDir,
+    SdkDirNameV8 CurrentSdkDir,
     EqArray<InstalledSdkV8> InstalledSdks,
     EqArray<RegisteredChannelV8> RegisteredChannels
 )
@@ -43,7 +37,8 @@ public sealed partial record ManifestV8(
 public partial record RegisteredChannelV8
 {
     public required Channel ChannelName { get; init; }
-    public required SdkDirName SdkDirName { get; init; }
+    [SerdeMemberOptions(Proxy = typeof(SdkDirNameV8))]
+    public required SdkDirNameV8 SdkDirName { get; init; }
     [SerdeMemberOptions(
         SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
         DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
@@ -63,7 +58,8 @@ public partial record InstalledSdkV8
     [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion AspNetVersion { get; init; }
 
-    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
+    [SerdeMemberOptions(Proxy = typeof(SdkDirNameV8))]
+    public required SdkDirNameV8 SdkDirName { get; init; }
 }
 
 public static partial class ManifestV8Convert

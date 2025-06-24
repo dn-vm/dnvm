@@ -9,18 +9,27 @@ using Serde.Json;
 
 namespace Dnvm;
 
+/// <summary>
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
+/// </summary>
+[GenerateSerde]
+public sealed partial record SdkDirNameV5(string Name)
+{
+    public string Name { get; init; } = Name.ToLower();
+    public static implicit operator SdkDirNameV5(SdkDirNameV4 dirName) => new SdkDirNameV5(dirName.Name);
+}
+
 [GenerateSerde]
 public sealed partial record ManifestV5
 {
-    public static readonly ManifestV5 Empty = new();
-
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
     public const int VersionField = 5;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
 
-    public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
+    public required SdkDirNameV5 CurrentSdkDir { get; init; }
     public EqArray<InstalledSdkV5> InstalledSdkVersions { get; init; } = [];
     public EqArray<TrackedChannelV5> TrackedChannels { get; init; } = [];
 
@@ -37,7 +46,7 @@ public sealed partial record ManifestV5
 public partial record TrackedChannelV5
 {
     public required Channel ChannelName { get; init; }
-    public required SdkDirName SdkDirName { get; init; }
+    public required SdkDirNameV5 SdkDirName { get; init; }
     [SerdeMemberOptions(
         SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
         DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
@@ -55,8 +64,7 @@ public partial record InstalledSdkV5
     public required SemVersion RuntimeVersion { get; init; }
     [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion AspNetVersion { get; init; }
-
-    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
+    public required SdkDirNameV5 SdkDirName { get; init; }
 
     /// <summary>
     /// Indicates which channel this SDK was installed from, if any.
@@ -88,6 +96,7 @@ public static partial class ManifestV5Convert
         {
             InstalledSdkVersions = (await v4.InstalledSdkVersions.SelectAsArray(v => v.Convert(v4, getChannelIndex))).ToEq(),
             TrackedChannels = v4.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
+            CurrentSdkDir = v4.CurrentSdkDir,
         };
     }
 

@@ -7,18 +7,27 @@ using StaticCs.Collections;
 
 namespace Dnvm;
 
+/// <summary>
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
+/// </summary>
+[GenerateSerde]
+public sealed partial record SdkDirNameV4(string Name)
+{
+    public string Name { get; init; } = Name.ToLower();
+    public static implicit operator SdkDirNameV4(SdkDirNameV3 dirName) => new SdkDirNameV4(dirName.Name);
+}
+
 [GenerateSerde]
 public sealed partial record ManifestV4
 {
-    public static readonly ManifestV4 Empty = new();
-
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
     public const int VersionField = 4;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
 
-    public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
+    public required SdkDirNameV4 CurrentSdkDir { get; init; }
     public ImmutableArray<InstalledSdkV4> InstalledSdkVersions { get; init; } = ImmutableArray<InstalledSdkV4>.Empty;
     public ImmutableArray<TrackedChannelV4> TrackedChannels { get; init; } = ImmutableArray<TrackedChannelV4>.Empty;
 
@@ -62,7 +71,7 @@ public sealed partial record ManifestV4
 public sealed partial record TrackedChannelV4
 {
     public required Channel ChannelName { get; init; }
-    public required SdkDirName SdkDirName { get; init; }
+    public required SdkDirNameV4 SdkDirName { get; init; }
     public ImmutableArray<string> InstalledSdkVersions { get; init; } = ImmutableArray<string>.Empty;
 
     public bool Equals(TrackedChannelV4? other)
@@ -90,7 +99,7 @@ public sealed partial record TrackedChannelV4
 public sealed partial record InstalledSdkV4
 {
     public required string Version { get; init; }
-    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
+    public required SdkDirNameV4 SdkDirName { get; init; }
 }
 
 public static partial class ManifestV4Convert
@@ -101,6 +110,8 @@ public static partial class ManifestV4Convert
         {
             InstalledSdkVersions = v3.InstalledSdkVersions.SelectAsArray(v => v.Convert()),
             TrackedChannels = v3.TrackedChannels.SelectAsArray(c => c.Convert()),
+            // V3 didn't have an SDK dir, so use the default
+            CurrentSdkDir = new(DnvmEnv.DefaultSdkDirName.Name)
         };
     }
 
