@@ -17,7 +17,7 @@ namespace Dnvm;
 /// <summary>
 /// Represents the external environment of a dnvm process.
 /// <summary>
-public sealed partial class DnvmEnv
+public sealed partial class DnvmEnv : IDisposable
 {
     public bool IsPhysicalDnvmHome { get; }
     public readonly IFileSystem DnvmHomeFs;
@@ -66,9 +66,12 @@ public sealed partial class DnvmEnv
             Timeout = Timeout.InfiniteTimeSpan
         });
     }
+
+    public void Dispose()
+    { }
 }
 
-public sealed partial class DnvmEnv : IDisposable
+public sealed partial class DnvmEnv
 {
     public const string ManifestFileName = "dnvmManifest.json";
     public static EqArray<string> DefaultDotnetFeedUrls { get;} = [
@@ -81,6 +84,7 @@ public sealed partial class DnvmEnv : IDisposable
     public static UPath DnvmExePath => UPath.Root / Utilities.DnvmExeName;
     public static UPath SymlinkPath => UPath.Root / Utilities.DotnetExeName;
     public static UPath GetSdkPath(SdkDirName sdkDirName) => UPath.Root / sdkDirName.Name;
+
     /// <summary>
     /// Default DNVM_HOME is
     ///  ~/.local/share/dnvm on Linux
@@ -90,6 +94,7 @@ public sealed partial class DnvmEnv : IDisposable
     public static readonly string DefaultDnvmHome = Path.Combine(
         GetFolderPath(SpecialFolder.LocalApplicationData, SpecialFolderOption.DoNotVerify),
         "dnvm");
+
     /// <summary>
     /// The location of the SDK install directory, relative to <see cref="DnvmHome" />
     /// </summary>
@@ -145,16 +150,29 @@ public sealed partial class DnvmEnv : IDisposable
     public async Task<Manifest> ReadManifest()
     {
         var text = DnvmHomeFs.ReadAllText(ManifestPath);
-        return await ManifestUtils.DeserializeNewOrOldManifest(HttpClient, text, DotnetFeedUrls);
+        return await ManifestSerialize.DeserializeNewOrOldManifest(HttpClient, text, DotnetFeedUrls);
+    }
+
+    /// <summary>
+    /// Read a manifest using <see cref="ReadManifest"/> , or create a new empty manifest if the
+    /// manifest file does not exist.
+    /// </summary>
+    public static async Task<Manifest> ReadOrCreateManifest(DnvmEnv fs)
+    {
+        try
+        {
+            return await fs.ReadManifest();
+        }
+        // Not found is expected
+        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) { }
+
+        return Manifest.Empty;
     }
 
     public Task WriteManifest(Manifest manifest)
     {
-        var text = JsonSerializer.Serialize(manifest.ToManifestV8());
+        var text = JsonSerializer.Serialize(manifest.ConvertToLatest());
         DnvmHomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
         return Task.CompletedTask;
     }
-
-    public void Dispose()
-    { }
 }

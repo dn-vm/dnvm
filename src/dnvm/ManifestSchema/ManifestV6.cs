@@ -4,18 +4,28 @@ using Serde;
 
 namespace Dnvm;
 
+/// <summary>
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
+/// </summary>
+[GenerateSerde]
+public sealed partial record SdkDirNameV6(string Name)
+{
+    public string Name { get; init; } = Name.ToLower();
+
+    public static implicit operator SdkDirNameV6(SdkDirNameV5 dirName) => new SdkDirNameV6(dirName.Name);
+}
+
 [GenerateSerde]
 public sealed partial record ManifestV6
 {
-    public static readonly ManifestV6 Empty = new();
-
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
     public const int VersionField = 6;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
 
-    public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
+    public required SdkDirNameV6 CurrentSdkDir { get; init; }
     public EqArray<InstalledSdkV6> InstalledSdks { get; init; } = [];
     public EqArray<TrackedChannelV6> TrackedChannels { get; init; } = [];
 
@@ -39,7 +49,7 @@ public sealed partial record ManifestV6
 public partial record TrackedChannelV6
 {
     public required Channel ChannelName { get; init; }
-    public required SdkDirName SdkDirName { get; init; }
+    public required SdkDirNameV6 SdkDirName { get; init; }
     [SerdeMemberOptions(
         SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
         DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
@@ -59,7 +69,7 @@ public partial record InstalledSdkV6
     [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion AspNetVersion { get; init; }
 
-    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
+    public required SdkDirNameV6 SdkDirName { get; init; }
 }
 
 public static partial class ManifestV6Convert
@@ -68,6 +78,7 @@ public static partial class ManifestV6Convert
     {
         InstalledSdks = v5.InstalledSdkVersions.SelectAsArray(v => v.Convert()).ToEq(),
         TrackedChannels = v5.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
+        CurrentSdkDir = v5.CurrentSdkDir,
     };
 
     public static InstalledSdkV6 Convert(this InstalledSdkV5 v5) => new InstalledSdkV6 {

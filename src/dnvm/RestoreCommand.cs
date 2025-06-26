@@ -280,7 +280,7 @@ public static partial class RestoreCommand
             Manifest manifest;
             try
             {
-                manifest = await ManifestUtils.ReadOrCreateManifest(env);
+                manifest = await DnvmEnv.ReadOrCreateManifest(env);
             }
             catch (InvalidDataException)
             {
@@ -293,7 +293,7 @@ public static partial class RestoreCommand
                 return Error.ManifestIOError;
             }
 
-            if (!options.Force && ManifestUtils.IsSdkInstalled(manifest, release.Sdk.Version, manifest.CurrentSdkDir))
+            if (!options.Force && manifest.IsSdkInstalled(release.Sdk.Version, manifest.CurrentSdkDir))
             {
                 console.WriteLine($"Version {release.Sdk.Version} is already installed in directory '{manifest.CurrentSdkDir.Name}'." +
                     " Skipping installation. To install anyway, pass --force.");

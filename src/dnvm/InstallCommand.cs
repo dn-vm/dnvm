@@ -66,7 +66,7 @@ public static partial class InstallCommand
         Manifest manifest;
         try
         {
-            manifest = await ManifestUtils.ReadOrCreateManifest(env);
+            manifest = await DnvmEnv.ReadOrCreateManifest(env);
         }
         catch (InvalidDataException)
         {
@@ -82,7 +82,7 @@ public static partial class InstallCommand
         var sdkVersion = options.SdkVersion;
         var channel = new Channel.VersionedMajorMinor(sdkVersion.Major, sdkVersion.Minor);
 
-        if (!options.Force && ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))
+        if (!options.Force && manifest.IsSdkInstalled(sdkVersion, sdkDir))
         {
             console.WriteLine($"Version {sdkVersion} is already installed in directory '{sdkDir.Name}'." +
                 " Skipping installation. To install anyway, pass --force.");
@@ -319,10 +319,10 @@ public static partial class InstallCommand
 
         SelectCommand.SelectDir(logger, env, manifest.CurrentSdkDir, sdkDir);
 
-        var result = JsonSerializer.Serialize(manifest.ToManifestV8());
+        var result = JsonSerializer.Serialize(manifest.ConvertToLatest());
         logger.Log("Existing manifest: " + result);
 
-        if (!ManifestUtils.IsSdkInstalled(manifest, sdkVersion, sdkDir))
+        if (!manifest.IsSdkInstalled(sdkVersion, sdkDir))
         {
             manifest = manifest with
             {

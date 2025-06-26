@@ -7,20 +7,29 @@ using StaticCs.Collections;
 
 namespace Dnvm;
 
+/// <summary>
+/// Holds the simple name of a directory that contains one or more SDKs and lives under DNVM_HOME.
+/// This is a wrapper to prevent being used directly as a path.
+/// </summary>
+[GenerateSerde]
+public sealed partial record SdkDirNameV7(string Name)
+{
+    public string Name { get; init; } = Name.ToLower();
+    public static implicit operator SdkDirNameV7(SdkDirNameV6 dirName) => new SdkDirNameV7(dirName.Name);
+}
+
 [GenerateSerde]
 public sealed partial record ManifestV7
 {
-    public static readonly ManifestV7 Empty = new();
-
     // Serde doesn't serialize consts, so we have a separate property below for serialization.
     public const int VersionField = 7;
 
     [SerdeMemberOptions(SkipDeserialize = true)]
     public int Version => VersionField;
 
-    public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
-    public EqArray<InstalledSdkV7> InstalledSdks { get; init; } = [];
-    public EqArray<RegisteredChannelV7> RegisteredChannels { get; init; } = [];
+    public required SdkDirNameV7 CurrentSdkDir { get; init; }
+    public required EqArray<InstalledSdkV7> InstalledSdks { get; init; } = [];
+    public required EqArray<RegisteredChannelV7> RegisteredChannels { get; init; } = [];
 
     internal ManifestV7 TrackChannel(RegisteredChannelV7 channel)
     {
@@ -68,7 +77,7 @@ public sealed partial record ManifestV7
 public partial record RegisteredChannelV7
 {
     public required Channel ChannelName { get; init; }
-    public required SdkDirName SdkDirName { get; init; }
+    public required SdkDirNameV7 SdkDirName { get; init; }
     [SerdeMemberOptions(
         SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
         DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
@@ -87,8 +96,7 @@ public partial record InstalledSdkV7
     public required SemVersion RuntimeVersion { get; init; }
     [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion AspNetVersion { get; init; }
-
-    public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
+    public required SdkDirNameV7 SdkDirName { get; init; }
 }
 
 public static partial class ManifestV7Convert
@@ -97,6 +105,7 @@ public static partial class ManifestV7Convert
     {
         InstalledSdks = v6.InstalledSdks.SelectAsArray(v => v.Convert()).ToEq(),
         RegisteredChannels = v6.TrackedChannels.SelectAsArray(c => c.Convert()).ToEq(),
+        CurrentSdkDir = v6.CurrentSdkDir,
     };
 
     public static InstalledSdkV7 Convert(this InstalledSdkV6 v6) => new InstalledSdkV7 {
