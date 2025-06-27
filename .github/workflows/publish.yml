@@ -88,6 +88,6 @@ jobs:
         with:
           prerelease: true
           draft: true
-          files:
+          files: |
             dnvm-*/dnvm-*
             release-key/relkeys.*
