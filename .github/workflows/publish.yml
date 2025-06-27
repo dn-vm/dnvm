@@ -74,8 +74,8 @@ jobs:
       with:
         name: signing
         path: |
-          src/dnvm/Resources/relkeys.*
           artifacts/publish/mk-keys/release_linux-x64/mk-keys
+          src/dnvm/Resources/relkeys.*
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: publish
@@ -85,6 +85,8 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Display structure of downloaded files
         run: ls -R
+      - name: Chmod mk-keys
+        run: chmod +x signing/artifacts/publish/mk-keys/release_linux-x64/mk-keys
       - name: Make Release
         uses: softprops/action-gh-release@v1
         with:
@@ -92,4 +94,4 @@ jobs:
           draft: true
           files: |
             dnvm-*/dnvm-*
-            signing/relkeys.*
+            signing/src/dnvm/Resources/relkeys.*
