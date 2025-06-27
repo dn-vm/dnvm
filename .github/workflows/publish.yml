@@ -87,6 +87,16 @@ jobs:
         run: ls -R
       - name: Chmod mk-keys
         run: chmod +x signing/artifacts/publish/mk-keys/release_linux-x64/mk-keys
+      - name: Write private key
+        run: |
+          echo "${{ secrets.RELEASE_PRIV_KEY }}" > signing/relkeys
+      - name: Sign the releases
+        run: |
+          for file in dnvm-*/dnvm-*; do
+            ./signing/artifacts/publish/mk-keys/release_linux-x64/mk-keys sign-release \
+              signing/relkeys \
+              $file
+          done
       - name: Make Release
         uses: softprops/action-gh-release@v1
         with:
