@@ -90,3 +90,4 @@ jobs:
           draft: true
           files:
             dnvm-*/dnvm-*
+            release-key/relkeys.*
