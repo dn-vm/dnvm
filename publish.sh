@@ -45,4 +45,5 @@ if [[ -z "${rid}" ]]; then
 fi
 
 dotnet publish --sc -r $rid -c Release src/dnvm/dnvm.csproj
+dotnet publish --sc -r $rid -c Release tools/mk-keys/mk-keys.csproj
 tar -C ./artifacts/publish/dnvm/release_$rid/ -cvzf ./artifacts/dnvm-$version-$rid.tar.gz dnvm
