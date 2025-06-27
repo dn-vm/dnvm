@@ -39,6 +39,9 @@ public sealed class ScopedHttpClient(HttpClient client)
 
     internal Task<Stream> GetStreamAsync(string uri)
         => client.GetStreamAsync(uri, CancelScope.Current.Token);
+
+    internal Task<Stream> GetStreamAsync(Uri uri)
+        => client.GetStreamAsync(uri, CancelScope.Current.Token);
 }
 
 public sealed class ScopedHttpResponseMessage(HttpResponseMessage response) : IDisposable

@@ -132,14 +132,13 @@ class Program {
         return destPath;
     }
 
-    public static FileStream MakeFakeDnvmArchive()
+    public static string MakeFakeDnvmArchive()
     {
         // rather than use an actual copy of dnvm, we'll use an executable bash/powershell script
         const string outputString = "Hello from dnvm test. This output must contain the string << usage: >>";
         using var tmpDir = TestUtils.CreateTempDirectory();
         var dnvmPath = Path.Combine(tmpDir.Path, Utilities.DnvmExeName);
         MakeEchoExe(dnvmPath, outputString);
-        var archivePath = MakeZipOrTarball(tmpDir.Path, Path.Combine(ArtifactsTmpDir.FullName, "dnvm"));
-        return File.Open(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return MakeZipOrTarball(tmpDir.Path, Path.Combine(ArtifactsTmpDir.FullName, "dnvm"));
     }
 }

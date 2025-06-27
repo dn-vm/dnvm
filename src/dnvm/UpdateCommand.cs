@@ -7,8 +7,11 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Security;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Dnvm.Signing;
 using Semver;
 using Serde.Json;
 using Spectre.Console;
@@ -41,6 +44,9 @@ public sealed partial class UpdateCommand
     private readonly string _releasesUrl;
     private readonly bool _yes;
     private readonly bool _self;
+
+    public const string ReleaseKeyFileName = "relkeys.pub";
+    public const string ReleaseKeySigFileName = ReleaseKeyFileName + ".sig";
 
     public UpdateCommand(DnvmEnv env, Logger logger, Options opts)
     {
@@ -252,20 +258,24 @@ public sealed partial class UpdateCommand
                 throw ExceptionUtilities.Unreachable;
         }
 
-        string artifactDownloadLink = GetReleaseLink(release);
+        var artifactUri = GetReleaseLink(release);
+        var archiveName = Path.GetFileName(artifactUri.LocalPath);
+        var artifactSigUri = new Uri(artifactUri.ToString() + ".sig");
+        var pubKeyUri = new Uri(artifactUri, ReleaseKeyFileName);
+        var pubKeySigUri = new Uri(artifactUri, ReleaseKeySigFileName);
+        Uri[] downloads = [
+            artifactUri,
+            artifactSigUri,
+            pubKeyUri,
+            pubKeySigUri
+        ];
 
         string tempArchiveDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        async Task HandleDownload(string tempDownloadPath)
-        {
-            _logger.Log("Extraction directory: " + tempArchiveDir);
-            string? retMsg = await Utilities.ExtractArchiveToDir(tempDownloadPath, tempArchiveDir);
-            if (retMsg != null)
-            {
-                _env.Console.Error("Extraction failed: " + retMsg);
-            }
-        }
 
-        await DownloadBinaryToTempAndDelete(artifactDownloadLink, HandleDownload);
+        await DownloadToTempAndDelete(
+            downloads,
+            downloadDir => HandleDownload(downloadDir, tempArchiveDir, archiveName)
+        );
         _logger.Log($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
         string dnvmTmpPath = Path.Combine(tempArchiveDir, Utilities.DnvmExeName);
@@ -276,6 +286,61 @@ public sealed partial class UpdateCommand
         }
         var exitCode = RunSelfInstall(_env.Console, _logger, dnvmTmpPath, Utilities.ProcessPath);
         return exitCode == 0 ? Success : SelfUpdateFailed;
+    }
+
+    /// <summary>
+    /// Unpack the downloaded archive to the given temp directory. The archive is expected to
+    /// have the name <param name="archiveName"/> and be located in the <param name="downloadDir"/>.
+    /// </summary>
+    private async Task HandleDownload(string downloadDir, string tempArchiveDir, string archiveName)
+    {
+        var relkeyPath = Path.Combine(downloadDir, ReleaseKeyFileName);
+        var relkeySigPath = Path.Combine(downloadDir, ReleaseKeySigFileName);
+
+        // Perform the following steps in precisely this order:
+        // 1. Verify the release key signature using the root key
+        // 2. Verify the archive signature using the release key
+        // 3. Extract the archive to the temp directory
+
+        _env.Console.WriteLine("Verifying release key signature...");
+        var rootKey = KeyMgr.ParsePublicRootKey(Resources.GetRootPubContent());
+        var relKeyBytes = await File.ReadAllBytesAsync(relkeyPath);
+        var relKeySig = await File.ReadAllBytesAsync(relkeySigPath);
+        bool success = KeyMgr.VerifyReleaseKey(rootKey, relKeyBytes, relKeySig);
+        if (success)
+        {
+            _env.Console.WriteLine("Release key signature OK");
+        }
+        else
+        {
+            _env.Console.Error("Release key signature verification FAILED. This is not currently fatal, but it will be in the next release.");
+        }
+
+        _env.Console.WriteLine("Verifying archive signature...");
+        var archivePath = Path.Combine(downloadDir, archiveName);
+        var archiveSigPath = archivePath + ".sig";
+        var archiveSig = await File.ReadAllBytesAsync(archiveSigPath);
+        var relKeyText = Encoding.UTF8.GetString(relKeyBytes);
+        using (var archiveStream = File.OpenRead(archivePath))
+        {
+            success = KeyMgr.VerifyRelease(relKeyText, archiveStream, archiveSig);
+        }
+
+        if (success)
+        {
+            _env.Console.WriteLine("Archive signature OK");
+        }
+        else
+        {
+            _env.Console.Error("Archive signature verification FAILED. This is not currently fatal, but it will be in the next release.");
+        }
+
+        _logger.Log("Archive path: " + archivePath);
+        string? retMsg = await Utilities.ExtractArchiveToDir(archivePath, tempArchiveDir);
+        if (retMsg != null)
+        {
+            _env.Console.Error("Extraction failed: " + retMsg);
+        }
     }
 
     private static async Task<(bool UpdateAvailable, DnvmReleases.Release? Releases)> CheckForSelfUpdates(
@@ -337,36 +402,56 @@ public sealed partial class UpdateCommand
         }
     }
 
-    private string GetReleaseLink(DnvmReleases.Release release)
+    private Uri GetReleaseLink(DnvmReleases.Release release)
     {
-        // Dnvm doesn't currently publish ARM64 binaries for any platform
-        var rid = (Utilities.CurrentRID with {
-            Arch = Architecture.X64
-        }).ToString();
-        var artifactDownloadLink = release.Artifacts[rid];
+        var rid = Utilities.CurrentRID;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && rid.Arch != Architecture.X64)
+        {
+            // Dnvm doesn't currently publish non-x64 binaries for windows
+            _logger.Log("No non-x64 binaries available for Windows, using x64 instead.");
+            rid = rid with {
+                Arch = Architecture.X64
+            };
+        }
+        var artifactDownloadLink = release.Artifacts[rid.ToString()];
         _logger.Log("Artifact download link: " + artifactDownloadLink);
-        return artifactDownloadLink;
+        return new(artifactDownloadLink);
     }
 
-    private async Task DownloadBinaryToTempAndDelete(string uri, Func<string, Task> action)
+    private async Task DownloadToTempAndDelete(Uri[] uris, Func<string, Task> action)
     {
-        string tempDownloadPath = Path.GetTempFileName();
-        using (var tempFile = new FileStream(
-            tempDownloadPath,
-            FileMode.Open,
-            FileAccess.Write,
-            FileShare.Read,
-            64 * 1024 /* 64kB */,
-            FileOptions.WriteThrough))
+        var tempFolder = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try
         {
-            // We could have a timeout for downloading the file, but this is heavily dependent
-            // on the user's download speed and if they suspend/resume the process. Instead
-            // we'll rely on the user to cancel the download if it's taking too long.
-            using var archiveHttpStream = await _env.HttpClient.GetStreamAsync(uri);
-            await archiveHttpStream.CopyToAsync(tempFile);
-            await tempFile.FlushAsync();
+            Directory.CreateDirectory(tempFolder);
+            _logger.Log("Temporary download directory: " + tempFolder);
+
+            foreach (var uri in uris)
+            {
+                string tempDownloadPath = Path.Combine(tempFolder, Path.GetFileName(uri.LocalPath));
+                _logger.Log($"Downloading {uri} to: {tempDownloadPath}");
+                using (var tempFile = new FileStream(
+                    tempDownloadPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.Read,
+                    64 * 1024 /* 64kB */,
+                    FileOptions.WriteThrough))
+                using (var archiveHttpStream = await _env.HttpClient.GetStreamAsync(uri))
+                {
+                    // We could have a timeout for downloading the file, but this is heavily dependent
+                    // on the user's download speed and if they suspend/resume the process. Instead
+                    // we'll rely on the user to cancel the download if it's taking too long.
+                    await archiveHttpStream.CopyToAsync(tempFile);
+                    await tempFile.FlushAsync();
+                }
+            }
+            await action(tempFolder);
         }
-        await action(tempDownloadPath);
+        finally
+        {
+            Directory.Delete(tempFolder, true);
+        }
     }
 
     public static async Task<bool> ValidateBinary(IAnsiConsole console, Logger? logger, string fileName)

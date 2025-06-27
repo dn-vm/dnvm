@@ -1,12 +1,11 @@
 
 using System.Collections.Generic;
 using Serde;
-using static Dnvm.DnvmReleases;
 
 namespace Dnvm;
 
 [GenerateSerde]
-public partial record DnvmReleases(Release LatestVersion)
+public partial record DnvmReleases(DnvmReleases.Release LatestVersion)
 {
     public Release? LatestPreview { get; init; }
 

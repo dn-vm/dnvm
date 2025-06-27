@@ -75,7 +75,7 @@ jobs:
         name: signing
         path: |
           artifacts/publish/mk-keys/release_linux-x64/mk-keys
-          src/dnvm/Resources/relkeys.*
+          tools/keys/relkeys.*
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: publish
@@ -104,4 +104,4 @@ jobs:
           draft: true
           files: |
             dnvm-*/dnvm-*
-            signing/src/dnvm/Resources/relkeys.*
+            signing/tools/keys/relkeys.*

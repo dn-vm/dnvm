@@ -290,14 +290,6 @@ public class SelfInstallCommand
         }
     }
 
-    private static string GetEnvShContent()
-    {
-        var asm = Assembly.GetExecutingAssembly();
-        using var stream = asm.GetManifestResourceStream("dnvm.Resources.env.sh")!;
-        using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
-    }
-
     private static bool PathContains(DnvmEnv dnvmEnv, string path)
     {
         var pathVar = GetEnvVar(dnvmEnv, "PATH");
@@ -395,7 +387,7 @@ public class SelfInstallCommand
 
         static void WriteEnvShFile(Logger logger, string dnvmHome, DnvmEnv env, string sdkInstallDir)
         {
-            var newContent = GetEnvShContent()
+            var newContent = Resources.GetEnvShContent()
                 .Replace("{install_loc}", dnvmHome)
                 .Replace("{sdk_install_loc}", sdkInstallDir);
 
