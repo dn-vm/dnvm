@@ -65,8 +65,6 @@ partial class Program
         {
             [CommandParameter(0, "pub-key-file", Description = "The public key file.")]
             public required string PubKeyFile { get; init; }
-            [CommandParameter(1, "root-key-file", Description = "The root key file.")]
-            public required string RootKeyFile { get; init; }
             [CommandParameter(2, "release-file", Description = "The release file to verify.")]
             public required string ReleaseFile { get; init; }
         }
@@ -90,7 +88,7 @@ partial class Program
             case MkKeysCommand.SignRelease signRelease:
                 return await SignRelease(signRelease.PrivKeyFile, signRelease.ReleaseFile);
             case MkKeysCommand.VerifyRelease verifyRelease:
-                return await VerifyRelease(verifyRelease.PubKeyFile, verifyRelease.RootKeyFile, verifyRelease.ReleaseFile) ? 0 : 1;
+                return await VerifyRelease(verifyRelease.PubKeyFile, verifyRelease.ReleaseFile) ? 0 : 1;
         }
         return 1;
     }
@@ -229,22 +227,14 @@ partial class Program
     /// with the same path as the release file, but with '.sig' appended. The signature of the
     /// public key is expected to be in a file with the same path, but with '.sig' appended.
     /// </summary>
-    static async Task<bool> VerifyRelease(string pubKeyFile, string rootKeyFile, string releaseFile)
+    static async Task<bool> VerifyRelease(string pubKeyFile, string releaseFile)
     {
-        var result = await VerifyReleaseKey(rootKeyFile, pubKeyFile);
-        if (!result)
-        {
-            Console.WriteLine("Public key verification failed, aborting release verification.");
-            return false;
-        }
-        Console.WriteLine();
-
         var releaseSigFile = releaseFile + ".sig";
 
         using var releaseData = File.OpenRead(releaseFile);
         var sig = await File.ReadAllBytesAsync(releaseSigFile);
         Console.WriteLine("Verifying release file signature...");
-        result = KeyMgr.VerifyRelease(await File.ReadAllTextAsync(pubKeyFile), releaseData, sig);
+        var result = KeyMgr.VerifyRelease(await File.ReadAllTextAsync(pubKeyFile), releaseData, sig);
         if (result)
         {
             Console.WriteLine("Release file OK.");
