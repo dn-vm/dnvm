@@ -22,13 +22,13 @@ public sealed class TestEnv : IDisposable
         var cwd = cwdOpt ?? UPath.Root;
 
         var physicalFs = DnvmEnv.PhysicalFs;
-        var homeFs = new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(_dnvmHome.Path));
+        var dnvmFs = new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(_dnvmHome.Path));
         var cwdFs = new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(_workingDir.Path));
         cwdFs.CreateDirectory(cwd);
 
         DnvmEnv = new DnvmEnv(
                 userHome: _userHome.Path,
-                homeFs,
+                dnvmFs,
                 cwdFs,
                 cwd,
                 isPhysical: true,

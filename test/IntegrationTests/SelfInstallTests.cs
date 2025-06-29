@@ -25,60 +25,10 @@ public sealed class SelfInstallTests
         _testOutput = testOutput;
     }
 
-    private static async Task<ProcUtil.ProcResult> RunDnvmAndRestoreEnv(
-        DnvmEnv env,
-        string dnvmPath,
-        string dnvmArgs,
-        Action? envChecker = null)
-    {
-        var savedVars = new Dictionary<string, string?>();
-        const string PATH = "PATH";
-        const string DOTNET_ROOT = "DOTNET_ROOT";
-        const string DNVM_HOME = "DNVM_HOME";
-        if (OperatingSystem.IsWindows())
-        {
-            SaveVars(savedVars);
-        }
-        try
-        {
-            var procResult = await ProcUtil.RunWithOutput(
-                dnvmPath,
-                dnvmArgs,
-                new()
-                {
-                    ["HOME"] = env.UserHome,
-                    ["DNVM_HOME"] = env.RealPath(UPath.Root)
-                }
-            );
-            // Allow the test to check the environment variables before they are restored
-            envChecker?.Invoke();
-            return procResult;
-        }
-        finally
-        {
-            RestoreVars(savedVars);
-        }
-
-        static void SaveVars(Dictionary<string, string?> savedVars)
-        {
-            savedVars[PATH] = Environment.GetEnvironmentVariable(PATH, EnvironmentVariableTarget.User);
-            savedVars[DOTNET_ROOT] = Environment.GetEnvironmentVariable(DOTNET_ROOT, EnvironmentVariableTarget.User);
-            savedVars[DNVM_HOME] = Environment.GetEnvironmentVariable(DNVM_HOME, EnvironmentVariableTarget.User);
-        }
-
-        static void RestoreVars(Dictionary<string, string?> savedVars)
-        {
-            foreach (var kvp in savedVars)
-            {
-                Environment.SetEnvironmentVariable(kvp.Key, kvp.Value, EnvironmentVariableTarget.User);
-            }
-        }
-    }
-
     [Fact]
     public Task FirstRunInstallsDotnet() => RunWithServer(async (mockServer, env) =>
     {
-        var procResult = await RunDnvmAndRestoreEnv(
+        var procResult = await DnvmRunner.RunAndRestoreEnv(
             env,
             DnvmExe,
             $"selfinstall --feed-url {mockServer.PrefixString} -y -v"
@@ -119,19 +69,18 @@ public sealed class SelfInstallTests
             _ = await proc.StandardOutput.ReadLineAsync() + Environment.NewLine;
         }
         var lines = "";
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 6; i++)
         {
             lines += await proc.StandardOutput.ReadLineAsync() + Environment.NewLine;
         }
         Assert.Equal($"""
 Starting dnvm install
-Please select install location [default: {env.RealPath(UPath.Root)}]:
-""", lines.Trim());
+The dnvm binary, manifest, and all SDKs will be installed under the dnvm home directory:
 
-        // Flush output
-        await proc.StandardOutput.ReadAsync(buffer);
-        // Write empty line -- use the default
-        await proc.StandardInput.WriteLineAsync();
+	{env.RealPath(UPath.Root)}
+
+You can change this location by setting the DNVM_HOME environment variable.
+""", lines.Trim());
 
         lines = "";
         for (int i = 0; i < 8; i++)
@@ -208,18 +157,12 @@ Scanning for shell files to update
     [ConditionalFact(typeof(UnixOnly))]
     public Task FirstRunWritesEnv() => RunWithServer(async (mockServer, env) =>
     {
-        var psi = new ProcessStartInfo
-        {
-            FileName = DnvmExe,
-            Arguments = $"selfinstall --feed-url {mockServer.PrefixString} -y -v",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        psi.Environment["HOME"] = env.UserHome;
-        psi.Environment["DNVM_HOME"] = env.RealPath(UPath.Root);
-        var proc = Process.Start(psi);
-        await proc!.WaitForExitAsync();
-        Assert.Equal(0, proc.ExitCode);
+        var result = await DnvmRunner.RunAndRestoreEnv(
+            env,
+            DnvmExe,
+            "selfinstall --feed-url " + mockServer.PrefixString + " -y -v"
+        );
+        Assert.Equal(0, result.ExitCode);
 
         Assert.True(env.DnvmHomeFs.FileExists(DnvmEnv.EnvPath));
         var envPath = env.RealPath(DnvmEnv.EnvPath);
@@ -230,16 +173,15 @@ set -e
 echo "dnvm: `which dnvm`"
 echo "dotnet: `which dotnet`"
 echo "DOTNET_ROOT: $DOTNET_ROOT"
-echo "DNVM_HOME: $DNVM_HOME"
 """;
-        psi = new ProcessStartInfo
+        var psi = new ProcessStartInfo
         {
             FileName = "/bin/sh",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             RedirectStandardInput = true
         };
-        proc = Process.Start(psi)!;
+        var proc = Process.Start(psi)!;
         await proc.StandardInput.WriteAsync(src);
         proc.StandardInput.Close();
         await proc.WaitForExitAsync();
@@ -250,7 +192,6 @@ echo "DNVM_HOME: $DNVM_HOME"
         Assert.Equal(dnvmHome, Path.GetDirectoryName(await ReadLine("dotnet: ")));
         var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName));
         Assert.Equal(sdkInstallDir, await ReadLine("DOTNET_ROOT: "));
-        Assert.Equal(dnvmHome, await ReadLine("DNVM_HOME: "));
 
         async Task<string> ReadLine(string expectedPrefix)
         {
@@ -268,7 +209,7 @@ echo "DNVM_HOME: $DNVM_HOME"
         const string DOTNET_ROOT = "DOTNET_ROOT";
         const string DNVM_HOME = "DNVM_HOME";
 
-        var result = await RunDnvmAndRestoreEnv(
+        var result = await DnvmRunner.RunAndRestoreEnv(
             env,
             DnvmExe,
             $"selfinstall --feed-url {mockServer.PrefixString} -y -v",
@@ -293,7 +234,7 @@ echo "DNVM_HOME: $DNVM_HOME"
         mockServer.SetArchivePath(Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm")));
 
         var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
-        var result = await RunDnvmAndRestoreEnv(
+        var result = await DnvmRunner.RunAndRestoreEnv(
             env,
             copiedExe,
             $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v"
@@ -321,7 +262,7 @@ echo "DNVM_HOME: $DNVM_HOME"
         mockServer.SetArchivePath(Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm")));
 
         var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
-        var result = await RunDnvmAndRestoreEnv(
+        var result = await DnvmRunner.RunAndRestoreEnv(
             env,
             copiedExe,
             $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v"
@@ -341,7 +282,7 @@ echo "DNVM_HOME: $DNVM_HOME"
         );
         Assert.Equal(0, result.ExitCode);
 
-        result = await RunDnvmAndRestoreEnv(
+        result = await DnvmRunner.RunAndRestoreEnv(
             env,
             copiedExe,
             $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v"
@@ -352,11 +293,9 @@ echo "DNVM_HOME: $DNVM_HOME"
     });
 
     [Fact]
-    public async Task RunUpdateSelfInstaller()
+    public async Task RunUpdateSelfInstaller() => await RunWithServer(async (mockServer, env) =>
     {
         using var srcTmpDir = TestUtils.CreateTempDirectory();
-        using var dnvmHome = TestUtils.CreateTempDirectory();
-        using var env = DnvmEnv.CreateDefault(dnvmHome.Path);
         var dnvmTmpPath = srcTmpDir.CopyFile(SelfInstallTests.DnvmExe);
 
         // Create a dest dnvm that looks like a previous install
@@ -366,7 +305,7 @@ echo "DNVM_HOME: $DNVM_HOME"
         Assets.MakeEchoExe(prevDnvmPath, helloString);
 
         // Create a fake dotnet
-        var sdkDir = Path.Combine(dnvmHome.Path, "dn");
+        var sdkDir = env.RealPath(DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName));
         Directory.CreateDirectory(sdkDir);
         var fakeDotnet = Path.Combine(sdkDir, Utilities.DotnetExeName);
         Assets.MakeEchoExe(fakeDotnet, "Hello from dotnet test");
@@ -377,7 +316,7 @@ echo "DNVM_HOME: $DNVM_HOME"
         }
 
         var startVer = Program.SemVer;
-        var result = await RunDnvmAndRestoreEnv(
+        var result = await DnvmRunner.RunAndRestoreEnv(
             env,
             dnvmTmpPath,
             $"selfinstall -v --update --dest-path \"{prevDnvmPath}\""
@@ -405,23 +344,25 @@ echo "DNVM_HOME: $DNVM_HOME"
             // source the sh script and confirm that dnvm and dotnet are on the path
             var src = $"""
 set -e
-. "{env.DnvmHomeFs.ConvertPathToInternal(DnvmEnv.EnvPath)}"
+. "{env.RealPath(DnvmEnv.EnvPath)}"
 echo "dnvm: `which dnvm`"
 echo "dotnet: `which dotnet`"
 echo "DOTNET_ROOT: $DOTNET_ROOT"
 echo "DNVM_HOME: $DNVM_HOME"
 """;
-            var shellResult = await ProcUtil.RunShell(src, new() {
-                ["DNVM_HOME"] = dnvmHome.Path,
+            var dnvmHome = env.RealPath(UPath.Root);
+            var shellResult = await ProcUtil.RunShell(src, new()
+            {
+                ["DNVM_HOME"] = dnvmHome,
                 ["PATH"] = $"{testInstallDir.Path}:" + GetEnvironmentVariable("PATH"),
             });
 
             Assert.Contains("dnvm: " + prevDnvmPath, shellResult.Out);
-            Assert.Contains("dotnet: " + Path.Combine(dnvmHome.Path, Utilities.DotnetExeName), shellResult.Out);
+            Assert.Contains("dotnet: " + Path.Combine(dnvmHome, Utilities.DotnetExeName), shellResult.Out);
             Assert.Contains("DOTNET_ROOT: " + sdkDir, shellResult.Out);
-            Assert.Contains("DNVM_HOME: " + dnvmHome.Path, shellResult.Out);
+            Assert.Contains("DNVM_HOME: " + dnvmHome, shellResult.Out);
         }
-    }
+    });
 
     [ConditionalFact(typeof(UnixOnly))]
     public Task SelfInstallUpdatesZshrc() => RunWithServer(async (mockServer, env) =>
@@ -435,7 +376,7 @@ alias ll='ls -la'
 """;
         await File.WriteAllTextAsync(zshrcPath, initialZshrcContent);
 
-        var procResult = await RunDnvmAndRestoreEnv(
+        var procResult = await DnvmRunner.RunAndRestoreEnv(
             env,
             DnvmExe,
             $"selfinstall --feed-url {mockServer.PrefixString} -y -v"
@@ -448,16 +389,16 @@ alias ll='ls -la'
         // Verify that .zshrc was updated
         Assert.True(File.Exists(zshrcPath));
         var updatedZshrcContent = await File.ReadAllTextAsync(zshrcPath);
-        
+
         // The original content should still be there
         Assert.Contains("export PATH=\"/usr/local/bin:$PATH\"", updatedZshrcContent);
         Assert.Contains("alias ll='ls -la'", updatedZshrcContent);
-        
+
         // The dnvm env import should have been added (the implementation only checks for the source line)
         var envPath = Path.Combine(env.RealPath(UPath.Root), "env");
         var portableEnvPath = envPath.Replace(env.UserHome, "$HOME");
         Assert.Contains($". \"{portableEnvPath}\"", updatedZshrcContent);
-        
+
         // Verify the full conditional block was appended
         var expectedSuffix = $"""
 
@@ -466,7 +407,7 @@ if [ -f "{portableEnvPath}" ]; then
 fi
 """;
         Assert.Contains(expectedSuffix, updatedZshrcContent);
-        
+
         // Verify that the output mentions updating the .zshrc file
         Assert.Contains("Found " + zshrcPath, procResult.Out);
         Assert.Contains("Adding env import to: " + zshrcPath, procResult.Out);
@@ -479,7 +420,7 @@ fi
         var zshrcPath = Path.Combine(env.UserHome, ".zshrc");
         var envPath = Path.Combine(env.RealPath(UPath.Root), "env");
         var portableEnvPath = envPath.Replace(env.UserHome, "$HOME");
-        
+
         var initialZshrcContent = $"""
 # Initial .zshrc content
 export PATH="/usr/local/bin:$PATH"
@@ -488,7 +429,7 @@ alias ll='ls -la'
 """;
         await File.WriteAllTextAsync(zshrcPath, initialZshrcContent);
 
-        var procResult = await RunDnvmAndRestoreEnv(
+        var procResult = await DnvmRunner.RunAndRestoreEnv(
             env,
             DnvmExe,
             $"selfinstall --feed-url {mockServer.PrefixString} -y -v"
@@ -501,7 +442,7 @@ alias ll='ls -la'
         // Verify that .zshrc content remains unchanged
         var finalZshrcContent = await File.ReadAllTextAsync(zshrcPath);
         Assert.Equal(initialZshrcContent, finalZshrcContent);
-        
+
         // Verify that the output mentions finding the .zshrc file but not adding to it
         Assert.Contains("Found " + zshrcPath, procResult.Out);
         Assert.DoesNotContain("Adding env import to: " + zshrcPath, procResult.Out);
