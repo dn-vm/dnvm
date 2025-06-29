@@ -422,4 +422,89 @@ echo "DNVM_HOME: $DNVM_HOME"
             Assert.Contains("DNVM_HOME: " + dnvmHome.Path, shellResult.Out);
         }
     }
+
+    [ConditionalFact(typeof(UnixOnly))]
+    public Task SelfInstallUpdatesZshrc() => RunWithServer(async (mockServer, env) =>
+    {
+        // Create a .zshrc file in the user home directory
+        var zshrcPath = Path.Combine(env.UserHome, ".zshrc");
+        var initialZshrcContent = """
+# Initial .zshrc content
+export PATH="/usr/local/bin:$PATH"
+alias ll='ls -la'
+""";
+        await File.WriteAllTextAsync(zshrcPath, initialZshrcContent);
+
+        var procResult = await RunDnvmAndRestoreEnv(
+            env,
+            DnvmExe,
+            $"selfinstall --feed-url {mockServer.PrefixString} -y -v"
+        );
+
+        _testOutput.WriteLine(procResult.Out);
+        _testOutput.WriteLine(procResult.Error);
+        Assert.Equal(0, procResult.ExitCode);
+
+        // Verify that .zshrc was updated
+        Assert.True(File.Exists(zshrcPath));
+        var updatedZshrcContent = await File.ReadAllTextAsync(zshrcPath);
+        
+        // The original content should still be there
+        Assert.Contains("export PATH=\"/usr/local/bin:$PATH\"", updatedZshrcContent);
+        Assert.Contains("alias ll='ls -la'", updatedZshrcContent);
+        
+        // The dnvm env import should have been added (the implementation only checks for the source line)
+        var envPath = Path.Combine(env.RealPath(UPath.Root), "env");
+        var portableEnvPath = envPath.Replace(env.UserHome, "$HOME");
+        Assert.Contains($". \"{portableEnvPath}\"", updatedZshrcContent);
+        
+        // Verify the full conditional block was appended
+        var expectedSuffix = $"""
+
+if [ -f "{portableEnvPath}" ]; then
+    . "{portableEnvPath}"
+fi
+""";
+        Assert.Contains(expectedSuffix, updatedZshrcContent);
+        
+        // Verify that the output mentions updating the .zshrc file
+        Assert.Contains("Found " + zshrcPath, procResult.Out);
+        Assert.Contains("Adding env import to: " + zshrcPath, procResult.Out);
+    });
+
+    [ConditionalFact(typeof(UnixOnly))]
+    public Task SelfInstallSkipsZshrcWhenAlreadyConfigured() => RunWithServer(async (mockServer, env) =>
+    {
+        // Create a .zshrc file that already contains the dnvm env source line (what the code actually checks for)
+        var zshrcPath = Path.Combine(env.UserHome, ".zshrc");
+        var envPath = Path.Combine(env.RealPath(UPath.Root), "env");
+        var portableEnvPath = envPath.Replace(env.UserHome, "$HOME");
+        
+        var initialZshrcContent = $"""
+# Initial .zshrc content
+export PATH="/usr/local/bin:$PATH"
+. "{portableEnvPath}"
+alias ll='ls -la'
+""";
+        await File.WriteAllTextAsync(zshrcPath, initialZshrcContent);
+
+        var procResult = await RunDnvmAndRestoreEnv(
+            env,
+            DnvmExe,
+            $"selfinstall --feed-url {mockServer.PrefixString} -y -v"
+        );
+
+        _testOutput.WriteLine(procResult.Out);
+        _testOutput.WriteLine(procResult.Error);
+        Assert.Equal(0, procResult.ExitCode);
+
+        // Verify that .zshrc content remains unchanged
+        var finalZshrcContent = await File.ReadAllTextAsync(zshrcPath);
+        Assert.Equal(initialZshrcContent, finalZshrcContent);
+        
+        // Verify that the output mentions finding the .zshrc file but not adding to it
+        Assert.Contains("Found " + zshrcPath, procResult.Out);
+        Assert.DoesNotContain("Adding env import to: " + zshrcPath, procResult.Out);
+    });
+
 }
