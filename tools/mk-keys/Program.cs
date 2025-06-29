@@ -132,7 +132,7 @@ partial class Program
     static async Task<int> MakeKeys(string outputFile)
     {
         // Generate a new signing key pair
-        var (publicKey, privateKey) = KeyMgr.GenerateReleaseKey();
+        var (privateKey, publicKey) = KeyMgr.GenerateReleaseKey();
         await File.WriteAllTextAsync(outputFile, privateKey);
         Console.WriteLine($"Private key written to {outputFile}");
         await File.WriteAllTextAsync(outputFile + ".pub", publicKey);

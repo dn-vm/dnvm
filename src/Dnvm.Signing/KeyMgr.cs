@@ -28,13 +28,13 @@ public static class KeyMgr
     /// <summary>
     /// Create a new signing key pair.
     /// </summary>
-    public static (string PublicKey, string PrivateKey) GenerateReleaseKey()
+    public static (string PrivateKey, string PublicKey) GenerateReleaseKey()
     {
         // Generate a new signing key pair
         using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         string publicKey = ecdsa.ExportSubjectPublicKeyInfoPem();
         string privateKey = ecdsa.ExportECPrivateKeyPem();
-        return (publicKey, privateKey);
+        return (privateKey, publicKey);
     }
 
     /// <summary>
@@ -183,11 +183,12 @@ public static class KeyMgr
     /// <summary>
     /// Verify that the signature provided for the signing key was created by the root key.
     /// </summary>
-    public static bool VerifyReleaseKey(RootPubKey rootKey, byte[] signingPubKey, byte[] sig)
+    /// <param name="relKey">The contents of the release key file.</param>
+    public static bool VerifyReleaseKey(RootPubKey rootKey, byte[] relKey, byte[] sig)
     {
         // Verify the signature against the signing public key
         return rootKey.ECDsa.VerifyData(
-            signingPubKey,
+            relKey,
             sig,
             HashAlgorithmName.SHA256
         );

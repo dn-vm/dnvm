@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources/env.sh" />
+    <EmbeddedResource Include="Resources/root.pub" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,6 +25,10 @@
     <PackageReference Include="StaticCs.Collections" />
     <PackageReference Include="StaticCs.Result" />
     <PackageReference Include="zio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dnvm.Signing\Dnvm.Signing.csproj" />
   </ItemGroup>
 
   <Target Name="EmbedVersionInfo" BeforeTargets="BeforeBuild">
@@ -46,11 +51,7 @@ internal static class GitVersionInformation
       </GitVersonOutText>
     </PropertyGroup>
 
-    <WriteLinesToFile
-      File="$(GitVersionOutPath)"
-      Lines="$(GitVersonOutText)"
-      Overwrite="true"
-      WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="$(GitVersionOutPath)" Lines="$(GitVersonOutText)" Overwrite="true" WriteOnlyWhenDifferent="true" />
 
     <ItemGroup>
       <Compile Include="$(GitVersionOutPath)" Condition="Exists($(GitVersionOutPath))" />

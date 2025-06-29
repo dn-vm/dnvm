@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\dnvm\dnvm.csproj" />
+    <ProjectReference Include="..\..\src\Dnvm.Signing\Dnvm.Signing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

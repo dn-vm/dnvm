@@ -285,12 +285,12 @@ echo "DNVM_HOME: $DNVM_HOME"
     });
 
     [Fact]
-    public Task RealUpdateSelf() => RunWithServer(async (mockServer, env) =>
+    public async Task RealUpdateSelf() => await RunWithServer(async (mockServer, env) =>
     {
         var copiedExe = env.RealPath(DnvmEnv.DnvmExePath);
         File.Copy(DnvmExe, copiedExe);
         using var tmpDir = TestUtils.CreateTempDirectory();
-        mockServer.DnvmPath = Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm"));
+        mockServer.SetArchivePath(Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm")));
 
         var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
         var result = await RunDnvmAndRestoreEnv(
@@ -318,7 +318,7 @@ echo "DNVM_HOME: $DNVM_HOME"
         var copiedExe = env.RealPath(DnvmEnv.DnvmExePath);
         File.Copy(DnvmExe, copiedExe);
         using var tmpDir = TestUtils.CreateTempDirectory();
-        mockServer.DnvmPath = Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm"));
+        mockServer.SetArchivePath(Assets.MakeZipOrTarball(env.RealPath(UPath.Root), Path.Combine(tmpDir.Path, "dnvm")));
 
         var timeBeforeUpdate = File.GetLastWriteTimeUtc(copiedExe);
         var result = await RunDnvmAndRestoreEnv(

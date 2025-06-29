@@ -2,7 +2,10 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Reflection.Metadata.Ecma335;
+using System.Security.Cryptography;
 using System.Text;
+using Dnvm.Signing;
 using Semver;
 using Serde.Json;
 using static Dnvm.Utilities;
@@ -22,7 +25,20 @@ public sealed class MockServer : IAsyncDisposable
 
     public string PrefixString => $"http://localhost:{Port}/";
     public string DnvmReleasesUrl => PrefixString + "releases.json";
-    public string? DnvmPath { get; set; } = null;
+
+    private Lazy<string> _archivePath = new(() => {
+        var path = Assets.MakeFakeDnvmArchive();
+        return path;
+    });
+
+    public Lazy<DnvmArtifacts> Artifacts { get; }
+
+    public sealed partial record DnvmArtifacts(
+        string ArchivePath,
+        byte[] ArchiveSig,
+        string PubKey,
+        byte[] PubKeySig
+    );
 
     public DotnetReleasesIndex ReleasesIndexJson { get; set; }
 
@@ -61,7 +77,9 @@ public sealed class MockServer : IAsyncDisposable
             Version: "24.24.24",
             Artifacts: new() {
                 ["linux-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                ["linux-arm64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
                 ["osx-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                ["osx-arm64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
                 ["win-x64"] = $"{PrefixString}dnvm/dnvm.zip"
         }))
         {
@@ -69,10 +87,27 @@ public sealed class MockServer : IAsyncDisposable
                 Version: "99.99.99-preview",
                 Artifacts: new() {
                     ["linux-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                    ["linux-arm64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
                     ["osx-x64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
+                    ["osx-arm64"] = $"{PrefixString}dnvm/dnvm.tar.gz",
                     ["win-x64"] = $"{PrefixString}dnvm/dnvm.zip"
             })
         };
+        Artifacts = new(() =>
+        {
+            var path = _archivePath.Value;
+            var (privKey, pubKey) = KeyMgr.GenerateReleaseKey();
+            using var archiveStream = File.OpenRead(path);
+            var archiveSig = KeyMgr.SignRelease(privKey, archiveStream);
+            // This is a placeholder for the public key signature, which is not used in tests.
+            var pubKeySig = new byte[archiveSig.Length];
+            return new DnvmArtifacts(
+                path,
+                archiveSig,
+                pubKey,
+                pubKeySig
+            );
+        });
     }
 
     public void ClearVersions()
@@ -144,6 +179,11 @@ public sealed class MockServer : IAsyncDisposable
         _dailyBuilds.Add(version);
     }
 
+    public void SetArchivePath(string path)
+    {
+        _archivePath = new(() => path);
+    }
+
     private async Task WaitForConnection()
     {
         while (_listener.IsListening)
@@ -165,7 +205,7 @@ public sealed class MockServer : IAsyncDisposable
                 {
                     action(ctx.Response);
                 }
-                catch {}
+                catch { }
             }
             else
             {
@@ -185,6 +225,9 @@ public sealed class MockServer : IAsyncDisposable
                 ["/release-metadata/releases-index.json"] = GetReleasesIndexJson,
                 ["/releases.json"] = GetReleasesJson,
                 [$"/dnvm/dnvm{ZipSuffix}"] = GetDnvm,
+                [$"/dnvm/dnvm{ZipSuffix}.sig"] = r => WriteOk(r, Artifacts.Value.ArchiveSig),
+                [$"/dnvm/relkeys.pub"] = r => WriteOk(r, Encoding.UTF8.GetBytes(Artifacts.Value.PubKey)),
+                [$"/dnvm/relkeys.pub.sig"] = r => WriteOk(r, Artifacts.Value.PubKeySig),
             };
             foreach (var (version, index) in ChannelIndexMap)
             {
@@ -231,24 +274,17 @@ public sealed class MockServer : IAsyncDisposable
 }
 """;
 
-    private void GetReleasesIndexJson(HttpListenerResponse response) => WriteJson(JsonSerializer.Serialize(ReleasesIndexJson))(response);
+    private void GetReleasesIndexJson(HttpListenerResponse response)
+        => WriteJson(JsonSerializer.Serialize(ReleasesIndexJson))(response);
 
     private static Action<HttpListenerResponse> WriteJson(string json)
     {
         byte[] buffer = Encoding.UTF8.GetBytes(json);
-        return (response) =>
-        {
-            response.StatusCode = (int)HttpStatusCode.OK;
-            // Get a response stream and write the response to it.
-            response.ContentLength64 = buffer.Length;
-            var output = response.OutputStream;
-            output.Write(buffer, 0, buffer.Length);
-            // You must close the output stream.
-            output.Close();
-        };
+        return (response) => WriteOk(response, buffer);
     }
 
-    private Action<HttpListenerResponse> GetChannelIndexJson(ChannelReleaseIndex index) => WriteJson(JsonSerializer.Serialize(index));
+    private Action<HttpListenerResponse> GetChannelIndexJson(ChannelReleaseIndex index)
+        => WriteJson(JsonSerializer.Serialize(index));
 
     private static Action<HttpListenerResponse> GetSdk(
         SemVersion sdkVersion,
@@ -256,22 +292,26 @@ public sealed class MockServer : IAsyncDisposable
         SemVersion aspnetVersion,
         SemVersion winVersion) => response =>
     {
-        var f = Assets.GetSdkArchive(sdkVersion, runtimeVersion, aspnetVersion);
-        var streamLength = f.Length;
-        response.ContentLength64 = streamLength;
-        f.CopyTo(response.OutputStream);
-        response.OutputStream.Close();
+        using var f = Assets.GetSdkArchive(sdkVersion, runtimeVersion, aspnetVersion);
+        WriteOk(response, f);
     };
 
     private void GetDnvm(HttpListenerResponse response)
     {
-        using var f = DnvmPath is null
-            ? Assets.MakeFakeDnvmArchive()
-            : File.OpenRead(DnvmPath);
-        response.ContentLength64 = f.Length;
-        f.CopyTo(response.OutputStream);
+        using var f = File.OpenRead(Artifacts.Value.ArchivePath);
+        WriteOk(response, f);
+    }
+
+    private static void WriteOk(HttpListenerResponse response, Stream s)
+    {
+        response.StatusCode = (int)HttpStatusCode.OK;
+        response.ContentLength64 = s.Length;
+        s.CopyTo(response.OutputStream);
         response.OutputStream.Close();
     }
+
+    private static void WriteOk(HttpListenerResponse response, byte[] content)
+        => WriteOk(response, new MemoryStream(content));
 
     private void GetReleasesJson(HttpListenerResponse response) => WriteJson(JsonSerializer.Serialize(DnvmReleases))(response);
 
