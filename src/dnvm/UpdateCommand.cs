@@ -274,7 +274,7 @@ public sealed partial class UpdateCommand
 
         await DownloadToTempAndDelete(
             downloads,
-            downloadDir => HandleDownload(downloadDir, tempArchiveDir, archiveName)
+            downloadDir => VerifyAndExtract(downloadDir, tempArchiveDir, archiveName)
         );
         _logger.Log($"{tempArchiveDir} contents: {string.Join(", ", Directory.GetFiles(tempArchiveDir))}");
 
@@ -292,7 +292,7 @@ public sealed partial class UpdateCommand
     /// Unpack the downloaded archive to the given temp directory. The archive is expected to
     /// have the name <param name="archiveName"/> and be located in the <param name="downloadDir"/>.
     /// </summary>
-    private async Task HandleDownload(string downloadDir, string tempArchiveDir, string archiveName)
+    private async Task VerifyAndExtract(string downloadDir, string tempArchiveDir, string archiveName)
     {
         var relkeyPath = Path.Combine(downloadDir, ReleaseKeyFileName);
         var relkeySigPath = Path.Combine(downloadDir, ReleaseKeySigFileName);

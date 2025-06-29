@@ -95,14 +95,12 @@ public class SelfInstallCommand
 
         if (!opt.Yes)
         {
-            var defaultInstall = Environment.GetEnvironmentVariable("DNVM_HOME") ?? DnvmEnv.DefaultDnvmHome;
-            Console.WriteLine($"Please select install location [default: {defaultInstall}]: ");
-            Console.Write($"> ");
-            var customInstallPath = Console.ReadLine()?.Trim();
-            if (!string.IsNullOrEmpty(customInstallPath))
-            {
-                env = DnvmEnv.CreateDefault(customInstallPath, dotnetFeedUrl: opt.FeedUrl);
-            }
+            var dnvmHome = Environment.GetEnvironmentVariable("DNVM_HOME") ?? DnvmEnv.DefaultDnvmHome;
+            console.WriteLine("The dnvm binary, manifest, and all SDKs will be installed under the dnvm home directory:");
+            console.WriteLine();
+            console.WriteLine($"	{dnvmHome}");
+            console.WriteLine();
+            console.WriteLine("You can change this location by setting the DNVM_HOME environment variable.");
         }
         env ??= DnvmEnv.CreateDefault(dotnetFeedUrl: opt.FeedUrl);
 
@@ -117,21 +115,21 @@ public class SelfInstallCommand
         Channel channel = new Channel.Latest();
         if (!opt.Yes)
         {
-            Console.WriteLine("Which channel would you like to start tracking?");
-            Console.WriteLine("Available channels:");
+            console.WriteLine("Which channel would you like to start tracking?");
+            console.WriteLine("Available channels:");
             List<Channel> channels = [new Channel.Latest(), new Channel.Sts(), new Channel.Lts(), new Channel.Preview()];
             for (int i = 0; i < channels.Count; i++)
             {
                 var c = channels[i];
                 var name = c.GetDisplayName();
                 var desc = c.GetDesc();
-                Console.WriteLine($"\t{i + 1}) {name} - {desc}");
+                console.WriteLine($"\t{i + 1}) {name} - {desc}");
             }
-            Console.WriteLine();
+            console.WriteLine();
             while (true)
             {
-                Console.WriteLine($"Please select a channel [default: {channel.GetDisplayName()}]:");
-                Console.Write("> ");
+                console.WriteLine($"Please select a channel [default: {channel.GetDisplayName()}]:");
+                console.Write("> ");
                 var resultStr = Console.ReadLine()?.Trim();
                 if (string.IsNullOrEmpty(resultStr))
                 {
@@ -149,8 +147,8 @@ public class SelfInstallCommand
         var sdkDirName = DnvmEnv.DefaultSdkDirName;
         if (!opt.Yes && MissingFromEnv(env, sdkDirName))
         {
-            Console.WriteLine("One or more paths are missing from the user environment. Attempt to update the user environment?");
-            Console.Write("[Y/n]> ");
+            console.WriteLine("One or more paths are missing from the user environment. Attempt to update the user environment?");
+            console.Write("[Y/n]> ");
             updateUserEnv = Console.ReadLine()?.Trim().ToLowerInvariant() is not "n";
         }
 
@@ -391,13 +389,6 @@ public class SelfInstallCommand
                 .Replace("{install_loc}", dnvmHome)
                 .Replace("{sdk_install_loc}", sdkInstallDir);
 
-            // If DNVM_HOME is non-default, add it to the env.sh file
-            if (dnvmHome != DnvmEnv.DefaultDnvmHome)
-            {
-                newContent = newContent + Environment.NewLine +
-                    $"export DNVM_HOME={dnvmHome}" + Environment.NewLine;
-            }
-
             logger.Log("Writing env sh file");
             env.DnvmHomeFs.WriteAllText(DnvmEnv.EnvPath, newContent);
 
@@ -418,6 +409,13 @@ public class SelfInstallCommand
         . "{portableEnvPath}"
     fi
     """;
+
+            // If DNVM_HOME is non-default, add it to the env.sh file
+            if (dnvmHome != DnvmEnv.DefaultDnvmHome)
+            {
+                userShSuffix += Environment.NewLine +
+                    $"export DNVM_HOME=\"{dnvmHome}\"" + Environment.NewLine;
+            }
             // Scan shell files for shell suffix and add it if it doesn't exist
             console.WriteLine("Scanning for shell files to update");
             var filesToUpdate = new List<string>();

@@ -132,7 +132,8 @@ public sealed partial class DnvmEnv
         Directory.CreateDirectory(realPath);
 
         return new DnvmEnv(
-            userHome: GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
+            userHome: Environment.GetEnvironmentVariable("HOME")
+                ?? GetFolderPath(SpecialFolder.UserProfile, SpecialFolderOption.DoNotVerify),
             new SubFileSystem(PhysicalFs, PhysicalFs.ConvertPathFromInternal(realPath)),
             PhysicalFs,
             PhysicalFs.ConvertPathFromInternal(Environment.CurrentDirectory),
