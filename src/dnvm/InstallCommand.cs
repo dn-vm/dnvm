@@ -38,13 +38,25 @@ public static partial class InstallCommand
 
     public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.InstallArgs args)
     {
+        (UPath Dir, IFileSystem DirFs)? targetDir = null;
+        if (args.Dir is not null)
+        {
+            // Convert relative paths to absolute paths based on current working directory
+            UPath dirPath = args.Dir;
+            if (!dirPath.IsAbsolute)
+            {
+                dirPath = env.Cwd / dirPath;
+            }
+            targetDir = (dirPath, env.CwdFs);
+        }
+
         return Run(env, logger, new Options
         {
             SdkVersion = args.SdkVersion,
             Force = args.Force ?? false,
             SdkDir = args.SdkDir,
             Verbose = args.Verbose ?? false,
-            TargetDir = args.Dir is not null ? (args.Dir, DnvmEnv.PhysicalFs) : null,
+            TargetDir = targetDir,
         });
     }
 
