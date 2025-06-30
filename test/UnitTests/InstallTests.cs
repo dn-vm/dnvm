@@ -306,5 +306,63 @@ public sealed class InstallTests
         Assert.Contains(Assets.ArchiveToken, targetFs.ReadAllText(dotnetFile));
     });
 
+    [Fact]
+    public Task InstallToRelativeDirectory() => RunWithServer(async (server, env) =>
+    {
+        // Set up a relative directory path for installation
+        var relativePath = "dotnet-sdk";
+        
+        // The dir should not exist initially
+        var relativeDirPath = UPath.Root / relativePath;
+        Assert.False(env.CwdFs.DirectoryExists(relativeDirPath));
+
+        var options = new DnvmSubCommand.InstallArgs
+        {
+            SdkVersion = MockServer.DefaultLtsVersion,
+            Dir = relativePath,
+        };
+        
+        var installResult = await InstallCommand.Run(env, _logger, options);
+        Assert.Equal(InstallCommand.Result.Success, installResult);
+        
+        // Verify the directory was created and contains the dotnet executable
+        Assert.True(env.CwdFs.DirectoryExists(relativeDirPath));
+        var dotnetFile = relativeDirPath / Utilities.DotnetExeName;
+        Assert.True(env.CwdFs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, env.CwdFs.ReadAllText(dotnetFile));
+        
+        // Also verify we can install again without errors (should skip)
+        var console = (TestConsole)env.Console;
+        console.Clear(home: false);
+        installResult = await InstallCommand.Run(env, _logger, options);
+        Assert.Equal(InstallCommand.Result.Success, installResult);
+    });
+
+    [Fact]
+    public Task InstallToNestedRelativeDirectory() => RunWithServer(async (server, env) =>
+    {
+        // Set up a nested relative directory path for installation
+        var relativePath = "nested/dotnet-sdk";
+        
+        // The dir should not exist initially
+        var relativeDirPath = UPath.Root / "nested" / "dotnet-sdk";
+        Assert.False(env.CwdFs.DirectoryExists(relativeDirPath));
+
+        var options = new DnvmSubCommand.InstallArgs
+        {
+            SdkVersion = MockServer.DefaultLtsVersion,
+            Dir = relativePath,
+        };
+        
+        var installResult = await InstallCommand.Run(env, _logger, options);
+        Assert.Equal(InstallCommand.Result.Success, installResult);
+        
+        // Verify the directory was created and contains the dotnet executable
+        Assert.True(env.CwdFs.DirectoryExists(relativeDirPath));
+        var dotnetFile = relativeDirPath / Utilities.DotnetExeName;
+        Assert.True(env.CwdFs.FileExists(dotnetFile));
+        Assert.Contains(Assets.ArchiveToken, env.CwdFs.ReadAllText(dotnetFile));
+    });
+
     static SemVersion SemVersion(string version) => Semver.SemVersion.Parse(version, SemVersionStyles.Strict);
 }
