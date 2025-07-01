@@ -488,18 +488,13 @@ public class SelfInstallCommand
         console.WriteLine("PATH updated.");
     }
 
-    private static ImmutableArray<string> ProfileShellFiles => ImmutableArray.Create<string>(
-        ".profile",
-        ".bashrc",
-        ".zshrc"
-    );
+    private static ImmutableArray<string> ProfileShellFiles => [".profile", ".bashrc", ".zshrc" ];
 
 
     private static async Task<bool> FileContainsLine(string filePath, string contents)
     {
-        using var file = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open);
-        var stream = file.CreateViewStream();
-        using var reader = new StreamReader(stream);
+        using var file = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var reader = new StreamReader(file);
         string? line;
         while ((line = await reader.ReadLineAsync()) is not null)
         {

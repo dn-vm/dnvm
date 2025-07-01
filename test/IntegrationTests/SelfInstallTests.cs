@@ -364,16 +364,13 @@ echo "DNVM_HOME: $DNVM_HOME"
         }
     });
 
-    [ConditionalFact(typeof(UnixOnly))]
-    public Task SelfInstallUpdatesZshrc() => RunWithServer(async (mockServer, env) =>
+    [ConditionalTheory(typeof(UnixOnly))]
+    [InlineData("")]
+    [InlineData("# Initial .zshrc content\nexport PATH=\"/usr/local/bin")]
+    public Task SelfInstallUpdatesZshrc(string initialZshrcContent) => RunWithServer(async (mockServer, env) =>
     {
         // Create a .zshrc file in the user home directory
         var zshrcPath = Path.Combine(env.UserHome, ".zshrc");
-        var initialZshrcContent = """
-# Initial .zshrc content
-export PATH="/usr/local/bin:$PATH"
-alias ll='ls -la'
-""";
         await File.WriteAllTextAsync(zshrcPath, initialZshrcContent);
 
         var procResult = await DnvmRunner.RunAndRestoreEnv(
@@ -391,8 +388,7 @@ alias ll='ls -la'
         var updatedZshrcContent = await File.ReadAllTextAsync(zshrcPath);
 
         // The original content should still be there
-        Assert.Contains("export PATH=\"/usr/local/bin:$PATH\"", updatedZshrcContent);
-        Assert.Contains("alias ll='ls -la'", updatedZshrcContent);
+        Assert.Contains(initialZshrcContent, updatedZshrcContent);
 
         // The dnvm env import should have been added (the implementation only checks for the source line)
         var envPath = Path.Combine(env.RealPath(UPath.Root), "env");
