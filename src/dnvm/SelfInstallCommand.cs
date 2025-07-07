@@ -209,7 +209,7 @@ public class SelfInstallCommand
         SdkDirName oldDirName;
         try
         {
-            var manifest = await _env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(_env);
             oldDirName = manifest.CurrentSdkDir;
         }
         catch
@@ -235,7 +235,7 @@ public class SelfInstallCommand
         SdkDirName sdkDirName;
         try
         {
-            var manifest = await dnvmEnv.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(dnvmEnv);
             sdkDirName = manifest.CurrentSdkDir;
         }
         catch

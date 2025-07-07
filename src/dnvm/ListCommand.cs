@@ -16,7 +16,7 @@ public static class ListCommand
         Manifest manifest;
         try
         {
-            manifest = await env.ReadManifest();
+            manifest = await Manifest.ReadManifestUnsafe(env);
         }
         catch (Exception e)
         {

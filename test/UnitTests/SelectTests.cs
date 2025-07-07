@@ -41,7 +41,7 @@ public sealed class SelectTests
         }
 
         // Select the preview SDK
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal(defaultSdkDir, manifest.CurrentSdkDir);
 
         manifest = (await SelectCommand.RunWithManifest(env, defaultSdkDir, manifest, _logger)).Unwrap();

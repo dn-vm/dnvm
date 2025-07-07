@@ -1,13 +1,15 @@
-
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Semver;
 using Serde;
 using Serde.Json;
 using StaticCs.Collections;
+using Zio;
 
 namespace Dnvm;
 
@@ -181,5 +183,145 @@ partial record Manifest
             }).ToEq()
         };
     }
+}
+
+public sealed class ManifestLock : IDisposable
+{
+    private readonly FileLock _fileLock;
+
+    private ManifestLock(FileLock fileLock)
+    {
+        _fileLock = fileLock;
+    }
+
+    public static async Task<ManifestLock> Acquire(DnvmEnv env)
+    {
+        var fileLock = await FileLock.Acquire(
+            env.DnvmHomeFs,
+            DnvmEnv.LockFilePath,
+            ManifestLockingConfig.LockTimeout,
+            ManifestLockingConfig.BaseRetryDelay);
+        return new ManifestLock(fileLock);
+    }
+
+    public void Dispose()
+    {
+        _fileLock.Dispose();
+    }
+
+    public async Task<Manifest> ReadManifest(DnvmEnv env)
+    {
+        return await Manifest.ReadManifestUnsafe(env);
+    }
+
+    /// <summary>
+    /// Writes the manifest atomically using a temporary file and rename operation.
+    /// </summary>
+    public Task WriteManifest(DnvmEnv env, Manifest manifest)
+    {
+        var tempFileName = $"{DnvmEnv.ManifestFileName}.{Path.GetRandomFileName()}.tmp";
+        var tempPath = UPath.Root / tempFileName;
+
+        var text = JsonSerializer.Serialize(manifest.ConvertToLatest());
+
+        // Write to temporary file first
+        env.DnvmHomeFs.WriteAllText(tempPath, text, Encoding.UTF8);
+
+        // Create backup of existing manifest if it exists
+        if (env.DnvmHomeFs.FileExists(DnvmEnv.ManifestPath))
+        {
+            var backupPath = UPath.Root / $"{DnvmEnv.ManifestFileName}.backup";
+            try
+            {
+                // Should not throw if the file doesn't exist
+                env.DnvmHomeFs.DeleteFile(backupPath);
+                env.DnvmHomeFs.MoveFile(DnvmEnv.ManifestPath, backupPath);
+            }
+            catch (IOException)
+            {
+                // Best effort cleanup - ignore if we can't delete the backup file
+            }
+        }
+
+        // Atomic rename operation
+        env.DnvmHomeFs.MoveFile(tempPath, DnvmEnv.ManifestPath);
+
+        // Clean up temporary file
+        try
+        {
+            env.DnvmHomeFs.DeleteFile(tempPath);
+        }
+        catch (IOException)
+        {
+            // Best effort cleanup - ignore if we can't delete the temp file
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Read a manifest using <see cref="ReadManifestUnsafe"/> , or create a new empty manifest if the
+    /// manifest file does not exist.
+    /// </summary>
+    public async Task<Manifest> ReadOrCreateManifest(DnvmEnv env)
+    {
+        try
+        {
+            return await Manifest.ReadManifestUnsafe(env);
+        }
+        // Not found is expected
+        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) { }
+
+        return Manifest.Empty;
+    }
+}
+
+/// <summary>
+/// Static methods for atomic manifest file operations with locking.
+/// </summary>
+partial record Manifest
+{
+    /// <summary>
+    /// Reads a manifest (any version) from the given path without acquiring the lock and returns an
+    /// up-to-date <see cref="Manifest" /> (latest version). Throws if the manifest is invalid.
+    /// </summary>
+    public static async Task<Manifest> ReadManifestUnsafe(DnvmEnv env)
+    {
+        var text = env.DnvmHomeFs.ReadAllText(DnvmEnv.ManifestPath);
+        return await ManifestSerialize.DeserializeNewOrOldManifest(env.HttpClient, text, env.DotnetFeedUrls);
+    }
+
+    /// <summary>
+    /// Writes a manifest to the file system without locking. This method does not acquire a lock,
+    /// and is therefore not safe for concurrent writes. For safe concurrent writes, use
+    /// UpdateManifestAtomic instead.
+    /// </summary>
+    public static Task WriteManifestUnsafe(DnvmEnv env, Manifest manifest)
+    {
+        var text = JsonSerializer.Serialize(manifest.ConvertToLatest());
+        env.DnvmHomeFs.WriteAllText(DnvmEnv.ManifestPath, text, Encoding.UTF8);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Configuration for manifest locking behavior.
+/// </summary>
+internal static class ManifestLockingConfig
+{
+    /// <summary>
+    /// Maximum time to wait for acquiring a manifest lock before timing out.
+    /// </summary>
+    public static TimeSpan LockTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Maximum number of retry attempts for transient failures.
+    /// </summary>
+    public static int MaxRetries { get; set; } = 3;
+
+    /// <summary>
+    /// Base delay between retry attempts (with jitter added).
+    /// </summary>
+    public static TimeSpan BaseRetryDelay { get; set; } = TimeSpan.FromMilliseconds(50);
 }
 

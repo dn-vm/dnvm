@@ -77,7 +77,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -110,7 +110,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(UPath.Root / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -144,7 +144,7 @@ public sealed class RestoreTests
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -178,7 +178,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -213,7 +213,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -249,7 +249,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -286,7 +286,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -325,7 +325,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -359,7 +359,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -394,7 +394,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -430,7 +430,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -467,7 +467,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -502,7 +502,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -537,7 +537,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -573,7 +573,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -610,7 +610,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -648,7 +648,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -692,7 +692,7 @@ public sealed class RestoreTests
         {
             Assert.False(env.CwdFs.DirectoryExists(env.Cwd / ".dotnet"));
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(expectedVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -720,7 +720,7 @@ public sealed class RestoreTests
         else
         {
             var manifest = Manifest.Empty.AddSdk(existingVersion);
-            await env.WriteManifest(manifest);
+            await Manifest.WriteManifestUnsafe(env, manifest);
         }
 
         // Write global.json requesting a higher version with rollForward: minor
@@ -766,7 +766,7 @@ public sealed class RestoreTests
         else
         {
             var manifest = Manifest.Empty.AddSdk(existingVersion);
-            await env.WriteManifest(manifest);
+            await Manifest.WriteManifestUnsafe(env, manifest);
         }
 
         env.CwdFs.WriteAllText(env.Cwd / "global.json", $$"""
@@ -790,7 +790,7 @@ public sealed class RestoreTests
         }
         else
         {
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty
                 .AddSdk(existingVersion)
                 .AddSdk(requestedVersion);

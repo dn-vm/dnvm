@@ -111,10 +111,11 @@ public sealed class TrackCommand
             return Result.InstallLocationNotWritable;
         }
 
+        using var @lock = await ManifestLock.Acquire(_env);
         Manifest manifest;
         try
         {
-            manifest = await DnvmEnv.ReadOrCreateManifest(_env);
+            manifest = await @lock.ReadOrCreateManifest(_env);
         }
         catch (InvalidDataException)
         {
@@ -142,6 +143,7 @@ public sealed class TrackCommand
         });
 
         return await InstallLatestFromChannel(
+            @lock,
             manifest,
             _env,
             _logger,
@@ -152,6 +154,7 @@ public sealed class TrackCommand
     }
 
     internal static async Task<Result> InstallLatestFromChannel(
+        ManifestLock @lock,
         Manifest manifest,
         DnvmEnv dnvmEnv,
         Logger logger,
@@ -195,7 +198,7 @@ No builds available for channel '{channel}'. This often happens for preview chan
 preview has not yet been released.
 Proceeding without SDK installation.
 """);
-                await dnvmEnv.WriteManifest(manifest);
+                await @lock.WriteManifest(dnvmEnv, manifest);
                 return Result.Success;
             }
         }
@@ -219,6 +222,7 @@ Proceeding without SDK installation.
         else
         {
             var installResult = await InstallCommand.InstallSdk(
+                @lock,
                 dnvmEnv,
                 manifest,
                 component,
@@ -254,7 +258,7 @@ Proceeding without SDK installation.
         }
 
         logger.Log("Writing manifest");
-        await dnvmEnv.WriteManifest(manifest);
+        await @lock.WriteManifest(dnvmEnv, manifest);
 
         console.WriteLine("Successfully installed");
 
