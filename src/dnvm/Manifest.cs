@@ -188,6 +188,7 @@ partial record Manifest
 public sealed class ManifestLock : IDisposable
 {
     private readonly FileLock _fileLock;
+    private bool _disposed;
 
     private ManifestLock(FileLock fileLock)
     {
@@ -207,17 +208,68 @@ public sealed class ManifestLock : IDisposable
     public void Dispose()
     {
         _fileLock.Dispose();
+        _disposed = true;
     }
 
     public async Task<Manifest> ReadManifest(DnvmEnv env)
     {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(ManifestLock));
+        }
         return await Manifest.ReadManifestUnsafe(env);
     }
 
     /// <summary>
     /// Writes the manifest atomically using a temporary file and rename operation.
     /// </summary>
-    public Task WriteManifest(DnvmEnv env, Manifest manifest)
+    public async Task WriteManifest(DnvmEnv env, Manifest manifest)
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(ManifestLock));
+        }
+        await Manifest.WriteManifestUnsafe(env, manifest);
+    }
+
+    /// <summary>
+    /// Read a manifest using <see cref="ReadManifestUnsafe"/> , or create a new empty manifest if the
+    /// manifest file does not exist.
+    /// </summary>
+    public async Task<Manifest> ReadOrCreateManifest(DnvmEnv env)
+    {
+        try
+        {
+            return await ReadManifest(env);
+        }
+        // Not found is expected
+        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) { }
+
+        return Manifest.Empty;
+    }
+}
+
+/// <summary>
+/// Static methods for atomic manifest file operations with locking.
+/// </summary>
+partial record Manifest
+{
+    /// <summary>
+    /// Reads a manifest (any version) from the given path without acquiring the lock and returns an
+    /// up-to-date <see cref="Manifest" /> (latest version). Throws if the manifest is invalid.
+    /// </summary>
+    public static async Task<Manifest> ReadManifestUnsafe(DnvmEnv env)
+    {
+        var text = env.DnvmHomeFs.ReadAllText(DnvmEnv.ManifestPath);
+        return await ManifestSerialize.DeserializeNewOrOldManifest(env.HttpClient, text, env.DotnetFeedUrls);
+    }
+
+    /// <summary>
+    /// Writes a manifest to the file system without locking. This method does not acquire a lock,
+    /// and is therefore not safe for concurrent writes. For safe concurrent writes, use
+    /// UpdateManifestAtomic instead.
+    /// </summary>
+    public static Task WriteManifestUnsafe(DnvmEnv env, Manifest manifest)
     {
         var tempFileName = $"{DnvmEnv.ManifestFileName}.{Path.GetRandomFileName()}.tmp";
         var tempPath = UPath.Root / tempFileName;
@@ -256,50 +308,6 @@ public sealed class ManifestLock : IDisposable
             // Best effort cleanup - ignore if we can't delete the temp file
         }
 
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Read a manifest using <see cref="ReadManifestUnsafe"/> , or create a new empty manifest if the
-    /// manifest file does not exist.
-    /// </summary>
-    public async Task<Manifest> ReadOrCreateManifest(DnvmEnv env)
-    {
-        try
-        {
-            return await Manifest.ReadManifestUnsafe(env);
-        }
-        // Not found is expected
-        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) { }
-
-        return Manifest.Empty;
-    }
-}
-
-/// <summary>
-/// Static methods for atomic manifest file operations with locking.
-/// </summary>
-partial record Manifest
-{
-    /// <summary>
-    /// Reads a manifest (any version) from the given path without acquiring the lock and returns an
-    /// up-to-date <see cref="Manifest" /> (latest version). Throws if the manifest is invalid.
-    /// </summary>
-    public static async Task<Manifest> ReadManifestUnsafe(DnvmEnv env)
-    {
-        var text = env.DnvmHomeFs.ReadAllText(DnvmEnv.ManifestPath);
-        return await ManifestSerialize.DeserializeNewOrOldManifest(env.HttpClient, text, env.DotnetFeedUrls);
-    }
-
-    /// <summary>
-    /// Writes a manifest to the file system without locking. This method does not acquire a lock,
-    /// and is therefore not safe for concurrent writes. For safe concurrent writes, use
-    /// UpdateManifestAtomic instead.
-    /// </summary>
-    public static Task WriteManifestUnsafe(DnvmEnv env, Manifest manifest)
-    {
-        var text = JsonSerializer.Serialize(manifest.ConvertToLatest());
-        env.DnvmHomeFs.WriteAllText(DnvmEnv.ManifestPath, text, Encoding.UTF8);
         return Task.CompletedTask;
     }
 }
