@@ -364,5 +364,66 @@ public sealed class InstallTests
         Assert.Contains(Assets.ArchiveToken, env.CwdFs.ReadAllText(dotnetFile));
     });
 
+    [Fact]
+    public Task AllTopLevelFilesCopied() => RunWithServer(async (server, env) =>
+    {
+        using var tempExtractDir = TestUtils.CreateTempDirectory();
+
+        // Create a custom SDK archive with multiple top-level files
+        var dotnetPath = Path.Combine(tempExtractDir.Path, Utilities.DotnetExeName);
+        Assets.MakeEchoExe(dotnetPath, Assets.ArchiveToken);
+
+        // Create additional top-level files that should be copied
+        var additionalFiles = new[]
+        {
+            "dotnet.dll",
+            "hostfxr.dll",
+            "LICENSE.txt",
+            "ThirdPartyNotices.txt"
+        };
+
+        foreach (var fileName in additionalFiles)
+        {
+            var filePath = Path.Combine(tempExtractDir.Path, fileName);
+            File.WriteAllText(filePath, $"Content of {fileName}");
+        }
+
+        // Create archive from the temp directory
+        var archivePath = Assets.MakeZipOrTarball(tempExtractDir.Path, Path.Combine(TestUtils.ArtifactsTmpDir.FullName, "test-sdk"));
+
+        // Test the ExtractSdkToDir method directly using memory filesystems
+        using var tempDir = TestUtils.CreateTempDirectory();
+        var physicalFs = new PhysicalFileSystem();
+        var tempFs = new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(tempDir.Path));
+        var destFs = new MemoryFileSystem();
+        var destDir = UPath.Root / "sdk";
+
+        var result = await Utilities.ExtractSdkToDir(
+            existingMuxerVersion: null, // No existing version
+            runtimeVersion: MockServer.DefaultLtsVersion,
+            archivePath: archivePath,
+            tempFs: tempFs,
+            destFs: destFs,
+            destDir: destDir);
+
+        // Verify extraction was successful
+        Assert.Null(result);
+
+        // Verify the main dotnet executable was copied
+        var installedDotnetFile = destDir / Utilities.DotnetExeName;
+        Assert.True(destFs.FileExists(installedDotnetFile));
+        Assert.Contains(Assets.ArchiveToken, destFs.ReadAllText(installedDotnetFile));
+
+        // Verify all additional top-level files were copied
+        foreach (var fileName in additionalFiles)
+        {
+            var installedFile = destDir / fileName;
+            Assert.True(destFs.FileExists(installedFile), $"Top-level file {fileName} should have been copied");
+            var expectedContent = $"Content of {fileName}";
+            var actualContent = destFs.ReadAllText(installedFile);
+            Assert.Equal(expectedContent, actualContent);
+        }
+    });
+
     static SemVersion SemVersion(string version) => Semver.SemVersion.Parse(version, SemVersionStyles.Strict);
 }
