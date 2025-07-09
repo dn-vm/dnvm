@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -74,6 +73,8 @@ public sealed partial class DnvmEnv : IDisposable
 public sealed partial class DnvmEnv
 {
     public const string ManifestFileName = "dnvmManifest.json";
+    private const string LockFileName = "dnvmManifest.lock";
+    internal static readonly UPath LockFilePath = UPath.Root / LockFileName;
     public static EqArray<string> DefaultDotnetFeedUrls { get;} = [
         "https://builds.dotnet.microsoft.com/dotnet",
         "https://ci.dot.net/public",
@@ -142,38 +143,5 @@ public sealed partial class DnvmEnv
             setUserEnvVar,
             console,
             dotnetFeedUrls: dotnetFeedUrl is not null ? [ dotnetFeedUrl ] : null);
-    }
-
-    /// <summary>
-    /// Reads a manifest (any version) from the given path and returns an up-to-date <see
-    /// cref="Manifest" /> (latest version).  Throws if the manifest is invalid.
-    /// </summary>
-    public async Task<Manifest> ReadManifest()
-    {
-        var text = DnvmHomeFs.ReadAllText(ManifestPath);
-        return await ManifestSerialize.DeserializeNewOrOldManifest(HttpClient, text, DotnetFeedUrls);
-    }
-
-    /// <summary>
-    /// Read a manifest using <see cref="ReadManifest"/> , or create a new empty manifest if the
-    /// manifest file does not exist.
-    /// </summary>
-    public static async Task<Manifest> ReadOrCreateManifest(DnvmEnv fs)
-    {
-        try
-        {
-            return await fs.ReadManifest();
-        }
-        // Not found is expected
-        catch (Exception e) when (e is DirectoryNotFoundException or FileNotFoundException) { }
-
-        return Manifest.Empty;
-    }
-
-    public Task WriteManifest(Manifest manifest)
-    {
-        var text = JsonSerializer.Serialize(manifest.ConvertToLatest());
-        DnvmHomeFs.WriteAllText(ManifestPath, text, Encoding.UTF8);
-        return Task.CompletedTask;
     }
 }

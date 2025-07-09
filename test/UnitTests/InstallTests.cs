@@ -36,7 +36,7 @@ public sealed class InstallTests
         Assert.True(env.DnvmHomeFs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.DnvmHomeFs.ReadAllText(dotnetFile));
 
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         var expectedManifest = Manifest.Empty.AddSdk(MockServer.DefaultLtsVersion);
         Assert.Equal(expectedManifest, manifest);
     });
@@ -51,7 +51,7 @@ public sealed class InstallTests
         var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
 
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         var expectedManifest = Manifest.Empty.AddSdk(MockServer.DefaultLtsVersion);
         Assert.Equal(expectedManifest, manifest);
 
@@ -73,7 +73,7 @@ public sealed class InstallTests
         var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
 
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         var expectedManifest = Manifest.Empty.AddSdk(MockServer.DefaultLtsVersion);
         Assert.Equal(expectedManifest, manifest);
 
@@ -114,7 +114,7 @@ public sealed class InstallTests
         var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
 
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         var expectedManifest = Manifest.Empty.AddSdk(previewVersion);
         Assert.Equal(expectedManifest, manifest);
     });
@@ -164,7 +164,7 @@ public sealed class InstallTests
             var installResult = await InstallCommand.Run(env, _logger, options);
             Assert.Equal(InstallCommand.Result.Success, installResult);
 
-            var manifest = await env.ReadManifest();
+            var manifest = await Manifest.ReadManifestUnsafe(env);
             var expectedManifest = Manifest.Empty.AddSdk(previewVersion);
             Assert.Equal(expectedManifest, manifest);
         }
@@ -311,7 +311,7 @@ public sealed class InstallTests
     {
         // Set up a relative directory path for installation
         var relativePath = "dotnet-sdk";
-        
+
         // The dir should not exist initially
         var relativeDirPath = UPath.Root / relativePath;
         Assert.False(env.CwdFs.DirectoryExists(relativeDirPath));
@@ -321,16 +321,16 @@ public sealed class InstallTests
             SdkVersion = MockServer.DefaultLtsVersion,
             Dir = relativePath,
         };
-        
+
         var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
-        
+
         // Verify the directory was created and contains the dotnet executable
         Assert.True(env.CwdFs.DirectoryExists(relativeDirPath));
         var dotnetFile = relativeDirPath / Utilities.DotnetExeName;
         Assert.True(env.CwdFs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.CwdFs.ReadAllText(dotnetFile));
-        
+
         // Also verify we can install again without errors (should skip)
         var console = (TestConsole)env.Console;
         console.Clear(home: false);
@@ -343,7 +343,7 @@ public sealed class InstallTests
     {
         // Set up a nested relative directory path for installation
         var relativePath = "nested/dotnet-sdk";
-        
+
         // The dir should not exist initially
         var relativeDirPath = UPath.Root / "nested" / "dotnet-sdk";
         Assert.False(env.CwdFs.DirectoryExists(relativeDirPath));
@@ -353,10 +353,10 @@ public sealed class InstallTests
             SdkVersion = MockServer.DefaultLtsVersion,
             Dir = relativePath,
         };
-        
+
         var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
-        
+
         // Verify the directory was created and contains the dotnet executable
         Assert.True(env.CwdFs.DirectoryExists(relativeDirPath));
         var dotnetFile = relativeDirPath / Utilities.DotnetExeName;

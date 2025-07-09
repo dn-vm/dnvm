@@ -25,10 +25,11 @@ public sealed class PruneCommand
 
     public static async Task<int> Run(DnvmEnv env, Logger logger, Options options)
     {
+        using var @lock = await ManifestLock.Acquire(env);
         Manifest manifest;
         try
         {
-            manifest = await env.ReadManifest();
+            manifest = await @lock.ReadManifest(env);
         }
         catch (Exception e)
         {
@@ -47,7 +48,7 @@ public sealed class PruneCommand
             else
             {
                 Console.WriteLine($"Removing {sdk}");
-                int result = await UninstallCommand.Run(env, logger, sdk.Version, sdk.Dir);
+                int result = await UninstallCommand.Run(@lock, env, logger, sdk.Version, sdk.Dir);
                 if (result != 0)
                 {
                     return result;

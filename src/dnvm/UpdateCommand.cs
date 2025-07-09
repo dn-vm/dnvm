@@ -92,7 +92,8 @@ public sealed partial class UpdateCommand
 
     public async Task<Result> Run()
     {
-        var manifest = await DnvmEnv.ReadOrCreateManifest(_env);
+        using var @lock = await ManifestLock.Acquire(_env);
+        var manifest = await @lock.ReadOrCreateManifest(_env);
         if (_self)
         {
             return await UpdateSelf(manifest);
@@ -113,6 +114,7 @@ public sealed partial class UpdateCommand
             _env,
             _logger,
             releaseIndex,
+            @lock,
             manifest,
             _yes,
             _releasesUrl);
@@ -122,6 +124,7 @@ public sealed partial class UpdateCommand
         DnvmEnv env,
         Logger logger,
         DotnetReleasesIndex releasesIndex,
+        ManifestLock @lock,
         Manifest manifest,
         bool yes,
         string releasesUrl)
@@ -173,6 +176,7 @@ public sealed partial class UpdateCommand
                     {
                         var latestSdkVersion = release.Sdk.Version;
                         var result = await InstallCommand.InstallSdk(
+                            @lock,
                             env,
                             manifest,
                             component,
@@ -209,7 +213,7 @@ public sealed partial class UpdateCommand
         finally
         {
             logger.Log("Writing manifest");
-            await env.WriteManifest(manifest);
+            await @lock.WriteManifest(env, manifest);
         }
 
         env.Console.WriteLine("Successfully installed");

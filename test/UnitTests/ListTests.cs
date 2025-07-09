@@ -69,7 +69,7 @@ Tracked channels:
             }, new Channel.Latest());
 
         using var testEnv = new TestEnv(DnvmEnv.DefaultDotnetFeedUrls[0], DnvmEnv.DefaultReleasesUrl);
-        await testEnv.DnvmEnv.WriteManifest(manifest);
+        await Manifest.WriteManifestUnsafe(testEnv.DnvmEnv, manifest);
 
         var ret = await ListCommand.Run(_logger, testEnv.DnvmEnv);
         Assert.Equal(0, ret);
@@ -112,7 +112,7 @@ Tracked channels:
             setUserEnvVar: (name, val) => envVars[name] = val,
             console
         );
-        await env.WriteManifest(manifest);
+        await Manifest.WriteManifestUnsafe(env, manifest);
 
         var ret = await ListCommand.Run(_logger, env);
         Assert.Equal(0, ret);
@@ -141,7 +141,7 @@ Tracked channels:
         {
             throw new InvalidOperationException();
         }
-        await env.WriteManifest(newManifest);
+        await Manifest.WriteManifestUnsafe(env, newManifest);
         ret = await ListCommand.Run(_logger, env);
         output = """
 DNVM_HOME: /

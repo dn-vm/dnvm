@@ -13,10 +13,16 @@ public sealed class UninstallCommand
 {
     public static async Task<int> Run(DnvmEnv env, Logger logger, SemVersion sdkVersion, SdkDirName? dir = null)
     {
+        using var @lock = await ManifestLock.Acquire(env);
+        return await Run(@lock, env, logger, sdkVersion, dir);
+    }
+
+    public static async Task<int> Run(ManifestLock @lock, DnvmEnv env, Logger logger, SemVersion sdkVersion, SdkDirName? dir = null)
+    {
         Manifest manifest;
         try
         {
-            manifest = await env.ReadManifest();
+            manifest = await @lock.ReadManifest(env);
         }
         catch (Exception e)
         {
@@ -65,7 +71,7 @@ public sealed class UninstallCommand
         DeleteWins(env, winToRemove, logger);
 
         manifest = UninstallSdk(manifest, sdkVersion);
-        await env.WriteManifest(manifest);
+        await @lock.WriteManifest(env, manifest);
 
         return 0;
     }

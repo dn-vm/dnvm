@@ -35,7 +35,7 @@ public sealed class TrackTests
         Assert.True(env.DnvmHomeFs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.DnvmHomeFs.ReadAllText(dotnetFile));
 
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         var installedVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[0].LatestSdk, SemVersionStyles.Strict);
         EqArray<InstalledSdk> installedVersions = [ new InstalledSdk {
             SdkVersion = installedVersion,
@@ -131,7 +131,7 @@ public sealed class TrackTests
         var ltsRelease = server.ReleasesIndexJson.ChannelIndices.Single(r => r.ReleaseType == "lts");
         var releaseVersion = SemVersion.Parse(ltsRelease.LatestRelease, SemVersionStyles.Strict);
         var sdkVersion = SemVersion.Parse(ltsRelease.LatestSdk, SemVersionStyles.Strict);
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal([ new() {
             ReleaseVersion = releaseVersion,
             SdkVersion = sdkVersion,
@@ -159,7 +159,7 @@ public sealed class TrackTests
         var result = await TrackCommand.Run(env, _logger, new Options() { Channel = new Channel.VersionedMajorMinor(99, 99) });
         Assert.Equal(TrackCommand.Result.Success, result);
 
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         var version = SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict);
         Assert.Equal([ new() {
             ReleaseVersion = version,
@@ -176,7 +176,7 @@ public sealed class TrackTests
         var result = await TrackCommand.Run(env, _logger, new Options { Channel = new Channel.VersionedFeature(99, 99, 9) });
         Assert.Equal(TrackCommand.Result.Success, result);
 
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         var version = SemVersion.Parse("99.99.99-preview", SemVersionStyles.Strict);
         Assert.Equal([ new() {
             ReleaseVersion = version,
@@ -204,7 +204,7 @@ public sealed class TrackTests
             Channel = channel,
         });
         Assert.Equal(TrackCommand.Result.Success, result);
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal([ new RegisteredChannel {
             ChannelName = channel,
             SdkDirName = DnvmEnv.DefaultSdkDirName,
@@ -225,7 +225,7 @@ public sealed class TrackTests
         });
         Assert.Equal(TrackCommand.Result.Success, result);
         Assert.Contains("Proceeding without SDK installation", ((TestConsole)env.Console).Output);
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal([ new RegisteredChannel {
             ChannelName = new Channel.Preview(),
             SdkDirName = DnvmEnv.DefaultSdkDirName,

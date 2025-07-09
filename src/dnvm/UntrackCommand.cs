@@ -20,10 +20,11 @@ public sealed class UntrackCommand
 
     public static async Task<int> Run(DnvmEnv env, Channel channel)
     {
+        using var @lock = await ManifestLock.Acquire(env);
         Manifest manifest;
         try
         {
-            manifest = await env.ReadManifest();
+            manifest = await @lock.ReadManifest(env);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -33,7 +34,7 @@ public sealed class UntrackCommand
         var result = RunHelper(channel, manifest, env.Console);
         if (result is Result.Success({} newManifest))
         {
-            await env.WriteManifest(newManifest);
+            await @lock.WriteManifest(env, newManifest);
             return 0;
         }
         return 1;

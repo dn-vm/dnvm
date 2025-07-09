@@ -75,10 +75,11 @@ public static partial class InstallCommand
                 logger);
         }
 
+        using var @lock = await ManifestLock.Acquire(env);
         Manifest manifest;
         try
         {
-            manifest = await DnvmEnv.ReadOrCreateManifest(env);
+            manifest = await @lock.ReadOrCreateManifest(env);
         }
         catch (InvalidDataException)
         {
@@ -120,7 +121,7 @@ public static partial class InstallCommand
             return Result.UnknownChannel;
         }
 
-        var installError = await InstallSdk(env, manifest, sdkComponent, release, sdkDir, logger);
+        var installError = await InstallSdk(@lock, env, manifest, sdkComponent, release, sdkDir, logger);
         if (installError is not Result<Manifest, InstallError>.Ok)
         {
             return Result.InstallError;
@@ -297,6 +298,7 @@ public static partial class InstallCommand
     /// </summary>
     /// <exception cref="InvalidOperationException">Throws when manifest already contains the given SDK.</exception>
     internal static async Task<Result<Manifest, InstallError>> InstallSdk(
+        ManifestLock @lock,
         DnvmEnv env,
         Manifest manifest,
         ChannelReleaseIndex.Component sdkComponent,
@@ -348,7 +350,7 @@ public static partial class InstallCommand
                 })
             };
 
-            await env.WriteManifest(manifest);
+            await @lock.WriteManifest(env, manifest);
         }
 
         return manifest;

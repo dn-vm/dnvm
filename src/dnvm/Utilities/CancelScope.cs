@@ -92,6 +92,15 @@ partial class CancelScope
             onCanceled).GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    /// Executes the provided function with a timeout. If the function does not complete within the specified delay,
+    /// a <see cref="TimeoutException"/> is thrown.
+    /// </summary>
+    /// <remarks>
+    /// Identical to <see cref="WithCancelAfter(TimeSpan, Func{CancelScope, Task},
+    /// Action{OperationCanceledException}?)"/> except that it throws a <see cref="TimeoutException"/> on timeout instead
+    /// of continuing silently.
+    /// </remarks>
     public static async Task<T> WithTimeoutAfter<T>(
         TimeSpan delay,
         Func<CancelScope, Task<T>> func,
@@ -121,9 +130,23 @@ partial class CancelScope
 
     public CancellationToken Token => _cts.Token;
 
+
+    public async Task Delay(TimeSpan delay)
+    {
+        await Current.Delay(delay);
+    }
+
     public void Cancel()
     {
         _cts.Cancel();
         _cts.Token.ThrowIfCancellationRequested();
+    }
+}
+
+public static class CancelScopeExtensions
+{
+    public static async Task Delay(this CancelScope scope, TimeSpan delay)
+    {
+        await Task.Delay(delay, scope.Token);
     }
 }

@@ -22,11 +22,12 @@ public static class SelectCommand
 
     public static async Task<Result> Run(DnvmEnv dnvmEnv, Logger logger, SdkDirName sdkDirName)
     {
-        var manifest = await dnvmEnv.ReadManifest();
+        using var @lock = await ManifestLock.Acquire(dnvmEnv);
+        var manifest = await @lock.ReadManifest(dnvmEnv);
         switch (await RunWithManifest(dnvmEnv, sdkDirName, manifest, logger))
         {
             case Result<Manifest, Result>.Ok(var newManifest):
-                await dnvmEnv.WriteManifest(newManifest);
+                await @lock.WriteManifest(dnvmEnv, newManifest);
                 return Result.Success;
             case Result<Manifest, Result>.Err(var error):
                 return error;

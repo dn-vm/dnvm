@@ -35,6 +35,7 @@ public sealed class UpdateTests
     public Task UpdateChecksForSelfUpdate() => TestWithServer(async (mockServer, env) =>
     {
         var sdkDir = DnvmEnv.DefaultSdkDirName;
+        var @lock = await ManifestLock.Acquire(env);
         var manifest = new Manifest
         {
             InstalledSdks = [ new InstalledSdk {
@@ -59,6 +60,7 @@ public sealed class UpdateTests
             env,
             _logger,
             releasesIndex,
+            @lock,
             manifest,
             yes: false,
             env.DnvmReleasesUrl!);
@@ -127,7 +129,7 @@ public sealed class UpdateTests
                 InstalledSdkVersions = sdkVersions
             } ]
         };
-        var actualManifest = await env.ReadManifest();
+        var actualManifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal(expectedManifest, actualManifest);
 
         static void Setup(MockServer mockServer, SemVersion version)
@@ -268,7 +270,7 @@ public sealed class UpdateTests
 
         var oldSdkVersion = SemVersion.Parse(oldRelease.LatestSdk, SemVersionStyles.Strict);
         var oldReleaseVersion = SemVersion.Parse(oldRelease.LatestRelease, SemVersionStyles.Strict);
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal([
             new() {
                 SdkVersion = oldSdkVersion,
@@ -307,7 +309,7 @@ public sealed class UpdateTests
             Channel = new Channel.Preview()
         });
         Assert.Equal(TrackCommand.Result.Success, trackResult);
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal([ new RegisteredChannel {
             ChannelName = new Channel.Preview(),
             SdkDirName = DnvmEnv.DefaultSdkDirName,
@@ -329,7 +331,7 @@ public sealed class UpdateTests
             Channel = new Channel.Preview()
         });
         Assert.Equal(TrackCommand.Result.Success, trackResult);
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal([ new RegisteredChannel {
             ChannelName = new Channel.Preview(),
             SdkDirName = DnvmEnv.DefaultSdkDirName,
@@ -339,7 +341,7 @@ public sealed class UpdateTests
         server.RegisterReleaseVersion(MockServer.DefaultPreviewVersion, "sts", "preview");
         var updateResult = await UpdateCommand.Run(env, _logger, updateArguments);
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
-        manifest = await env.ReadManifest();
+        manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal([ new RegisteredChannel {
             ChannelName = new Channel.Preview(),
             SdkDirName = DnvmEnv.DefaultSdkDirName,
@@ -361,13 +363,13 @@ public sealed class UpdateTests
         Assert.Equal(TrackCommand.Result.Success, result);
         // Explicitly add the LTS channel to the manifest since it's impossible to create this
         // manifest through the command line
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         manifest = manifest.TrackChannel(new RegisteredChannel
         {
             ChannelName = new Channel.Lts(),
             SdkDirName = new("custom-sdk-dir"),
         });
-        await env.WriteManifest(manifest);
+        await Manifest.WriteManifestUnsafe(env, manifest);
         var updatedVersion = new SemVersion(6, 0, 1);
         mockServer.RegisterReleaseVersion(updatedVersion, "lts", "active");
 
@@ -376,7 +378,7 @@ public sealed class UpdateTests
             Yes = true,
         });
         Assert.Equal(UpdateCommand.Result.Success, updateResult);
-        manifest = await env.ReadManifest();
+        manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal([
             new InstalledSdk
             {

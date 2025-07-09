@@ -31,11 +31,11 @@ public sealed class UninstallTests
         var expectedManifest = Manifest.Empty
             .AddSdk(ltsVersion, new Channel.Latest(), DnvmEnv.DefaultSdkDirName)
             .AddSdk(previewVersion, new Channel.Preview(), new SdkDirName("preview"));
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal(expectedManifest, manifest);
         var unResult = await UninstallCommand.Run(env, _logger, ltsVersion);
         Assert.Equal(0, unResult);
-        manifest = await env.ReadManifest();
+        manifest = await Manifest.ReadManifestUnsafe(env);
         var previewOnly = Manifest.Empty
             .AddSdk(previewVersion, new Channel.Preview(), new SdkDirName("preview"));
         previewOnly = previewOnly with {

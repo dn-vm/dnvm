@@ -58,7 +58,7 @@ public sealed class UntrackTests
         });
         Assert.Equal(TrackCommand.Result.Success, result);
 
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         Assert.Equal(manifest.TrackedChannels(), [new RegisteredChannel {
             ChannelName = channel,
             InstalledSdkVersions = [ MockServer.DefaultLtsVersion ],
@@ -80,7 +80,7 @@ public sealed class UntrackTests
 
         var untrackCode = await UntrackCommand.Run(env, channel);
         Assert.Equal(0, untrackCode);
-        var manifest = await env.ReadManifest();
+        var manifest = await Manifest.ReadManifestUnsafe(env);
         var untrackResult = UntrackCommand.RunHelper(channel, manifest, env.Console);
         Assert.True(untrackResult is UntrackCommand.Result.ChannelUntracked);
     });
