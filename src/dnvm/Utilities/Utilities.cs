@@ -283,8 +283,8 @@ public static class Utilities
         try
         {
             // We want to copy over all the files from the extraction directory to the target
-            // directory, with one exception: the top-level "dotnet exe" (muxer). That has special logic.
-            CopyMuxer(existingMuxerVersion, runtimeVersion, tempFs, tempExtractDir, destFs, destDir);
+            // directory, with one exception: the top-level files. Those have special logic.
+            CopyTopLevelFiles(existingMuxerVersion, runtimeVersion, tempFs, tempExtractDir, destFs, destDir);
 
             var extractFullName = tempExtractDir.FullName;
             foreach (var dir in tempFs.EnumerateDirectories(tempExtractDir))
@@ -313,28 +313,31 @@ public static class Utilities
         return null;
     }
 
-    private static void CopyMuxer(
+    private static void CopyTopLevelFiles(
         SemVersion? existingMuxerVersion,
         SemVersion newRuntimeVersion,
         IFileSystem tempFs,
         UPath tempExtractDir,
         IFileSystem destFs,
         UPath destDir)
-    {   //The "dotnet" exe (muxer) is special in two ways:
-        // 1. It is shared between all SDKs, so it may be locked by another process.
-        // 2. It should always be the newest version, so we don't want to overwrite it if the SDK
+    {   //The top-level files are special in two ways:
+        // 1. They are shared between all SDKs, so it may be locked by another process.
+        // 2. They should always be the newest version, so we don't want to overwrite them if the SDK
         //    we're installing is older than the one already installed.
         //
-        var muxerTargetPath = destDir / DotnetExeName;
-
         if (newRuntimeVersion.CompareSortOrderTo(existingMuxerVersion) <= 0)
         {
             // The new SDK is older than the existing muxer, so we don't need to do anything.
             return;
         }
 
-        // The new SDK is newer than the existing muxer, so we need to replace it.
-        ForceReplaceFile(tempFs, tempExtractDir / DotnetExeName, destFs, muxerTargetPath);
+        foreach (var file in tempFs.EnumerateFiles(tempExtractDir, "*", SearchOption.TopDirectoryOnly))
+        {
+            var muxerTargetPath = destDir / file.GetName();
+
+            // The new SDK is newer than the existing muxer, so we need to replace it.
+            ForceReplaceFile(tempFs, file, destFs, muxerTargetPath);
+        }
     }
 
     public static T Unwrap<T>(this T? t, [CallerArgumentExpression(parameterName: nameof(t))] string? expr = null) where T : class
