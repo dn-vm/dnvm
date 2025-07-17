@@ -405,12 +405,17 @@ public static partial class InstallCommand
         }
 
         var dotnetExePath = destPath / Utilities.DotnetExeName;
+        var dnxScriptPath = destPath / Utilities.DnxScriptName;
         if (!OperatingSystem.IsWindows())
         {
             logger.Log("chmoding downloaded host");
             try
             {
                 Utilities.ChmodExec(destFs, dotnetExePath);
+                if (destFs.FileExists(dnxScriptPath))
+                {
+                    Utilities.ChmodExec(destFs, dnxScriptPath);
+                }
             }
             catch (Exception e)
             {

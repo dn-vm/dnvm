@@ -98,6 +98,7 @@ public static class SelectCommand
     private static void RetargetSymlink(Logger logger, DnvmEnv dnvmEnv, SdkDirName newDirName, SdkDirName sdkDirName)
     {
         var dotnetExePath = DnvmEnv.GetSdkPath(sdkDirName) / Utilities.DotnetExeName;
+        var dnxCmdPath = DnvmEnv.GetSdkPath(sdkDirName) / Utilities.DnxScriptName;
         var realDotnetPath = dnvmEnv.RealPath(dotnetExePath);
         logger.Log($"Retargeting symlink in {dnvmEnv.RealPath(UPath.Root)} to {realDotnetPath}");
         if (!dnvmEnv.DnvmHomeFs.FileExists(dotnetExePath))
@@ -110,10 +111,15 @@ public static class SelectCommand
         // Delete if it already exists
         try
         {
-            homeFs.DeleteFile(DnvmEnv.SymlinkPath);
+            homeFs.DeleteFile(DnvmEnv.DotnetSymlinkPath);
+            homeFs.DeleteFile(DnvmEnv.DnxSymlinkPath);
         }
         catch { }
 
-        homeFs.CreateSymbolicLink(DnvmEnv.SymlinkPath, dotnetExePath);
+        homeFs.CreateSymbolicLink(DnvmEnv.DotnetSymlinkPath, dotnetExePath);
+        if (homeFs.FileExists(dnxCmdPath))
+        {
+            homeFs.CreateSymbolicLink(DnvmEnv.DnxSymlinkPath, dnxCmdPath);
+        }
     }
 }

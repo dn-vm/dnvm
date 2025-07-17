@@ -32,6 +32,9 @@ public sealed class Assets
         var exePath = Path.Combine(tempDir.Path, Utilities.DotnetExeName);
         MakeEchoExe(exePath, ArchiveToken);
 
+        var dnxPath = Path.Combine(tempDir.Path, Utilities.DnxScriptName);
+        MakeDnxScript(dnxPath);
+
         File.WriteAllText(Path.Combine(tempDir.Path, "test.txt"), "test text");
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "sdk", sdkVersion.ToString()));
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "shared", "Microsoft.NETCore.App", runtimeVersion.ToString()));
@@ -76,32 +79,60 @@ class Program {
         switch (Environment.OSVersion.Platform)
         {
             case PlatformID.Unix:
-            {
+                {
+                    Debug.Assert(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows));
+                    // On Unix we can use a shell script, which looks exactly like an exe
+                    File.WriteAllText(destPath, unixSource);
+                    Utilities.ChmodExec(destPath);
+                    break;
+                }
+            case PlatformID.Win32NT:
+                {
+                    // On Windows we have to make a fake exe, since shell scripts can't have
+                    // the '.exe' extension
+                    var helloCs = Path.GetTempFileName();
+                    File.WriteAllText(helloCs, windowsSource);
+                    var proc = Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe",
+                        Arguments = $"-out:\"{destPath}\" \"{helloCs}\"",
+                        WorkingDirectory = Path.GetDirectoryName(destPath),
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    })!;
+                    var output = proc.StandardOutput.ReadToEnd();
+                    var error = proc.StandardError.ReadToEnd();
+                    proc.WaitForExit();
+                    File.Delete(helloCs);
+                    break;
+                }
+            case var p:
+                throw new InvalidOperationException("Unsupported platform: " + p);
+        }
+    }
+
+    public static void MakeDnxScript(string destPath)
+    {
+        var unixSource = $$"""
+#!/bin/sh
+"$(dirname "$0")/dotnet" dnx "$@"
+""";
+
+        var windowsSource = $$"""
+@echo off
+"%~dp0dotnet.exe" dnx %*
+""";
+
+        switch (Environment.OSVersion.Platform)
+        {
+            case PlatformID.Unix:
                 Debug.Assert(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows));
-                // On Unix we can use a shell script, which looks exactly like an exe
                 File.WriteAllText(destPath, unixSource);
                 Utilities.ChmodExec(destPath);
                 break;
-            }
             case PlatformID.Win32NT:
-            {
-                // On Windows we have to make a fake exe, since shell scripts can't have
-                // the '.exe' extension
-                var helloCs = Path.GetTempFileName();
-                File.WriteAllText(helloCs, windowsSource);
-                var proc = Process.Start(new ProcessStartInfo {
-                    FileName = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe",
-                    Arguments = $"-out:\"{destPath}\" \"{helloCs}\"",
-                    WorkingDirectory = Path.GetDirectoryName(destPath),
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                })!;
-                var output = proc.StandardOutput.ReadToEnd();
-                var error = proc.StandardError.ReadToEnd();
-                proc.WaitForExit();
-                File.Delete(helloCs);
+                File.WriteAllText(destPath, windowsSource);
                 break;
-            }
             case var p:
                 throw new InvalidOperationException("Unsupported platform: " + p);
         }

@@ -93,9 +93,12 @@ Valid SDK directory names:
         else
         {
             // On unix read the target symlink and check that it points to the correct directory
-            var dotnetSymlinkPath = env.RealPath(DnvmEnv.SymlinkPath);
+            var dotnetSymlinkPath = env.RealPath(DnvmEnv.DotnetSymlinkPath);
+            var dnxSymlinkPath = env.RealPath(DnvmEnv.DnxSymlinkPath);
             var finfo = new FileInfo(dotnetSymlinkPath);
             Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DotnetExeName), finfo.LinkTarget);
+            finfo = new FileInfo(dnxSymlinkPath);
+            Assert.EndsWith(Path.Combine(dirName.Name, Utilities.DnxScriptName), finfo.LinkTarget);
         }
     }
 }
