@@ -223,8 +223,13 @@ public static class Utilities
         ? ".exe"
         : "";
 
+    public static string CmdSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        ? ".cmd"
+        : "";
+
     public static string DnvmExeName = "dnvm" + ExeSuffix;
     public static string DotnetExeName = "dotnet" + ExeSuffix;
+    public static string DnxScriptName = "dnx" + CmdSuffix;
 
     public static async Task<string?> ExtractArchiveToDir(string archivePath, string dirPath)
     {

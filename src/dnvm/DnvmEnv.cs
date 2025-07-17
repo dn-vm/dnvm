@@ -83,7 +83,8 @@ public sealed partial class DnvmEnv
     public static UPath ManifestPath => UPath.Root / ManifestFileName;
     public static UPath EnvPath => UPath.Root / "env";
     public static UPath DnvmExePath => UPath.Root / Utilities.DnvmExeName;
-    public static UPath SymlinkPath => UPath.Root / Utilities.DotnetExeName;
+    public static UPath DotnetSymlinkPath => UPath.Root / Utilities.DotnetExeName;
+    public static UPath DnxSymlinkPath => UPath.Root / Utilities.DnxScriptName;
     public static UPath GetSdkPath(SdkDirName sdkDirName) => UPath.Root / sdkDirName.Name;
 
     /// <summary>

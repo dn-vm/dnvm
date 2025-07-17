@@ -25,7 +25,9 @@ public sealed class InstallTests
     {
         var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
         var dotnetFile = sdkInstallDir / Utilities.DotnetExeName;
+        var dnxFile = sdkInstallDir / Utilities.DnxScriptName;
         Assert.False(env.DnvmHomeFs.FileExists(dotnetFile));
+        Assert.False(env.DnvmHomeFs.FileExists(dnxFile));
 
         var options = new DnvmSubCommand.InstallArgs
         {
@@ -35,6 +37,7 @@ public sealed class InstallTests
         Assert.Equal(InstallCommand.Result.Success, installResult);
         Assert.True(env.DnvmHomeFs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.DnvmHomeFs.ReadAllText(dotnetFile));
+        Assert.True(env.DnvmHomeFs.FileExists(dnxFile));
 
         var manifest = await Manifest.ReadManifestUnsafe(env);
         var expectedManifest = Manifest.Empty.AddSdk(MockServer.DefaultLtsVersion);
@@ -294,6 +297,8 @@ public sealed class InstallTests
 
         var dotnetFile = targetDir / Utilities.DotnetExeName;
         Assert.False(targetFs.FileExists(dotnetFile));
+        var dnxFile = targetDir / Utilities.DnxScriptName;
+        Assert.False(targetFs.FileExists(dnxFile));
 
         var options = new InstallCommand.Options
         {
@@ -303,6 +308,7 @@ public sealed class InstallTests
         var installResult = await InstallCommand.Run(env, _logger, options);
         Assert.Equal(InstallCommand.Result.Success, installResult);
         Assert.True(targetFs.FileExists(dotnetFile));
+        Assert.True(targetFs.FileExists(dnxFile));
         Assert.Contains(Assets.ArchiveToken, targetFs.ReadAllText(dotnetFile));
     });
 
@@ -330,6 +336,8 @@ public sealed class InstallTests
         var dotnetFile = relativeDirPath / Utilities.DotnetExeName;
         Assert.True(env.CwdFs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.CwdFs.ReadAllText(dotnetFile));
+        var dnxFile = relativeDirPath / Utilities.DnxScriptName;
+        Assert.True(env.CwdFs.FileExists(dnxFile));
 
         // Also verify we can install again without errors (should skip)
         var console = (TestConsole)env.Console;
@@ -362,16 +370,26 @@ public sealed class InstallTests
         var dotnetFile = relativeDirPath / Utilities.DotnetExeName;
         Assert.True(env.CwdFs.FileExists(dotnetFile));
         Assert.Contains(Assets.ArchiveToken, env.CwdFs.ReadAllText(dotnetFile));
+        var dnxFile = relativeDirPath / Utilities.DnxScriptName;
+        Assert.True(env.CwdFs.FileExists(dnxFile));
     });
 
-    [Fact]
-    public Task AllTopLevelFilesCopied() => RunWithServer(async (server, env) =>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public Task AllTopLevelFilesCopied(bool includeDnx) => RunWithServer(async (server, env) =>
     {
         using var tempExtractDir = TestUtils.CreateTempDirectory();
 
         // Create a custom SDK archive with multiple top-level files
         var dotnetPath = Path.Combine(tempExtractDir.Path, Utilities.DotnetExeName);
         Assets.MakeEchoExe(dotnetPath, Assets.ArchiveToken);
+
+        if (includeDnx)
+        {
+            var dnxPath = Path.Combine(tempExtractDir.Path, Utilities.DnxScriptName);
+            Assets.MakeDnxScript(dnxPath);
+        }
 
         // Create additional top-level files that should be copied
         var additionalFiles = new[]
@@ -413,6 +431,8 @@ public sealed class InstallTests
         var installedDotnetFile = destDir / Utilities.DotnetExeName;
         Assert.True(destFs.FileExists(installedDotnetFile));
         Assert.Contains(Assets.ArchiveToken, destFs.ReadAllText(installedDotnetFile));
+        var installedDnxFile = destDir / Utilities.DnxScriptName;
+        Assert.Equal(includeDnx, destFs.FileExists(installedDnxFile));
 
         // Verify all additional top-level files were copied
         foreach (var fileName in additionalFiles)
