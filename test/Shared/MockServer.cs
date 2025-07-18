@@ -179,6 +179,27 @@ public sealed class MockServer : IAsyncDisposable
         _dailyBuilds.Add(version);
     }
 
+    public void ClearAndSetLts(SemVersion version)
+    {
+        this.ReleasesIndexJson = new()
+        {
+            ChannelIndices = [ new() {
+                    LatestRelease = version.ToString(),
+                    LatestSdk = version.ToString(),
+                    MajorMinorVersion = version.ToMajorMinor(),
+                    ReleaseType = "lts",
+                    SupportPhase = "active",
+                    ChannelReleaseIndexUrl = this.GetChannelIndexUrl(version.ToMajorMinor())
+                }
+            ]
+        };
+        this.ChannelIndexMap.Clear();
+        this.ChannelIndexMap.Add(version.ToMajorMinor(), new()
+        {
+            Releases = [ TestUtils.CreateRelease(this.PrefixString, version)]
+        });
+    }
+
     public void SetArchivePath(string path)
     {
         _archivePath = new(() => path);

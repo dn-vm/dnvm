@@ -81,4 +81,37 @@ public sealed class UninstallTests
         Assert.DoesNotContain("SdkDirName", actualOutput);
         Assert.DoesNotContain(ltsVersion.ToString(), actualOutput);
     });
+
+    [Fact]
+    public Task MissingDirectoriesHandled() => RunWithServer(async (server, env) =>
+    {
+        // Install an SDK first
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
+        {
+            Channel = new Channel.Latest(),
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+
+        var ltsVersion = SemVersion.Parse(server.ReleasesIndexJson.ChannelIndices[0].LatestSdk, SemVersionStyles.Strict);
+        
+        // Manually remove some directories to simulate missing directories
+        var sdkDir = UPath.Root / "dn" / "sdk" / ltsVersion.ToString();
+        var runtimeDir = UPath.Root / "dn" / "shared" / "Microsoft.NETCore.App" / ltsVersion.ToString();
+        env.DnvmHomeFs.DeleteDirectory(sdkDir, isRecursive: true);
+        env.DnvmHomeFs.DeleteDirectory(runtimeDir, isRecursive: true);
+
+        var console = (TestConsole)env.Console;
+        var trimOutput = console.Output;
+        
+        // Uninstall should succeed despite missing directories
+        var unResult = await UninstallCommand.Run(env, _logger, ltsVersion);
+        var actualOutput = console.Output[trimOutput.Length..];
+        
+        Assert.Equal(0, unResult);
+        Assert.Contains("not found, skipping", actualOutput);
+        
+        // Verify manifest is still updated correctly
+        var manifest = await Manifest.ReadManifestUnsafe(env);
+        Assert.Empty(manifest.InstalledSdks);
+    });
 }
