@@ -6,8 +6,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="xunit.core" />
-    <PackageReference Include="xunit.abstractions" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
     <PackageReference Include="staticcs.async" />
     <PackageReference Include="Spectre.Console.Testing" />
   </ItemGroup>
