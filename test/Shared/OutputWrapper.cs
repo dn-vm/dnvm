@@ -16,6 +16,9 @@ public sealed class OutputWrapper : TextWriter
 
     public override void WriteLine(string? value)
     {
-        _output.WriteLine(value);
+        if (value is {} x)
+        {
+            _output.WriteLine(x);
+        }
     }
 }
