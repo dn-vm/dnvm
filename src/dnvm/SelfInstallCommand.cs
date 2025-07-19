@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.Versioning;
@@ -95,7 +96,9 @@ public class SelfInstallCommand
             console.WriteLine("You can change this location by setting the DNVM_HOME environment variable.");
         }
 
-        var targetPath = opt.DestPath ?? env.RealPath(DnvmEnv.DnvmExePath);
+        var targetPath = opt.DestPath is not null
+            ? env.DnvmHomeFs.ConvertPathFromInternal(opt.DestPath)
+            : DnvmEnv.DnvmExePath;
         if (!opt.Force && env.DnvmHomeFs.FileExists(targetPath))
         {
             console.Error("dnvm is already installed at: " + targetPath);
@@ -145,7 +148,7 @@ public class SelfInstallCommand
 
         console.WriteLine("Proceeding with installation.");
 
-        return await new SelfInstallCommand(env, logger, opt).Run(targetPath, channel, sdkDirName, updateUserEnv);
+        return await new SelfInstallCommand(env, logger, opt).Run(env.RealPath(targetPath), channel, sdkDirName, updateUserEnv);
     }
 
     public enum Result
