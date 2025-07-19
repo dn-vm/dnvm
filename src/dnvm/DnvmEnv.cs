@@ -109,19 +109,16 @@ public sealed partial class DnvmEnv
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="DnvmEnv.DefaultDnvmHome" /> as the default.
     /// </summar>
-    public static DnvmEnv CreateDefault(
-        string? home = null,
-        string? dotnetFeedUrl = null)
+    public static DnvmEnv CreateDefault()
     {
-        home ??= Environment.GetEnvironmentVariable("DNVM_HOME");
+        var home = Environment.GetEnvironmentVariable("DNVM_HOME");
         var dnvmHome = string.IsNullOrWhiteSpace(home)
             ? DefaultDnvmHome
             : home;
         return CreatePhysical(dnvmHome,
             n => Environment.GetEnvironmentVariable(n, EnvironmentVariableTarget.User),
             (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User),
-            AnsiConsole.Console,
-            dotnetFeedUrl);
+            AnsiConsole.Console);
     }
 
     public static DnvmEnv CreatePhysical(

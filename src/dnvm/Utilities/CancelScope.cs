@@ -8,12 +8,10 @@ namespace Dnvm;
 
 public sealed partial class CancelScope
 {
-    private readonly CancelScope? _parent;
     private readonly CancellationTokenSource _cts;
 
     private CancelScope(CancelScope? parent)
     {
-        _parent = parent;
         _cts = parent is null
             ? new()
             : CancellationTokenSource.CreateLinkedTokenSource(parent._cts.Token);

@@ -30,12 +30,6 @@ public static class Program
             return 0;
         }
 
-        // Self-install is special, since we don't know the DNVM_HOME yet.
-        if (parsedArgs.SubCommand is DnvmSubCommand.SelfInstallArgs selfInstallArgs)
-        {
-            return (int)await SelfInstallCommand.Run(logger, console, selfInstallArgs);
-        }
-
         using var env = DnvmEnv.CreateDefault();
         if (parsedArgs.SubCommand is null)
         {
@@ -78,8 +72,7 @@ public static class Program
                 Result<SemVersion, RestoreCommand.Error>.Ok => 0,
                 Result<SemVersion, RestoreCommand.Error>.Err x => (int)x.Value,
             },
-
-            DnvmSubCommand.SelfInstallArgs => throw ExceptionUtilities.Unreachable,
+            DnvmSubCommand.SelfInstallArgs a => (int)await SelfInstallCommand.Run(env, logger, a),
         };
     }
 }

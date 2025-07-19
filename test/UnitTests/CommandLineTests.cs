@@ -290,7 +290,7 @@ the DNVM_HOME directory.
             [ "track", param ]));
         Assert.Equal("""
 usage: dnvm track [--feed-url <feedUrl>] [-v | --verbose] [-f | --force] [-y]
-[--prereqs] [-s | --sdk-dir <sdkDir>] [-h | --help] <channel>
+[-s | --sdk-dir <sdkDir>] [-h | --help] <channel>
 
 Start tracking a new channel.
 
@@ -302,7 +302,6 @@ Options:
     -v, --verbose  Print debugging messages to the console.
     -f, --force  Force tracking the given channel, even if already tracked.
     -y  Answer yes to all prompts.
-    --prereqs  Print prereqs for dotnet on Ubuntu.
     -s, --sdk-dir  <sdkDir>  Track the channel in a separate directory with the
 given name.
     -h, --help  Show help information.

@@ -2,14 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.IO;
-using System.IO.MemoryMappedFiles;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
-using Serde;
 using Spectre.Console;
 using Zio;
 using Zio.FileSystems;
@@ -45,21 +41,17 @@ public class SelfInstallCommand
     private readonly Logger _logger;
     // Place to install dnvm
     private readonly Options _opts;
-    private readonly IEnumerable<string> _feedUrls;
 
     public SelfInstallCommand(DnvmEnv env, Logger logger, Options opts)
     {
         _env = env;
         _logger = logger;
         _opts = opts;
-        _feedUrls = _opts.FeedUrl is null
-            ? _env.DotnetFeedUrls
-            : new[] { _opts.FeedUrl.TrimEnd('/') };
     }
 
-    public static Task<Result> Run(Logger logger, IAnsiConsole console, DnvmSubCommand.SelfInstallArgs args)
+    public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.SelfInstallArgs args)
     {
-        return Run(logger, console, new Options
+        return Run(env, logger, new Options
         {
             Verbose = args.Verbose ?? false,
             Force = args.Force ?? false,
@@ -70,8 +62,10 @@ public class SelfInstallCommand
         });
     }
 
-    public static async Task<Result> Run(Logger logger, IAnsiConsole console, Options opt)
+    public static async Task<Result> Run(DnvmEnv env, Logger logger, Options opt)
     {
+        var console = env.Console;
+
         if (opt.Verbose)
         {
             logger.Enabled = true;
@@ -83,11 +77,9 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
 
-        DnvmEnv? env = null;
         if (opt.Update is true)
         {
-            console.WriteLine("Running self-update install");
-            env = DnvmEnv.CreateDefault(dotnetFeedUrl: opt.FeedUrl);
+            logger.Log("Running self-update install");
             return await SelfUpdate(opt.DestPath, logger, env);
         }
 
@@ -102,9 +94,8 @@ public class SelfInstallCommand
             console.WriteLine();
             console.WriteLine("You can change this location by setting the DNVM_HOME environment variable.");
         }
-        env ??= DnvmEnv.CreateDefault(dotnetFeedUrl: opt.FeedUrl);
 
-        var targetPath = DnvmEnv.DnvmExePath;
+        var targetPath = opt.DestPath ?? env.RealPath(DnvmEnv.DnvmExePath);
         if (!opt.Force && env.DnvmHomeFs.FileExists(targetPath))
         {
             console.Error("dnvm is already installed at: " + targetPath);
@@ -164,7 +155,7 @@ public class SelfInstallCommand
         InstallFailed,
     }
 
-    public async Task<Result> Run(UPath targetPath, Channel channel, SdkDirName newDirName, bool updateUserEnv)
+    public async Task<Result> Run(string targetPath, Channel channel, SdkDirName newDirName, bool updateUserEnv)
     {
         var procPath = Utilities.ProcessPath;
         _logger.Log("Location of running exe: " + procPath);
@@ -173,14 +164,13 @@ public class SelfInstallCommand
         {
             using var physicalFs = new PhysicalFileSystem();
             _logger.Log($"Copying file from '{procPath}' to '{targetPath}'");
-            physicalFs.CopyFileCross(
+            physicalFs.CopyFile(
                 physicalFs.ConvertPathFromInternal(procPath),
-                _env.DnvmHomeFs,
-                targetPath,
+                physicalFs.ConvertPathFromInternal(targetPath),
                 overwrite: _opts.Force);
             if (!OperatingSystem.IsWindows())
             {
-                Utilities.ChmodExec(_env.DnvmHomeFs, targetPath);
+                Utilities.ChmodExec(physicalFs, targetPath);
             }
             _env.Console.WriteLine("Dnvm installed successfully.");
         }
@@ -232,6 +222,12 @@ public class SelfInstallCommand
     /// </summary>
     internal static async Task<Result> SelfUpdate(string? destPath, Logger logger, DnvmEnv dnvmEnv)
     {
+        if (destPath is null)
+        {
+            throw new ArgumentNullException(nameof(destPath), "Destination path must be specified for self-update.");
+        }
+        logger.Log($"Installing to {destPath}");
+
         SdkDirName sdkDirName;
         try
         {
@@ -243,10 +239,6 @@ public class SelfInstallCommand
             sdkDirName = DnvmEnv.DefaultSdkDirName;
         }
 
-        var dnvmHome = dnvmEnv.RealPath(UPath.Root);
-        logger.Log($"Installing to {dnvmHome}");
-
-        destPath ??= dnvmEnv.RealPath(DnvmEnv.DnvmExePath);
         if (!ReplaceBinary(destPath, dnvmEnv.Console, logger))
         {
             return Result.SelfInstallFailed;
@@ -489,7 +481,6 @@ public class SelfInstallCommand
     }
 
     private static ImmutableArray<string> ProfileShellFiles => [".profile", ".bashrc", ".zshrc" ];
-
 
     private static async Task<bool> FileContainsLine(string filePath, string contents)
     {

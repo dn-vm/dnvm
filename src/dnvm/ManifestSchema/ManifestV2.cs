@@ -68,14 +68,3 @@ internal sealed partial record TrackedChannelV2
         return code;
     }
 }
-
-static partial class ManifestV2Convert
-{
-    public static ManifestV2 Convert(this ManifestV1 v1)
-    {
-        return new ManifestV2 {
-            InstalledSdkVersions = v1.Workloads.Select(w => w.Version).ToImmutableArray(),
-            TrackedChannels = ImmutableArray<TrackedChannelV2>.Empty
-        };
-    }
-}
