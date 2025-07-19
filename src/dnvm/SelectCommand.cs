@@ -36,7 +36,7 @@ public static class SelectCommand
     public static Task<Result<Manifest, Result>> RunWithManifest(DnvmEnv env, SdkDirName newDir, Manifest manifest, Logger logger)
     {
         var console = env.Console;
-        var validDirs = manifest.RegisteredChannels.Select(c => c.SdkDirName).ToList();
+        var validDirs = manifest.InstalledSdks.Select(s => s.SdkDirName).Distinct().ToList();
 
         if (!validDirs.Contains(newDir))
         {
