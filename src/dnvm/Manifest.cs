@@ -1,9 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Semver;
 using Serde;
@@ -26,22 +24,15 @@ public partial record RegisteredChannel
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirName SdkDirName { get; init; }
-    [SerdeMemberOptions(
-        SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
-        DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
     public EqArray<SemVersion> InstalledSdkVersions { get; init; } = EqArray<SemVersion>.Empty;
     public bool Untracked { get; init; } = false;
 }
 
 public partial record InstalledSdk
 {
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion ReleaseVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion SdkVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion RuntimeVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion AspNetVersion { get; init; }
 
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;

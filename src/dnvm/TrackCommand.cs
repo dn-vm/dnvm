@@ -1,17 +1,14 @@
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Semver;
-using Serde.Json;
 using Spectre.Console;
 using StaticCs;
 using Zio;
-using static Dnvm.Utilities;
 
 namespace Dnvm;
 
@@ -30,7 +27,6 @@ public sealed class TrackCommand
         /// Answer yes to every question or use the defaults.
         /// </summary>
         public bool Yes { get; init; } = false;
-        public bool Prereqs { get; init; } = false;
         public SdkDirName SdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
     }
 
@@ -89,7 +85,6 @@ public sealed class TrackCommand
             Verbose = args.Verbose ?? false,
             Force = args.Force ?? false,
             Yes = args.Yes ?? false,
-            Prereqs = args.Prereqs ?? false,
             SdkDir = sdkDir
         };
         return Run(env, logger, opts);

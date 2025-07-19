@@ -52,8 +52,7 @@ public static partial class ManifestSerialize
         return version switch
         {
             // The first version didn't have a version field
-            null => (await JsonSerializer.Deserialize<ManifestV1>(manifestSrc)
-                .Convert().Convert().Convert().Convert(httpClient, releasesIndex)).Convert().Convert().Convert().Convert().Convert(),
+            null => throw new InvalidDataException("Manifest is invalid: missing version field"),
             ManifestV2.VersionField => (await JsonSerializer.Deserialize<ManifestV2>(manifestSrc)
                 .Convert().Convert().Convert(httpClient, releasesIndex)).Convert().Convert().Convert().Convert().Convert(),
             ManifestV3.VersionField => (await JsonSerializer.Deserialize<ManifestV3>(manifestSrc)

@@ -1,8 +1,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.ComponentModel;
 using System.Linq;
 using Semver;
 using Serde;
@@ -74,9 +72,6 @@ public abstract partial record DnvmSubCommand
         /// </summary>
         [CommandOption("-y", Description = "Answer yes to all prompts.")]
         public bool? Yes { get; init; } = null;
-
-        [CommandOption("--prereqs", Description = "Print prereqs for dotnet on Ubuntu.")]
-        public bool? Prereqs { get; init; } = null;
 
         /// <summary>
         /// When specified, install the SDK into a separate directory with the given name,
