@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Semver;
@@ -85,7 +86,7 @@ public sealed class UninstallCommand
 
             env.Console.WriteLine($"Deleting SDK {verString} from {dir.Name}");
 
-            env.DnvmHomeFs.DeleteDirectory(sdkDir, isRecursive: true);
+            TryDeleteDirectory(env, sdkDir);
         }
     }
 
@@ -100,9 +101,9 @@ public sealed class UninstallCommand
 
             env.Console.WriteLine($"Deleting Runtime {verString} from {dir.Name}");
 
-            env.DnvmHomeFs.DeleteDirectory(netcoreappDir, isRecursive: true);
-            env.DnvmHomeFs.DeleteDirectory(hostfxrDir, isRecursive: true);
-            env.DnvmHomeFs.DeleteDirectory(packsHostDir, isRecursive: true);
+            TryDeleteDirectory(env, netcoreappDir);
+            TryDeleteDirectory(env, hostfxrDir);
+            TryDeleteDirectory(env, packsHostDir);
         }
     }
 
@@ -116,8 +117,8 @@ public sealed class UninstallCommand
 
             env.Console.WriteLine($"Deleting ASP.NET pack {verString} from {dir.Name}");
 
-            env.DnvmHomeFs.DeleteDirectory(aspnetDir, isRecursive: true);
-            env.DnvmHomeFs.DeleteDirectory(templatesDir, isRecursive: true);
+            TryDeleteDirectory(env, aspnetDir);
+            TryDeleteDirectory(env, templatesDir);
         }
     }
 
@@ -131,8 +132,7 @@ public sealed class UninstallCommand
             if (env.DnvmHomeFs.DirectoryExists(winDir))
             {
                 env.Console.WriteLine($"Deleting Windows Desktop pack {verString} from {dir.Name}");
-
-                env.DnvmHomeFs.DeleteDirectory(winDir, isRecursive: true);
+                TryDeleteDirectory(env, winDir);
             }
         }
     }
@@ -146,5 +146,17 @@ public sealed class UninstallCommand
         return manifest with {
             InstalledSdks = newVersions,
         };
+    }
+
+    private static void TryDeleteDirectory(DnvmEnv env, UPath directory)
+    {
+        try
+        {
+            env.DnvmHomeFs.DeleteDirectory(directory, isRecursive: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            env.Console.Warn($"Directory {directory} not found, skipping");
+        }
     }
 }
