@@ -102,6 +102,9 @@ public abstract partial record DnvmSubCommand
 
         [CommandOption("--dest-path", Description = "Set the destination path for the dnvm executable.")]
         public string? DestPath { get; init; } = null;
+
+        [CommandOption("--skip-tracking", Description = "Skip channel tracking and SDK installation during self-install.")]
+        public bool? SkipTracking { get; init; } = null;
     }
 
     [Command("update", Summary = "Update the installed SDKs or dnvm itself.")]

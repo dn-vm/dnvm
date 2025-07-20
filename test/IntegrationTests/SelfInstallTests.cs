@@ -45,6 +45,40 @@ public sealed class SelfInstallTests
         Assert.Contains(Assets.ArchiveToken, result.Out);
     });
 
+    [Fact]
+    public Task SelfInstallSkipTracking() => RunWithServer(async (mockServer, env) =>
+    {
+        var procResult = await DnvmRunner.RunAndRestoreEnv(
+            env,
+            DnvmExe,
+            $"selfinstall --feed-url {mockServer.PrefixString} -y -v --skip-tracking"
+        );
+
+        _testOutput.WriteLine(procResult.Out);
+        _testOutput.WriteLine(procResult.Error);
+        Assert.Equal(0, procResult.ExitCode);
+
+        // Verify dnvm binary is installed
+        var dnvmPath = env.DnvmHomeFs.ConvertPathToInternal(DnvmEnv.DnvmExePath);
+        Assert.True(File.Exists(dnvmPath));
+
+        // Verify no SDK was installed (since no channel was tracked)
+        var sdkInstallDir = DnvmEnv.GetSdkPath(DnvmEnv.DefaultSdkDirName);
+        var dotnetPath = sdkInstallDir / Utilities.DotnetExeName;
+        Assert.False(env.DnvmHomeFs.FileExists(dotnetPath));
+
+        // Verify no manifest was created or it's empty
+        try
+        {
+            var manifest = await Manifest.ReadManifestUnsafe(env);
+            Assert.Empty(manifest.RegisteredChannels);
+        }
+        catch (FileNotFoundException)
+        {
+            // Expected - no manifest should exist if no tracking occurred
+        }
+    });
+
     [ConditionalFact(typeof(UnixOnly))]
     public async Task SelfInstallDialog() => await RunWithServer(async (mockServer, env) =>
     {
