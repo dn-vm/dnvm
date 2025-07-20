@@ -492,7 +492,7 @@ alias ll='ls -la'
 
         _testOutput.WriteLine(result.Out);
         Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("must be absolute", result.Out);
+        Assert.Contains("must be fully-qualified", result.Out);
     });
 
 }

@@ -99,12 +99,18 @@ public class SelfInstallCommand
         var targetPath = opt.DestPath is not null
             ? opt.DestPath
             : env.DnvmHomeFs.ConvertPathToInternal(DnvmEnv.DnvmExePath);
-        if (!opt.Force && File.Exists(targetPath))
+        if (!Path.IsPathFullyQualified(targetPath))
         {
-            console.Error("dnvm is already installed at: " + targetPath);
-            console.WriteLine("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
+            console.Error("Dest path must be fully-qualified.");
             return Result.SelfInstallFailed;
         }
+
+        if (!opt.Force && File.Exists(targetPath))
+            {
+                console.Error("dnvm is already installed at: " + targetPath);
+                console.WriteLine("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
+                return Result.SelfInstallFailed;
+            }
 
         Channel channel = new Channel.Latest();
         if (!opt.Yes)
