@@ -36,6 +36,10 @@ public class SelfInstallCommand
         /// Path to overwrite.
         /// </summary>
         public string? DestPath { get; init; } = null;
+        /// <summary>
+        /// Skip channel tracking and SDK installation during self-install.
+        /// </summary>
+        public bool SkipTracking { get; init; } = false;
     }
 
     private readonly DnvmEnv _env;
@@ -59,7 +63,8 @@ public class SelfInstallCommand
             FeedUrl = args.FeedUrl,
             Yes = args.Yes ?? false,
             Update = args.Update ?? false,
-            DestPath = args.DestPath
+            DestPath = args.DestPath,
+            SkipTracking = args.SkipTracking ?? false
         });
     }
 
@@ -113,7 +118,7 @@ public class SelfInstallCommand
             }
 
         Channel channel = new Channel.Latest();
-        if (!opt.Yes)
+        if (!opt.Yes && !opt.SkipTracking)
         {
             console.WriteLine("Which channel would you like to start tracking?");
             console.WriteLine("Available channels:");
@@ -189,20 +194,23 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
 
-        var result = await TrackCommand.Run(_env, _logger, new TrackCommand.Options
+        if (!_opts.SkipTracking)
         {
-            Channel = channel,
-            Force = _opts.Force,
-            Verbose = _opts.Verbose,
-            FeedUrl = _opts.FeedUrl,
-            SdkDir = newDirName,
-            Yes = _opts.Yes
-        });
+            var result = await TrackCommand.Run(_env, _logger, new TrackCommand.Options
+            {
+                Channel = channel,
+                Force = _opts.Force,
+                Verbose = _opts.Verbose,
+                FeedUrl = _opts.FeedUrl,
+                SdkDir = newDirName,
+                Yes = _opts.Yes
+            });
 
-        if (result is not (TrackCommand.Result.Success or TrackCommand.Result.ChannelAlreadyTracked))
-        {
-            _logger.Log("Track failed: " + result);
-            return Result.InstallFailed;
+            if (result is not (TrackCommand.Result.Success or TrackCommand.Result.ChannelAlreadyTracked))
+            {
+                _logger.Log("Track failed: " + result);
+                return Result.InstallFailed;
+            }
         }
 
         SdkDirName oldDirName;
