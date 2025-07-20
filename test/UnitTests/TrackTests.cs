@@ -232,4 +232,35 @@ public sealed class TrackTests
             InstalledSdkVersions = [ ]
         }], manifest.RegisteredChannels);
     });
+
+    [Fact]
+    public Task TrackAlreadyTrackedChannelWarning() => RunWithServer(async (mockServer, env) =>
+    {
+        var channel = new Channel.Latest();
+
+        // First track the channel
+        var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
+        {
+            Channel = channel,
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+
+        // Verify the channel was tracked in the manifest
+        var manifest = await Manifest.ReadManifestUnsafe(env);
+        Assert.Contains(manifest.TrackedChannels(), c => c.ChannelName == channel);
+
+        // Track the same channel again - should produce a warning and return success
+        result = await TrackCommand.Run(env, _logger, new TrackCommand.Options
+        {
+            Channel = channel,
+        });
+        Assert.Equal(TrackCommand.Result.Success, result);
+
+        // Verify warning message was displayed
+        var console = (TestConsole)env.Console;
+        var output = console.Output;
+        _logger.Log($"Full console output length: {output.Length}");
+        _logger.Log($"Full console output: '{output}'");
+        Assert.Contains("already being tracked", output);
+    });
 }

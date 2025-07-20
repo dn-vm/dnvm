@@ -48,7 +48,6 @@ public sealed class TrackCommand
         SelfInstallFailed,
         ManifestIOError,
         ManifestFileCorrupted,
-        ChannelAlreadyTracked,
         CouldntFetchIndex
     }
 
@@ -126,9 +125,9 @@ public sealed class TrackCommand
         var channel = _channel;
         if (manifest.TrackedChannels().Any(c => c.ChannelName == channel))
         {
-            console.WriteLine($"Channel '{channel.GetDisplayName()}' is already being tracked." +
+            console.Warn($"Channel '{channel.GetDisplayName()}' is already being tracked." +
                 " Did you mean to run 'dnvm update'?");
-            return Result.ChannelAlreadyTracked;
+            return Result.Success;
         }
 
         manifest = manifest.TrackChannel(new RegisteredChannel {
