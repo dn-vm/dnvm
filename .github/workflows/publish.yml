@@ -100,7 +100,6 @@ jobs:
       - name: Make Release
         uses: softprops/action-gh-release@v1
         with:
-          prerelease: true
           draft: true
           files: |
             dnvm-*/dnvm-*
