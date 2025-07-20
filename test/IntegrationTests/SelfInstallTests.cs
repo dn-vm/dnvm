@@ -443,4 +443,56 @@ alias ll='ls -la'
         Assert.DoesNotContain("Adding env import to: " + zshrcPath, procResult.Out);
     });
 
+    [Fact]
+    public async Task SelfInstallWithExternalDestPath() => await RunWithServer(async (mockServer, env) =>
+    {
+        // Create a temporary directory outside the DNVM home to install to
+        using var externalInstallDir = TestUtils.CreateTempDirectory();
+        var externalDnvmPath = Path.Combine(externalInstallDir.Path, Utilities.DnvmExeName);
+
+        // Ensure the external path is definitely outside DNVM home
+        var dnvmHomePath = env.RealPath(UPath.Root);
+        Assert.DoesNotContain(dnvmHomePath, externalDnvmPath);
+
+        // Run selfinstall with --dest-path pointing to the external location
+        var result = await DnvmRunner.RunAndRestoreEnv(
+            env,
+            DnvmExe,
+            $"selfinstall --feed-url {mockServer.PrefixString} -y -v --dest-path \"{externalDnvmPath}\""
+        );
+
+        _testOutput.WriteLine("STDOUT:");
+        _testOutput.WriteLine(result.Out);
+        _testOutput.WriteLine("STDERR:");
+        _testOutput.WriteLine(result.Error);
+        _testOutput.WriteLine($"EXIT CODE: {result.ExitCode}");
+        Assert.Equal(0, result.ExitCode);
+
+        // Verify the dnvm binary was installed to the external path
+        Assert.True(File.Exists(externalDnvmPath), $"Expected dnvm to be installed at {externalDnvmPath}");
+
+        // Verify the installed binary is executable and works
+        var testResult = await ProcUtil.RunWithOutput(externalDnvmPath, "--help");
+        Assert.Equal(0, testResult.ExitCode);
+        Assert.Contains("dnvm", testResult.Out);
+    });
+
+    [Fact]
+    public async Task SelfInstallRelativeDestPath() => await RunWithServer(async (mockServer, env) =>
+    {
+        // Use a relative path that should be resolved within DNVM home
+        var relativePath = "custom-dnvm-location";
+
+        // Run selfinstall with relative dest-path
+        var result = await DnvmRunner.RunAndRestoreEnv(
+            env,
+            DnvmExe,
+            $"selfinstall --feed-url {mockServer.PrefixString} -y -v --dest-path \"{relativePath}\""
+        );
+
+        _testOutput.WriteLine(result.Out);
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("must be fully-qualified", result.Out);
+    });
+
 }

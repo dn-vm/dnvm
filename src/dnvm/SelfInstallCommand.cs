@@ -97,14 +97,20 @@ public class SelfInstallCommand
         }
 
         var targetPath = opt.DestPath is not null
-            ? env.DnvmHomeFs.ConvertPathFromInternal(opt.DestPath)
-            : DnvmEnv.DnvmExePath;
-        if (!opt.Force && env.DnvmHomeFs.FileExists(targetPath))
+            ? opt.DestPath
+            : env.DnvmHomeFs.ConvertPathToInternal(DnvmEnv.DnvmExePath);
+        if (!Path.IsPathFullyQualified(targetPath))
         {
-            console.Error("dnvm is already installed at: " + targetPath);
-            console.WriteLine("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
+            console.Error("Dest path must be fully-qualified.");
             return Result.SelfInstallFailed;
         }
+
+        if (!opt.Force && File.Exists(targetPath))
+            {
+                console.Error("dnvm is already installed at: " + targetPath);
+                console.WriteLine("Did you mean to run `dnvm update`? Otherwise, the '--force' flag is required to overwrite the existing file.");
+                return Result.SelfInstallFailed;
+            }
 
         Channel channel = new Channel.Latest();
         if (!opt.Yes)
@@ -148,7 +154,7 @@ public class SelfInstallCommand
 
         console.WriteLine("Proceeding with installation.");
 
-        return await new SelfInstallCommand(env, logger, opt).Run(env.RealPath(targetPath), channel, sdkDirName, updateUserEnv);
+        return await new SelfInstallCommand(env, logger, opt).Run(targetPath, channel, sdkDirName, updateUserEnv);
     }
 
     public enum Result
