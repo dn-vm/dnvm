@@ -206,7 +206,7 @@ public class SelfInstallCommand
                 Yes = _opts.Yes
             });
 
-            if (result is not (TrackCommand.Result.Success or TrackCommand.Result.ChannelAlreadyTracked))
+            if (result is not TrackCommand.Result.Success)
             {
                 _logger.Log("Track failed: " + result);
                 return Result.InstallFailed;
