@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Semver;
 
@@ -60,36 +61,42 @@ public sealed class PruneCommand
 
     public static List<(SemVersion Version, SdkDirName Dir)> GetOutOfDateSdks(Manifest manifest)
     {
-        var latestMajorMinorInDirs = new Dictionary<(SdkDirName Dir, string MajorMinor), SemVersion>();
         var sdksToRemove = new List<(SemVersion, SdkDirName)>();
-        foreach (var sdk in manifest.InstalledSdks)
+
+        // Get all tracked channels (exclude untracked ones)
+        var trackedChannels = manifest.TrackedChannels();
+
+        // For each tracked channel, find versions to prune within that channel
+        foreach (var channel in trackedChannels)
         {
-            var majorMinor = sdk.SdkVersion.ToMajorMinor();
-            var dir = sdk.SdkDirName;
-            if (latestMajorMinorInDirs.TryGetValue((sdk.SdkDirName, majorMinor), out var latest))
+            // Group SDKs installed through this channel by major.minor version
+            var channelSdksByMajorMinor = new Dictionary<string, List<SemVersion>>();
+
+            foreach (var sdkVersion in channel.InstalledSdkVersions)
             {
-                int order = sdk.SdkVersion.ComparePrecedenceTo(latest);
-                if (order < 0)
+                var majorMinor = sdkVersion.ToMajorMinor();
+                if (!channelSdksByMajorMinor.ContainsKey(majorMinor))
                 {
-                    // This sdk is older than the latest in the same dir
-                    sdksToRemove.Add((sdk.SdkVersion, dir));
+                    channelSdksByMajorMinor[majorMinor] = new List<SemVersion>();
                 }
-                else if (order > 0)
-                {
-                    // This sdk is newer than the latest in the same dir
-                    sdksToRemove.Add((latest, dir));
-                    latestMajorMinorInDirs[(sdk.SdkDirName, majorMinor)] = sdk.SdkVersion;
-                }
-                else
-                {
-                    // same version, do nothing
-                }
+                channelSdksByMajorMinor[majorMinor].Add(sdkVersion);
             }
-            else
+
+            // For each major.minor group, keep only the latest version
+            foreach (var (majorMinor, versions) in channelSdksByMajorMinor)
             {
-                latestMajorMinorInDirs[(sdk.SdkDirName, majorMinor)] = sdk.SdkVersion;
+                if (versions.Count > 1)
+                {
+                    // Sort versions and mark all but the latest for removal
+                    var sortedVersions = versions.OrderBy(v => v, SemVersion.SortOrderComparer).ToList();
+                    for (int i = 0; i < sortedVersions.Count - 1; i++)
+                    {
+                        sdksToRemove.Add((sortedVersions[i], channel.SdkDirName));
+                    }
+                }
             }
         }
+
         return sdksToRemove;
     }
 }

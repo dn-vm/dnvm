@@ -164,7 +164,7 @@ public abstract partial record DnvmSubCommand
         public SdkDirName? SdkDir { get; init; } = null;
     }
 
-    [Command("prune", Summary = "Remove all SDKs with older patch versions.")]
+    [Command("prune", Summary = "Remove older SDK versions from tracked channels.")]
     public sealed partial record PruneArgs : DnvmSubCommand
     {
         [CommandOption("-v|--verbose", Description = "Print extra debugging info to the console.")]

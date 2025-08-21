@@ -1,16 +1,20 @@
 # dnvm
 
-dnvm is the "dotnet version manager." Dnvm is a command-line interface for installing and updating different dotnet SDKs. 
+dnvm is the "dotnet version manager." Dnvm is a command-line interface for installing and updating different dotnet SDKs.
 
-## Getting started 
+## Getting started
 
 dnvm installs .NET SDKs to the dnvm home path, which is `~/.local/dnvm` on Linux, ` ~/Library/Application\ Support/dnvm/` on Mac, and `%LOCALAPPDATA%/dnvm` on Windows. Dnvm lets you:
 - Install the latest release from channels through the `track` command
 - Update SDK versions through the `update` command
-- Cleanup old SDKs through the `prune` command,
+- Cleanup old SDKs through the `prune` command (see [detailed documentation](docs/prune.md))
 - Install specific SDKs through the `install` command.
 
 The `--help` command can help you find more information on all available commands.
+
+## Documentation
+
+- [Prune Command](docs/prune.md) - Detailed explanation of how SDK cleanup works
 
 ## Channels
 
