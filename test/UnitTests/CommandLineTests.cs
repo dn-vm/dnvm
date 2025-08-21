@@ -26,7 +26,7 @@ public sealed class CommandLineTests
             select  Select the active SDK directory.
             untrack  Remove a channel from the list of tracked channels.
             uninstall  Uninstall an SDK.
-            prune  Remove all SDKs with older patch versions.
+            prune  Remove older SDK versions from tracked channels.
             restore  Restore the SDK listed in the global.json file.
 
 
@@ -405,7 +405,7 @@ Options:
         Assert.Equal("""
 usage: dnvm prune [-v | --verbose] [--dry-run] [-h | --help]
 
-Remove all SDKs with older patch versions.
+Remove older SDK versions from tracked channels.
 
 Options:
     -v, --verbose  Print extra debugging info to the console.
