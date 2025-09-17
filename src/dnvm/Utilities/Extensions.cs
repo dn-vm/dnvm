@@ -3,6 +3,7 @@ using System;
 using System.Collections.Immutable;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Semver;
 
 namespace Dnvm;
 
@@ -56,4 +57,16 @@ internal static class ImmutableArrayExt2
         }
         return result;
     }
+}
+
+internal static class SemVerExtensions
+{
+    public static SemVersion WithSuggestedThreeDigitPatch(this SemVersion version) =>
+        version.Patch switch
+        {
+            >= 100 => throw new InvalidOperationException("Patch version is already three digits"),
+            0 => version.WithPatch(100),
+            < 10 => version.WithPatch(version.Patch * 100),
+            < 100 and >= 10 => version.WithPatch(version.Patch * 10)
+        };
 }

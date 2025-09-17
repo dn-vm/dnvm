@@ -445,5 +445,44 @@ public sealed class InstallTests
         }
     });
 
+    [Theory]
+    [InlineData("8.0.1", "8.0.100")] // 1-digit patch -> suggest patch*100
+    [InlineData("8.0.2", "8.0.200")] // 1-digit non-zero patch -> patch*100
+    [InlineData("9.0.0", "9.0.100")] // zero patch -> 100
+    [InlineData("9.0.5", "9.0.500")] // patch 5 -> 500
+    [InlineData("8.0.10", "8.0.100")] // 2-digit patch -> suggest patch*10
+    [InlineData("8.0.21", "8.0.210")] // 2-digit non-zero patch -> patch*10
+    [InlineData("9.0.50", "9.0.500")] // patch 50 -> 500
+    public Task WarnsOnNonThreeDigitPatch(string versionText, string suggested) => RunWithServer(async (server, env) =>
+    {
+        // Clear server versions so installation fails (forcing warning path)
+        server.ClearVersions();
+        var console = (TestConsole)env.Console;
+        var version = SemVersion(versionText);
+        var options = new DnvmSubCommand.InstallArgs { SdkVersion = version };
+        var result = await InstallCommand.Run(env, _logger, options);
+        Assert.Equal(InstallCommand.Result.UnknownChannel, result); // Should fail lookup
+        var output = console.Output;
+        Assert.Contains($"Requested SDK version '{version}'", output);
+        Assert.Contains($"Did you mean '{suggested}'?", output);
+    });
+
+    [Theory]
+    [InlineData("8.0.100")]
+    [InlineData("8.0.101")]
+    [InlineData("9.0.300-preview.1")] // preview with 3-digit patch should not warn
+    public Task NoWarningOnThreeDigitPatch(string versionText) => RunWithServer(async (server, env) =>
+    {
+        server.ClearVersions();
+        var console = (TestConsole)env.Console;
+        var version = SemVersion(versionText);
+        var options = new DnvmSubCommand.InstallArgs { SdkVersion = version };
+        var result = await InstallCommand.Run(env, _logger, options);
+        Assert.Equal(InstallCommand.Result.UnknownChannel, result);
+        var output = console.Output;
+        Assert.DoesNotContain("Requested SDK version", output);
+        Assert.DoesNotContain("Did you mean", output);
+    });
+
     static SemVersion SemVersion(string version) => Semver.SemVersion.Parse(version, SemVersionStyles.Strict);
 }
