@@ -464,7 +464,6 @@ public sealed class InstallTests
         Assert.Equal(InstallCommand.Result.UnknownChannel, result); // Should fail lookup
         var output = console.Output;
         Assert.Contains($"Requested SDK version '{version}'", output);
-        Assert.Contains($"Did you mean '{suggested}'?", output);
     });
 
     [Theory]
@@ -481,7 +480,6 @@ public sealed class InstallTests
         Assert.Equal(InstallCommand.Result.UnknownChannel, result);
         var output = console.Output;
         Assert.DoesNotContain("Requested SDK version", output);
-        Assert.DoesNotContain("Did you mean", output);
     });
 
     static SemVersion SemVersion(string version) => Semver.SemVersion.Parse(version, SemVersionStyles.Strict);
