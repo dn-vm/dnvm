@@ -62,7 +62,7 @@ public static partial class InstallCommand
         if (result is not Result.Success && args.SdkVersion.Patch < 100)
         {
             env.Console.Error($"Requested SDK version '{args.SdkVersion}' with patch '{args.SdkVersion.Patch}'. " +
-            "The dotnet SDK typically has 3 digit patches versions.");
+            "The dotnet SDK typically has 3 digit patch versions. Is this a runtime version?");
         }
         return result;
     }
