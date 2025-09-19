@@ -36,7 +36,7 @@ public static partial class InstallCommand
         public (UPath Dir, IFileSystem DirFs)? TargetDir { get; init; } = null;
     }
 
-    public static Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.InstallArgs args)
+    public static async Task<Result> Run(DnvmEnv env, Logger logger, DnvmSubCommand.InstallArgs args)
     {
         (UPath Dir, IFileSystem DirFs)? targetDir = null;
         if (args.Dir is not null)
@@ -50,7 +50,7 @@ public static partial class InstallCommand
             targetDir = (dirPath, env.CwdFs);
         }
 
-        return Run(env, logger, new Options
+        Result result = await Run(env, logger, new Options
         {
             SdkVersion = args.SdkVersion,
             Force = args.Force ?? false,
@@ -58,6 +58,13 @@ public static partial class InstallCommand
             Verbose = args.Verbose ?? false,
             TargetDir = targetDir,
         });
+
+        if (result is not Result.Success && args.SdkVersion.Patch < 100)
+        {
+            env.Console.Error($"Requested SDK version '{args.SdkVersion}' with patch '{args.SdkVersion.Patch}'. " +
+            "The dotnet SDK typically has 3 digit patch versions. Is this a runtime version?");
+        }
+        return result;
     }
 
     public static async Task<Result> Run(DnvmEnv env, Logger logger, Options options)
@@ -282,7 +289,7 @@ public static partial class InstallCommand
         public partial record Component
         {
             [SerdeMemberOptions(DeserializeProxy = typeof(SemVersionProxy))]
-            public required SemVersion Version { get; init;  }
+            public required SemVersion Version { get; init; }
         }
     }
 
