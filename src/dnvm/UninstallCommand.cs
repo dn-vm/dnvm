@@ -143,7 +143,7 @@ public sealed class UninstallCommand
         var newVersions = manifest.InstalledSdks
             .Where(sdk => sdk.SdkVersion != sdkVersion)
             .ToEq();
-        
+
         // Also remove the SDK version from RegisteredChannels.InstalledSdkVersions
         var updatedChannels = manifest.RegisteredChannels.Select(channel =>
         {
@@ -152,7 +152,7 @@ public sealed class UninstallCommand
                 .ToEq();
             return channel with { InstalledSdkVersions = updatedInstalledVersions };
         }).ToEq();
-        
+
         return manifest with {
             InstalledSdks = newVersions,
             RegisteredChannels = updatedChannels,
