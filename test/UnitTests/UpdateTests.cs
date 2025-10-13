@@ -405,4 +405,34 @@ public sealed class UpdateTests
             }
         ], manifest.InstalledSdks);
     });
+
+    [Fact]
+    public async Task UpdateAfterUninstall() => await TestUtils.RunWithServer(async (server, env) =>
+    {
+        var trackResult = await TrackCommand.Run(env, _logger, new TrackCommand.Options() {
+            Channel = new Channel.Lts(),
+            Verbose = true
+        });
+        Assert.Equal(TrackCommand.Result.Success, trackResult);
+        var manifest = await Manifest.ReadManifestUnsafe(env);
+        var installed = Assert.Single(manifest.InstalledSdks);
+        Assert.Equal(MockServer.DefaultLtsVersion, installed.SdkVersion);
+
+        var uninstallResult = await UninstallCommand.Run(env, _logger, MockServer.DefaultLtsVersion);
+        Assert.Equal(0, uninstallResult);
+
+        manifest = await Manifest.ReadManifestUnsafe(env);
+        Assert.Empty(manifest.InstalledSdks);
+
+        var updateResult = await UpdateCommand.Run(env, _logger, new UpdateCommand.Options
+        {
+            Yes = true,
+        });
+
+        Assert.Equal(UpdateCommand.Result.Success, updateResult);
+
+        manifest = await Manifest.ReadManifestUnsafe(env);
+        installed = Assert.Single(manifest.InstalledSdks);
+        Assert.Equal(MockServer.DefaultLtsVersion, installed.SdkVersion);
+    });
 }

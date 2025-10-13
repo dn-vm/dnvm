@@ -227,7 +227,7 @@ public sealed partial class UpdateCommand
             var release = releaseIndex.GetChannelIndex(tracked.ChannelName);
             if (release is { LatestSdk: var sdkVersion} &&
                 SemVersion.TryParse(sdkVersion, SemVersionStyles.Strict, out var newestAvailable) &&
-                SemVersion.ComparePrecedence(newestInstalled, newestAvailable) < 0)
+                (newestInstalled is null || SemVersion.ComparePrecedence(newestInstalled, newestAvailable) < 0))
             {
                 list.Add((tracked.ChannelName, newestInstalled, release, tracked.SdkDirName));
             }
