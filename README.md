@@ -23,8 +23,6 @@ The simplest way to use dnvm is to track a channel. Channels are of two types: n
 ## Help
 ```
 $ dnvm -h
-dnvm 1.0.0 12418b16
-
 usage: dnvm [--enable-dnvm-previews] [-h | --help] <command>
 
 Install and manage .NET SDKs.
