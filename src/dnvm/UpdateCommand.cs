@@ -350,7 +350,7 @@ public sealed partial class UpdateCommand
         bool previewsEnabled)
     {
         console.WriteLine("Checking for updates to dnvm");
-        console.WriteLine("Using dnvm releases URL: " + releasesUrl);
+        logger.Log("Using dnvm releases URL: " + releasesUrl);
 
         string releasesJson;
         try
