@@ -368,7 +368,10 @@ public class SelfInstallCommand
                 console.Warn("Found 'dotnet.exe' inside the System PATH environment variable. " +
                     "System PATH is always preferred over User path on Windows, so the dnvm-installed " +
                     "dotnet.exe will not be accessible until it is removed. " +
-                    "It is strongly recommended to remove dotnet from your System PATH now.");
+                    "It is strongly recommended to remove dotnet from your System PATH now." +
+                    "Additionally, run the following command as Administrator to prevent the " +
+                    "Visual Studio dotnet installer from setting the System PATH again: " +
+                    "reg add \"HKLM\\SOFTWARE\\Microsoft\\.NET\" /v DisableSettingHostPath /t REG_DWORD /d 1");
             }
             console.WriteLine("Adding install directory to user path: " + dnvmHome);
             WindowsAddToPath(env, dnvmHome);

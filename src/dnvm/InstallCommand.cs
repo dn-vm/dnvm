@@ -396,7 +396,7 @@ public static partial class InstallCommand
             return InstallError.DownloadFailed;
         }
 
-        console.WriteLine($"Installing to {destPath}");
+        console.WriteLine($"Installing to DNVM_HOME{destPath}");
         string? extractResult = await Utilities.ExtractSdkToDir(
             curMuxerVersion,
             runtimeVersion,
