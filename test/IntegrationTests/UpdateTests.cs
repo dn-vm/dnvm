@@ -5,18 +5,18 @@ namespace Dnvm.Test;
 
 public sealed class UpdateTests
 {
-    private Task TestWithServer(Func<MockServer, DnvmEnv, Task> test)
+    private Task TestWithServer(Func<MockServer, TestEnv, Task> test)
     {
         return TaskScope.With(async taskScope =>
         {
             await using var mockServer = new MockServer(taskScope);
             using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
-            await test(mockServer, testOptions.DnvmEnv);
+            await test(mockServer, testOptions);
         });
     }
 
     [Fact]
-    public Task SelfUpdateNewVersion() => TestWithServer(async (mockServer, env) =>
+    public Task SelfUpdateNewVersion() => TestWithServer(async (mockServer, testEnv) =>
     {
         var startVer = Program.SemVer;
         mockServer.DnvmReleases = mockServer.DnvmReleases with {
@@ -24,8 +24,8 @@ public sealed class UpdateTests
                 Version = startVer.WithMajor(startVer.Major + 1).ToString()
             }
         };
-        var proc = await DnvmRunner.RunAndRestoreEnv(env, SelfInstallTests.DnvmExe,
-            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}");
+        var proc = await DnvmRunner.RunAndRestoreEnv(testEnv.DnvmEnv, SelfInstallTests.DnvmExe,
+            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}", testConfigDir: testEnv.ConfigDirPath);
         var output = proc.Out;
         var error = proc.Error;
         Assert.Contains("Hello from dnvm test", output);
@@ -33,7 +33,7 @@ public sealed class UpdateTests
     });
 
     [Fact]
-    public async Task EnablePreviewsAndDownload() => await TestWithServer(async (mockServer, env) =>
+    public async Task EnablePreviewsAndDownload() => await TestWithServer(async (mockServer, testEnv) =>
     {
         var startVer = Program.SemVer;
         mockServer.DnvmReleases = mockServer.DnvmReleases with {
@@ -44,18 +44,19 @@ public sealed class UpdateTests
                 Version = startVer.WithMajor(startVer.Major + 1).WithPrerelease("preview").ToString()
             }
         };
-        var proc = await DnvmRunner.RunAndRestoreEnv(env, SelfInstallTests.DnvmExe,
-            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}");
+        var proc = await DnvmRunner.RunAndRestoreEnv(testEnv.DnvmEnv, SelfInstallTests.DnvmExe,
+            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}", testConfigDir: testEnv.ConfigDirPath);
         var output = proc.Out;
         var error = proc.Error;
         Assert.Contains("dnvm is up-to-date", output, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, proc.ExitCode);
 
-        proc = await DnvmRunner.RunAndRestoreEnv(env, SelfInstallTests.DnvmExe, "--enable-dnvm-previews");
-        Assert.Equal(0, proc.ExitCode);
+        // Manually create config file with previews enabled
+        var config = new DnvmConfig { PreviewsEnabled = true };
+        DnvmConfigFile.Write(config);
 
-        proc = await DnvmRunner.RunAndRestoreEnv(env, SelfInstallTests.DnvmExe,
-            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}");
+        proc = await DnvmRunner.RunAndRestoreEnv(testEnv.DnvmEnv, SelfInstallTests.DnvmExe,
+            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}", testConfigDir: testEnv.ConfigDirPath);
         output = proc.Out;
         error = proc.Error;
         Assert.Contains("Hello from dnvm test", output);
@@ -63,19 +64,19 @@ public sealed class UpdateTests
     });
 
     [Fact]
-    public Task SelfUpdateUpToDate() => TestWithServer(async (mockServer, env) =>
+    public Task SelfUpdateUpToDate() => TestWithServer(async (mockServer, testEnv) =>
     {
         mockServer.DnvmReleases = mockServer.DnvmReleases with {
             LatestVersion = mockServer.DnvmReleases.LatestVersion with {
                 Version = Program.SemVer.ToString() // report the same version as installed
             }
         };
-        var result = await DnvmRunner.RunAndRestoreEnv(env, SelfInstallTests.DnvmExe,
-            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}");
+        var result = await DnvmRunner.RunAndRestoreEnv(testEnv.DnvmEnv, SelfInstallTests.DnvmExe,
+            $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}", testConfigDir: testEnv.ConfigDirPath);
         var output = result.Out;
         var error = result.Error;
         Assert.Equal(0, result.ExitCode);
-        result = await DnvmRunner.RunAndRestoreEnv(env, SelfInstallTests.DnvmExe, "-h");
+        result = await DnvmRunner.RunAndRestoreEnv(testEnv.DnvmEnv, SelfInstallTests.DnvmExe, "-h", testConfigDir: testEnv.ConfigDirPath);
         Assert.DoesNotContain("Hello from dnvm test", result.Out);
         Assert.Equal(0, result.ExitCode);
     });

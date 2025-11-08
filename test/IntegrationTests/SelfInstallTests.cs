@@ -305,23 +305,17 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
         Assert.True(timeAfterUpdate == timeBeforeUpdate);
         Assert.Contains("Dnvm is up-to-date", result.Out);
 
-        result = await ProcUtil.RunWithOutput(
-            copiedExe,
-            $"--enable-dnvm-previews",
-            new() {
-                ["HOME"] = env.UserHome,
-                ["DNVM_HOME"] = env.RealPath(UPath.Root)
-            }
-        );
-        Assert.Equal(0, result.ExitCode);
+        // Manually create config file with previews enabled
+        var config = new DnvmConfig { PreviewsEnabled = true };
+        DnvmConfigFile.Write(config);
 
         result = await DnvmRunner.RunAndRestoreEnv(
             env,
             copiedExe,
             $"update --self --dnvm-url {mockServer.DnvmReleasesUrl} -v"
         );
-        timeAfterUpdate = File.GetLastWriteTimeUtc(copiedExe);
-        Assert.True(timeAfterUpdate > timeBeforeUpdate);
+        var timeAfterPreviewUpdate = File.GetLastWriteTimeUtc(copiedExe);
+        Assert.True(timeAfterPreviewUpdate > timeBeforeUpdate);
         Assert.Contains("Process successfully upgraded", result.Out);
     });
 

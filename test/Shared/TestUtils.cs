@@ -28,20 +28,20 @@ public static class TestUtils
             await test(mockServer);
         });
 
-    public static Task RunWithServer(Func<MockServer, DnvmEnv, Task> test)
+    public static Task RunWithServer(Func<MockServer, TestEnv, Task> test)
         => TaskScope.With(async taskScope =>
         {
             await using var mockServer = new MockServer(taskScope);
             using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl);
-            await test(mockServer, testOptions.DnvmEnv);
+            await test(mockServer, testOptions);
         });
 
-    public static Task RunWithServer(UPath cwd, Func<MockServer, DnvmEnv, Task> test)
+    public static Task RunWithServer(UPath cwd, Func<MockServer, TestEnv, Task> test)
         => TaskScope.With(async taskScope =>
         {
             await using var mockServer = new MockServer(taskScope);
             using var testOptions = new TestEnv(mockServer.PrefixString, mockServer.DnvmReleasesUrl, cwd);
-            await test(mockServer, testOptions.DnvmEnv);
+            await test(mockServer, testOptions);
         });
 
     public static string RemoveWhitespace(this string input) => input.Replace("\r", "").Replace("\n", "").Replace(" ", "");

@@ -14,9 +14,6 @@ namespace Dnvm;
 [Command("dnvm", Summary = "Install and manage .NET SDKs.")]
 public partial record DnvmArgs
 {
-    [CommandOption("--enable-dnvm-previews", Description = "Enable dnvm previews.")]
-    public bool? EnableDnvmPreviews { get; init; }
-
     [CommandGroup("command")]
     public DnvmSubCommand? SubCommand { get; init; }
 }
@@ -246,7 +243,7 @@ public static class CommandLineArguments
         {
             case CmdLine.ParsedArgsOrHelpInfos<DnvmArgs>.Parsed(var value):
                 dnvmCmd = value;
-                if (dnvmCmd.EnableDnvmPreviews is null && dnvmCmd.SubCommand is null)
+                if (dnvmCmd.SubCommand is null)
                 {
                     // Empty command is a help request.
                     console.WriteLine(CmdLine.GetHelpText<DnvmArgs>(includeHelp: true));

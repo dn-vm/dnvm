@@ -9,12 +9,11 @@ namespace Dnvm.Test;
 public sealed class CommandLineTests
 {
     private static readonly string ExpectedHelpText = """
-        usage: dnvm [--enable-dnvm-previews] [-h | --help] <command>
+        usage: dnvm [-h | --help] <command>
 
         Install and manage .NET SDKs.
 
         Options:
-            --enable-dnvm-previews  Enable dnvm previews.
             -h, --help  Show help information.
 
         Commands:
@@ -175,15 +174,6 @@ Channel must be one of:
         Assert.True(options!.SubCommand is DnvmSubCommand.TrackArgs {
             Channel: Channel.Lts
         });
-    }
-
-    [Fact]
-    public void EnableDnvmPreviews()
-    {
-        var options = CommandLineArguments.ParseRaw(new TestConsole(), [
-            "--enable-dnvm-previews",
-        ]);
-        Assert.True(options!.EnableDnvmPreviews);
     }
 
     [Theory]

@@ -41,7 +41,6 @@ public sealed partial record Manifest
 {
     public static readonly Manifest Empty = new();
 
-    public bool PreviewsEnabled { get; init; } = false;
     public SdkDirName CurrentSdkDir { get; init; } = DnvmEnv.DefaultSdkDirName;
     public EqArray<InstalledSdk> InstalledSdks { get; init; } = [];
     public EqArray<RegisteredChannel> RegisteredChannels { get; init; } = [];

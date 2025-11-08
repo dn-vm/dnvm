@@ -9,7 +9,8 @@ internal static class DnvmRunner
         DnvmEnv env,
         string dnvmPath,
         string dnvmArgs,
-        Action? envChecker = null)
+        Action? envChecker = null,
+        string? testConfigDir = null)
     {
         var savedVars = new Dictionary<string, string?>();
         const string PATH = "PATH";
@@ -21,14 +22,19 @@ internal static class DnvmRunner
         }
         try
         {
+            var envVars = new Dictionary<string, string>
+            {
+                ["HOME"] = env.UserHome,
+                ["DNVM_HOME"] = env.RealPath(UPath.Root)
+            };
+            if (testConfigDir is not null)
+            {
+                envVars["DNVM_TEST_CONFIG_DIR"] = testConfigDir;
+            }
             var procResult = await ProcUtil.RunWithOutput(
                 dnvmPath,
                 dnvmArgs,
-                new()
-                {
-                    ["HOME"] = env.UserHome,
-                    ["DNVM_HOME"] = env.RealPath(UPath.Root)
-                }
+                envVars
             );
             // Allow the test to check the environment variables before they are restored
             envChecker?.Invoke();
