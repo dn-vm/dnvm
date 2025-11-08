@@ -9,8 +9,7 @@ internal static class DnvmRunner
         DnvmEnv env,
         string dnvmPath,
         string dnvmArgs,
-        Action? envChecker = null,
-        string? testConfigDir = null)
+        Action? envChecker = null)
     {
         var savedVars = new Dictionary<string, string?>();
         const string PATH = "PATH";
@@ -27,9 +26,10 @@ internal static class DnvmRunner
                 ["HOME"] = env.UserHome,
                 ["DNVM_HOME"] = env.RealPath(UPath.Root)
             };
-            if (testConfigDir is not null)
+            // Use the test config directory if it's set
+            if (DnvmConfigFile.TestConfigDirectory is not null)
             {
-                envVars["DNVM_TEST_CONFIG_DIR"] = testConfigDir;
+                envVars["DNVM_TEST_CONFIG_DIR"] = DnvmConfigFile.TestConfigDirectory;
             }
             var procResult = await ProcUtil.RunWithOutput(
                 dnvmPath,
