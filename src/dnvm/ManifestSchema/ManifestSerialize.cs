@@ -68,24 +68,6 @@ public static class ManifestConvert
 {
     public static Manifest Convert(this ManifestV9 manifestV9)
     {
-        // Migrate PreviewsEnabled from manifest to config file if it's true
-        if (manifestV9.PreviewsEnabled)
-        {
-            try
-            {
-                var config = DnvmConfigFile.Read();
-                if (!config.PreviewsEnabled)
-                {
-                    // Migrate the setting to the config file
-                    DnvmConfigFile.Write(config with { PreviewsEnabled = true });
-                }
-            }
-            catch
-            {
-                // Best effort migration - ignore errors
-            }
-        }
-
         return new Manifest
         {
             CurrentSdkDir = manifestV9.CurrentSdkDir.Convert(),
