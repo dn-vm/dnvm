@@ -37,8 +37,8 @@ public static class DnvmConfigFile
     /// <summary>
     /// Get the platform-specific config directory path.
     /// - Linux: ~/.config/dnvm/ (XDG_CONFIG_HOME/dnvm)
-    /// - macOS: ~/Library/Application Support/dnvm/
-    /// - Windows: %LOCALAPPDATA%/dnvm/
+    /// - macOS: ~/.config/dnvm/
+    /// - Windows: %APPDATA%/dnvm/
     /// </summary>
     private static string GetConfigDirectory()
     {
@@ -65,10 +65,10 @@ public static class DnvmConfigFile
         }
         else
         {
-            // On macOS and Windows, use LocalApplicationData
-            // This is ~/Library/Application Support on macOS and %LOCALAPPDATA% on Windows
+            // On macOS and Windows, use ApplicationData for roaming config files
+            // This is ~/.config on macOS and %APPDATA% on Windows
             return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "dnvm");
         }
     }
