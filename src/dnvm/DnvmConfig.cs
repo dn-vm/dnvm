@@ -25,14 +25,25 @@ public sealed partial record DnvmConfig
 }
 
 /// <summary>
-/// Static methods for config file operations.
+/// Provides access to the dnvm configuration file.
 /// </summary>
-public static class DnvmConfigFile
+public sealed class DnvmConfigFile
 {
     private const string ConfigFileName = "dnvmConfig.json";
     
     // Allow tests to override the config directory
     public static string? TestConfigDirectory { get; set; }
+
+    private readonly string _configDirectory;
+
+    public DnvmConfigFile() : this(GetConfigDirectory())
+    {
+    }
+
+    internal DnvmConfigFile(string configDirectory)
+    {
+        _configDirectory = configDirectory;
+    }
 
     /// <summary>
     /// Get the platform-specific config directory path.
@@ -73,13 +84,12 @@ public static class DnvmConfigFile
         }
     }
 
-    private static IFileSystem GetConfigFileSystem()
+    private IFileSystem GetConfigFileSystem()
     {
-        var configDir = GetConfigDirectory();
-        Directory.CreateDirectory(configDir);
+        Directory.CreateDirectory(_configDirectory);
         return new SubFileSystem(
             DnvmEnv.PhysicalFs,
-            DnvmEnv.PhysicalFs.ConvertPathFromInternal(configDir));
+            DnvmEnv.PhysicalFs.ConvertPathFromInternal(_configDirectory));
     }
 
     private static UPath ConfigPath => UPath.Root / ConfigFileName;
@@ -88,7 +98,7 @@ public static class DnvmConfigFile
     /// Reads the config file from the platform-specific config directory.
     /// Returns the default config if the file does not exist.
     /// </summary>
-    public static DnvmConfig Read()
+    public DnvmConfig Read()
     {
         try
         {
@@ -111,7 +121,7 @@ public static class DnvmConfigFile
     /// <summary>
     /// Writes the config file to the platform-specific config directory.
     /// </summary>
-    public static void Write(DnvmConfig config)
+    public void Write(DnvmConfig config)
     {
         var fs = GetConfigFileSystem();
         var tempFileName = $"{ConfigFileName}.{Path.GetRandomFileName()}.tmp";

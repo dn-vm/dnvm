@@ -53,7 +53,8 @@ public sealed class UpdateTests
 
         // Manually create config file with previews enabled
         var config = new DnvmConfig { PreviewsEnabled = true };
-        DnvmConfigFile.Write(config);
+        var configFile = new DnvmConfigFile();
+        configFile.Write(config);
 
         proc = await DnvmRunner.RunAndRestoreEnv(env, SelfInstallTests.DnvmExe,
             $"update --self -v --dnvm-url {mockServer.DnvmReleasesUrl}");

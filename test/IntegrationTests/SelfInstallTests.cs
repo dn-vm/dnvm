@@ -307,7 +307,8 @@ echo "DOTNET_ROOT: $DOTNET_ROOT"
 
         // Manually create config file with previews enabled
         var config = new DnvmConfig { PreviewsEnabled = true };
-        DnvmConfigFile.Write(config);
+        var configFile = new DnvmConfigFile();
+        configFile.Write(config);
 
         result = await DnvmRunner.RunAndRestoreEnv(
             env,
