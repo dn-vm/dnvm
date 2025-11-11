@@ -23,6 +23,7 @@ public sealed class CommandLineTests
             selfinstall  Install dnvm to the local machine.
             update  Update the installed SDKs or dnvm itself.
             list  List installed SDKs.
+            list-remote  List installable SDK versions.
             select  Select the active SDK directory.
             untrack  Remove a channel from the list of tracked channels.
             uninstall  Uninstall an SDK.
@@ -464,5 +465,36 @@ as global.json.
 
 
 """.NormalizeLineEndings(), console.Output.TrimLines());
+    }
+
+    [Fact]
+    public void ListRemote()
+    {
+        var options = CommandLineArguments.ParseRaw(new TestConsole(), [
+            "list-remote"
+        ]);
+        Assert.True(options!.SubCommand is DnvmSubCommand.ListRemoteArgs);
+    }
+
+    [Theory]
+    [InlineData("-h")]
+    [InlineData("--help")]
+    public void ListRemoteHelp(string param)
+    {
+        var console = new TestConsole();
+        Assert.Null(CommandLineArguments.ParseRaw(
+            console,
+            [ "list-remote", param ]));
+        Assert.Equal("""
+usage: dnvm list-remote [--feed-url <feedUrl>] [-h | --help]
+
+List installable SDK versions.
+
+Options:
+    --feed-url  <feedUrl>  Set the feed URL to download the SDK from.
+    -h, --help  Show help information.
+
+
+""".NormalizeLineEndings(), console.Output);
     }
 }

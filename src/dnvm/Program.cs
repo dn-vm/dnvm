@@ -63,6 +63,7 @@ public static class Program
             DnvmSubCommand.InstallArgs a => (int)await InstallCommand.Run(env, logger, a),
             DnvmSubCommand.UpdateArgs a => (int)await UpdateCommand.Run(env, logger, a),
             DnvmSubCommand.ListArgs => (int)await ListCommand.Run(logger, env),
+            DnvmSubCommand.ListRemoteArgs a => (int)await ListRemoteCommand.Run(env, a),
             DnvmSubCommand.SelectArgs a => (int)await SelectCommand.Run(env, logger, new(a.SdkDirName)),
             DnvmSubCommand.UntrackArgs a => await UntrackCommand.Run(env, a.Channel),
             DnvmSubCommand.UninstallArgs a => await UninstallCommand.Run(env, logger, a.SdkVersion, a.SdkDir),
