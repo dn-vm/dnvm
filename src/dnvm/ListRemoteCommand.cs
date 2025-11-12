@@ -28,12 +28,17 @@ public static class ListRemoteCommand
             return 1;
         }
 
-        var supportedChannels = GetSupportedChannels(releasesIndex);
-        var sdkVersions = await GetLatestSdkVersionsByFeature(env, releasesIndex, supportedChannels);
+        var sdkVersions = await GetRemoteSdkVersions(env, releasesIndex);
 
         PrintRemoteSdks(console, sdkVersions);
 
         return 0;
+    }
+
+    public static async Task<List<SdkVersionInfo>> GetRemoteSdkVersions(DnvmEnv env, DotnetReleasesIndex releasesIndex)
+    {
+        var supportedChannels = GetSupportedChannels(releasesIndex);
+        return await GetLatestSdkVersionsByFeature(env, releasesIndex, supportedChannels);
     }
 
     private static List<DotnetReleasesIndex.ChannelIndex> GetSupportedChannels(DotnetReleasesIndex releasesIndex)
@@ -121,7 +126,7 @@ public static class ListRemoteCommand
         console.Write(table);
     }
 
-    private record SdkVersionInfo
+    public record SdkVersionInfo
     {
         public required SemVersion Version { get; init; }
         public required string FeatureVersion { get; init; }
