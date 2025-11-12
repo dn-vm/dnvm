@@ -131,6 +131,13 @@ public abstract partial record DnvmSubCommand
     {
     }
 
+    [Command("list-remote", Summary = "List installable SDK versions.")]
+    public sealed partial record ListRemoteArgs : DnvmSubCommand
+    {
+        [CommandOption("--feed-url", Description = "Set the feed URL to download the SDK from.")]
+        public string? FeedUrl { get; init; }
+    }
+
     [Command("select", Summary = "Select the active SDK directory.", Description =
 "Select the active SDK directory, meaning the directory that will be used when running `dotnet` " +
 "commands. This is the same directory passed to the `-s` option for `dnvm install`.\n" +
