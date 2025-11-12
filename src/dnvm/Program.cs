@@ -32,27 +32,11 @@ public static class Program
         using var env = DnvmEnv.CreateDefault();
         if (parsedArgs.SubCommand is null)
         {
-            if (parsedArgs.EnableDnvmPreviews == true)
-            {
-                return await EnableDnvmPreviews(env);
-            }
-            else
-            {
-                // Help was requested, exit with success.
-                return 0;
-            }
+            // Help was requested, exit with success.
+            return 0;
         }
 
         return await Dnvm(env, logger, parsedArgs);
-    }
-
-    public static async Task<int> EnableDnvmPreviews(DnvmEnv env)
-    {
-        using var @lock = await ManifestLock.Acquire(env);
-        var manifest = await @lock.ReadOrCreateManifest(env);
-        manifest = manifest with { PreviewsEnabled = true };
-        await @lock.WriteManifest(env, manifest);
-        return 0;
     }
 
     internal static async Task<int> Dnvm(DnvmEnv env, Logger logger, DnvmArgs args)
