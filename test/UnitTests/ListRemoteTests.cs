@@ -23,19 +23,15 @@ public sealed class ListRemoteTests
         var releasesIndex = await DotnetReleasesIndex.FetchLatestIndex(env.HttpClient, new[] { server.PrefixString });
         var sdkVersions = await ListRemoteCommand.GetRemoteSdkVersions(env, releasesIndex);
 
-        // Verify only latest patch versions are selected for each feature band
-        Assert.Contains(sdkVersions, s => s.Version == new SemVersion(9, 0, 101)); // Latest in 9.0.1xx
-        Assert.DoesNotContain(sdkVersions, s => s.Version == new SemVersion(9, 0, 100)); // Not the latest
+        // Create expected list with only latest patch versions for each feature band
+        var expected = new List<ListRemoteCommand.SdkVersionInfo>
+        {
+            new() { Version = new SemVersion(9, 0, 101), FeatureVersion = "9.0.1xx", MajorMinor = "9.0", ReleaseType = "sts", SupportPhase = "active" },
+            new() { Version = new SemVersion(8, 0, 201), FeatureVersion = "8.0.2xx", MajorMinor = "8.0", ReleaseType = "lts", SupportPhase = "active" },
+            new() { Version = new SemVersion(8, 0, 101), FeatureVersion = "8.0.1xx", MajorMinor = "8.0", ReleaseType = "lts", SupportPhase = "active" },
+        };
 
-        Assert.Contains(sdkVersions, s => s.Version == new SemVersion(8, 0, 201)); // Latest in 8.0.2xx
-        Assert.DoesNotContain(sdkVersions, s => s.Version == new SemVersion(8, 0, 200)); // Not the latest
-
-        Assert.Contains(sdkVersions, s => s.Version == new SemVersion(8, 0, 101)); // Latest in 8.0.1xx
-        Assert.DoesNotContain(sdkVersions, s => s.Version == new SemVersion(8, 0, 100)); // Not the latest
-
-        // Verify feature version is correctly set
-        var sdk901 = sdkVersions.First(s => s.Version == new SemVersion(9, 0, 101));
-        Assert.Equal("9.0.1xx", sdk901.FeatureVersion);
+        Assert.Equal(expected, sdkVersions);
     });
 
     [Fact]
@@ -50,12 +46,14 @@ public sealed class ListRemoteTests
         var releasesIndex = await DotnetReleasesIndex.FetchLatestIndex(env.HttpClient, new[] { server.PrefixString });
         var sdkVersions = await ListRemoteCommand.GetRemoteSdkVersions(env, releasesIndex);
 
-        // Verify active and preview versions are included
-        Assert.Contains(sdkVersions, s => s.Version == new SemVersion(8, 0, 100)); // Active
-        Assert.Contains(sdkVersions, s => s.Version == new SemVersion(9, 0, 100)); // Preview
+        // Create expected list with only supported versions (active and preview, not eol)
+        var expected = new List<ListRemoteCommand.SdkVersionInfo>
+        {
+            new() { Version = new SemVersion(9, 0, 100), FeatureVersion = "9.0.1xx", MajorMinor = "9.0", ReleaseType = "sts", SupportPhase = "preview" },
+            new() { Version = new SemVersion(8, 0, 100), FeatureVersion = "8.0.1xx", MajorMinor = "8.0", ReleaseType = "lts", SupportPhase = "active" },
+        };
 
-        // Verify EOL versions are filtered out
-        Assert.DoesNotContain(sdkVersions, s => s.Version == new SemVersion(7, 0, 100));
+        Assert.Equal(expected, sdkVersions);
     });
 
     [Fact]
@@ -70,11 +68,15 @@ public sealed class ListRemoteTests
         var releasesIndex = await DotnetReleasesIndex.FetchLatestIndex(env.HttpClient, new[] { server.PrefixString });
         var sdkVersions = await ListRemoteCommand.GetRemoteSdkVersions(env, releasesIndex);
 
-        // Verify they are sorted in descending order
-        Assert.Equal(3, sdkVersions.Count);
-        Assert.Equal(new SemVersion(10, 0, 100), sdkVersions[0].Version);
-        Assert.Equal(new SemVersion(9, 0, 100), sdkVersions[1].Version);
-        Assert.Equal(new SemVersion(8, 0, 100), sdkVersions[2].Version);
+        // Create expected list sorted by version descending
+        var expected = new List<ListRemoteCommand.SdkVersionInfo>
+        {
+            new() { Version = new SemVersion(10, 0, 100), FeatureVersion = "10.0.1xx", MajorMinor = "10.0", ReleaseType = "lts", SupportPhase = "preview" },
+            new() { Version = new SemVersion(9, 0, 100), FeatureVersion = "9.0.1xx", MajorMinor = "9.0", ReleaseType = "sts", SupportPhase = "active" },
+            new() { Version = new SemVersion(8, 0, 100), FeatureVersion = "8.0.1xx", MajorMinor = "8.0", ReleaseType = "lts", SupportPhase = "active" },
+        };
+
+        Assert.Equal(expected, sdkVersions);
     });
 
     [Fact]
@@ -86,13 +88,13 @@ public sealed class ListRemoteTests
         var releasesIndex = await DotnetReleasesIndex.FetchLatestIndex(env.HttpClient, new[] { server.PrefixString });
         var sdkVersions = await ListRemoteCommand.GetRemoteSdkVersions(env, releasesIndex);
 
-        // Verify metadata is correctly populated
-        var sdk = sdkVersions.First();
-        Assert.Equal(new SemVersion(8, 0, 100), sdk.Version);
-        Assert.Equal("8.0.1xx", sdk.FeatureVersion);
-        Assert.Equal("8.0", sdk.MajorMinor);
-        Assert.Equal("lts", sdk.ReleaseType);
-        Assert.Equal("active", sdk.SupportPhase);
+        // Create expected list with all metadata fields
+        var expected = new List<ListRemoteCommand.SdkVersionInfo>
+        {
+            new() { Version = new SemVersion(8, 0, 100), FeatureVersion = "8.0.1xx", MajorMinor = "8.0", ReleaseType = "lts", SupportPhase = "active" },
+        };
+
+        Assert.Equal(expected, sdkVersions);
     });
 
     // Tests for output formatting
