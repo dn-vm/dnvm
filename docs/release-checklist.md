@@ -26,18 +26,20 @@ This document provides a comprehensive checklist for creating a new release of d
 7. **Pull the latest main branch locally**:
    ```bash
    git checkout main
-   git pull origin main
+   git pull upstream main
    ```
 
 ## Release Process
 
 8. **Ensure all CI tests are passing** on the main branch - check https://github.com/dn-vm/dnvm/actions
 
-9. **Create and push a git tag** for the new version:
+9. **Create and push a git tag** for the new version to the upstream repository:
    ```bash
    git tag vX.Y.Z
-   git push origin vX.Y.Z
+   git push upstream vX.Y.Z
    ```
+   
+   **Note**: Make sure to push the tag to `upstream` (dn-vm/dnvm), not your personal fork.
 
 10. **Wait for the GitHub Actions workflow to complete** - The `publish.yml` workflow will automatically:
     - Build for all platforms (linux-x64, linux-arm64, win-x64, osx-x64, osx-arm64)
@@ -71,11 +73,12 @@ This document provides a comprehensive checklist for creating a new release of d
 
 ## Notes
 
-- The publish workflow is triggered by pushing a tag starting with `v` (e.g., `v0.9.9`)
+- The publish workflow is triggered by pushing a tag starting with `v` (e.g., `v0.9.9`) to the **upstream** repository (dn-vm/dnvm)
 - Releases are created as drafts automatically, allowing for review before publishing
 - The workflow handles signing with the private key stored in GitHub secrets
 - Cross-compilation for ARM64 Linux is handled automatically in the workflow
 - **Important**: Tags should only be created from the `main` branch after the version bump PR is merged
+- **Important**: Tags must be pushed to `upstream` (dn-vm/dnvm), not to a personal fork
 
 ## Version Numbering
 
