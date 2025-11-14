@@ -14,7 +14,7 @@
     <PackageVersion Include="StaticCs.Async" Version="0.1.2" />
     <PackageVersion Include="StaticCs.Result" Version="0.1.0" />
     <PackageVersion Include="zio" Version="0.20.0" />
-    <PackageVersion Include="Semver" Version="2.2.0" />
+    <PackageVersion Include="Semver" Version="3.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
     <PackageVersion Include="xunit.v3.core" Version="3.0.0" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="3.0.0" />
