@@ -3,7 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Azure.Identity" Version="1.14.1" />
+    <PackageVersion Include="Azure.Identity" Version="1.17.0" />
     <PackageVersion Include="Azure.Security.KeyVault.Keys" Version="4.6.0" />
     <PackageVersion Include="Serde" Version="[0.8.0,0.9.0)" />
     <PackageVersion Include="Serde.CmdLine" Version="0.1.0-preview4" />
