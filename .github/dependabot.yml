@@ -10,4 +10,4 @@ updates:
     schedule:
       interval: "weekly"
     ignore:
-      -  update-types: "minor"
+      -  update-types: "major"
