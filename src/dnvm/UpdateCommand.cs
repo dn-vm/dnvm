@@ -126,7 +126,9 @@ public sealed partial class UpdateCommand
     {
         env.Console.WriteLine("Looking for available updates");
         // Check for dnvm updates
-        if (await CheckForSelfUpdates(env.HttpClient, env.Console, logger, releasesUrl, manifest.PreviewsEnabled) is (true, _))
+        var configFile = new DnvmConfigFile();
+        var config = configFile.Read();
+        if (await CheckForSelfUpdates(env.HttpClient, env.Console, logger, releasesUrl, config.PreviewsEnabled) is (true, _))
         {
             env.Console.WriteLine("dnvm is out of date. Run 'dnvm update --self' to update dnvm.");
         }
@@ -243,8 +245,10 @@ public sealed partial class UpdateCommand
             return Result.NotASingleFile;
         }
 
+        var configFile = new DnvmConfigFile();
+        var config = configFile.Read();
         DnvmReleases.Release release;
-        switch (await CheckForSelfUpdates(_env.HttpClient, _env.Console, _logger, _releasesUrl, manifest.PreviewsEnabled))
+        switch (await CheckForSelfUpdates(_env.HttpClient, _env.Console, _logger, _releasesUrl, config.PreviewsEnabled))
         {
             case (false, null):
                 return Result.SelfUpdateFailed;
