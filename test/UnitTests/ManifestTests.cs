@@ -136,8 +136,7 @@ public sealed class ManifestTests
                     InstalledSdkVersions = [ SemVersion.Parse("8.0.100-preview.3.23178.7", SemVersionStyles.Strict) ]
                 }
             ],
-            CurrentSdkDir = new SdkDirName("dn"),
-            PreviewsEnabled = false
+            CurrentSdkDir = new SdkDirName("dn")
         };
         var expected = """
 {

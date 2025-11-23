@@ -1,4 +1,5 @@
 
+using System.IO;
 using Spectre.Console.Testing;
 using Zio;
 using Zio.FileSystems;
@@ -10,9 +11,11 @@ public sealed class TestEnv : IDisposable
     private readonly TempDirectory _userHome = TestUtils.CreateTempDirectory();
     private readonly TempDirectory _dnvmHome = TestUtils.CreateTempDirectory();
     private readonly TempDirectory _workingDir = TestUtils.CreateTempDirectory();
+    private readonly TempDirectory _configDir = TestUtils.CreateTempDirectory();
     private readonly Dictionary<string, string> _envVars = new();
 
     public DnvmEnv DnvmEnv { get; init; }
+    public string ConfigDirPath => _configDir.Path;
 
     public TestEnv(
         string dotnetFeedUrl,
@@ -25,6 +28,9 @@ public sealed class TestEnv : IDisposable
         var dnvmFs = new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(_dnvmHome.Path));
         var cwdFs = new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(_workingDir.Path));
         cwdFs.CreateDirectory(cwd);
+
+        // Set the test config directory
+        DnvmConfigFile.TestConfigDirectory = _configDir.Path;
 
         DnvmEnv = new DnvmEnv(
                 userHome: _userHome.Path,
@@ -43,6 +49,9 @@ public sealed class TestEnv : IDisposable
     {
         _userHome.Dispose();
         _dnvmHome.Dispose();
+        _workingDir.Dispose();
+        _configDir.Dispose();
+        DnvmConfigFile.TestConfigDirectory = null;
         DnvmEnv.Dispose();
     }
 }
