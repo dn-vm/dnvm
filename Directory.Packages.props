@@ -10,7 +10,7 @@
     <PackageVersion Include="Spectre.Console" Version="0.54.0" />
     <PackageVersion Include="Spectre.Console.Testing" Version="0.54.0" />
     <PackageVersion Include="StaticCs" Version="0.3.1" />
-    <PackageVersion Include="StaticCs.Collections" Version="1.0.1" />
+    <PackageVersion Include="StaticCs.Collections" Version="1.1.0" />
     <PackageVersion Include="StaticCs.Async" Version="0.1.2" />
     <PackageVersion Include="StaticCs.Result" Version="0.1.0" />
     <PackageVersion Include="zio" Version="0.20.0" />
