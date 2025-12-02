@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Serde" />
     <ProjectReference Include="..\..\src\Dnvm.Signing\Dnvm.Signing.csproj" />
   </ItemGroup>
 
