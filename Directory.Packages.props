@@ -6,7 +6,7 @@
     <PackageVersion Include="Azure.Identity" Version="1.17.1" />
     <PackageVersion Include="Azure.Security.KeyVault.Keys" Version="4.8.0" />
     <PackageVersion Include="Serde" Version="0.9.1" />
-    <PackageVersion Include="Serde.CmdLine" Version="0.1.0-preview4" />
+    <PackageVersion Include="Serde.CmdLine" Version="0.1.0" />
     <PackageVersion Include="Spectre.Console" Version="0.54.0" />
     <PackageVersion Include="Spectre.Console.Testing" Version="0.54.0" />
     <PackageVersion Include="StaticCs" Version="0.3.1" />
