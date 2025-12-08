@@ -13,7 +13,7 @@
     <PackageVersion Include="StaticCs.Collections" Version="1.1.0" />
     <PackageVersion Include="StaticCs.Async" Version="0.1.2" />
     <PackageVersion Include="StaticCs.Result" Version="0.1.0" />
-    <PackageVersion Include="zio" Version="0.20.0" />
+    <PackageVersion Include="zio" Version="0.22.1" />
     <PackageVersion Include="Semver" Version="2.3.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageVersion Include="xunit.v3.core" Version="3.0.0" />
