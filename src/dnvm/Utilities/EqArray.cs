@@ -60,12 +60,14 @@ public readonly struct EqArray<T>(ImmutableArray<T> value) : IReadOnlyCollection
 
 public static class EqArrayProxy
 {
-    private static readonly ISerdeInfo s_typeInfo = Serde.SerdeInfo.MakeEnumerable(nameof(EqArray));
     public sealed class Ser<T, TProvider> : ISerializeProvider<EqArray<T>>, ISerialize<EqArray<T>>
         where TProvider : ISerializeProvider<T>
     {
         public static readonly Ser<T, TProvider> Instance = new();
         static ISerialize<EqArray<T>> ISerializeProvider<EqArray<T>>.Instance => Instance;
+        private static readonly ISerdeInfo s_typeInfo = Serde.SerdeInfo.MakeEnumerable(
+            nameof(EqArray),
+            TProvider.Instance.SerdeInfo);
 
         public ISerdeInfo SerdeInfo => s_typeInfo;
 
@@ -80,6 +82,9 @@ public static class EqArrayProxy
     {
         public static readonly De<T, TProvider> Instance = new();
         static IDeserialize<EqArray<T>> IDeserializeProvider<EqArray<T>>.Instance => Instance;
+        private static readonly ISerdeInfo s_typeInfo = Serde.SerdeInfo.MakeEnumerable(
+            nameof(EqArray),
+            TProvider.Instance.SerdeInfo);
 
         public ISerdeInfo SerdeInfo => s_typeInfo;
         EqArray<T> IDeserialize<EqArray<T>>.Deserialize(IDeserializer deserializer)
