@@ -446,14 +446,14 @@ public sealed class InstallTests
     });
 
     [Theory]
-    [InlineData("8.0.1", "8.0.100")] // 1-digit patch -> suggest patch*100
-    [InlineData("8.0.2", "8.0.200")] // 1-digit non-zero patch -> patch*100
-    [InlineData("9.0.0", "9.0.100")] // zero patch -> 100
-    [InlineData("9.0.5", "9.0.500")] // patch 5 -> 500
-    [InlineData("8.0.10", "8.0.100")] // 2-digit patch -> suggest patch*10
-    [InlineData("8.0.21", "8.0.210")] // 2-digit non-zero patch -> patch*10
-    [InlineData("9.0.50", "9.0.500")] // patch 50 -> 500
-    public Task WarnsOnNonThreeDigitPatch(string versionText, string suggested) => RunWithServer(async (server, env) =>
+    [InlineData("8.0.1")] // 1-digit patch -> suggest patch*100
+    [InlineData("8.0.2")] // 1-digit non-zero patch -> patch*100
+    [InlineData("9.0.0")] // zero patch -> 100
+    [InlineData("9.0.5")] // patch 5 -> 500
+    [InlineData("8.0.10")] // 2-digit patch -> suggest patch*10
+    [InlineData("8.0.21")] // 2-digit non-zero patch -> patch*10
+    [InlineData("9.0.50")] // patch 50 -> 500
+    public Task WarnsOnNonThreeDigitPatch(string versionText) => RunWithServer(async (server, env) =>
     {
         // Clear server versions so installation fails (forcing warning path)
         server.ClearVersions();
