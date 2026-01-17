@@ -48,12 +48,25 @@ public sealed class PruneCommand
             }
             else
             {
+                // Check if the SDK is actually in InstalledSdks. It may not be if the manifest
+                // was corrupted by a bug fixed in https://github.com/dn-vm/dnvm/pull/274.
+                // In that case, we just need to clean up the stale entry from RegisteredChannels.
+                if (!manifest.IsSdkInstalled(sdk.Version, sdk.Dir))
+                {
+                    env.Console.Warn($"SDK {sdk.Version} was not found in installed SDKs, cleaning up stale manifest entry.");
+                    manifest = RemoveSdkFromChannels(manifest, sdk.Version);
+                    await @lock.WriteManifest(env, manifest);
+                    continue;
+                }
+
                 Console.WriteLine($"Removing {sdk}");
                 int result = await UninstallCommand.Run(@lock, env, logger, sdk.Version, sdk.Dir);
                 if (result != 0)
                 {
                     return result;
                 }
+                // Re-read manifest after uninstall since it was modified
+                manifest = await @lock.ReadManifest(env);
             }
         }
         return 0;
@@ -98,5 +111,23 @@ public sealed class PruneCommand
         }
 
         return sdksToRemove;
+    }
+
+    /// <summary>
+    /// Removes an SDK version from all RegisteredChannels.InstalledSdkVersions.
+    /// This is used to clean up stale entries left by a bug fixed in
+    /// https://github.com/dn-vm/dnvm/pull/274.
+    /// </summary>
+    private static Manifest RemoveSdkFromChannels(Manifest manifest, SemVersion sdkVersion)
+    {
+        var updatedChannels = manifest.RegisteredChannels.Select(channel =>
+        {
+            var updatedInstalledVersions = channel.InstalledSdkVersions
+                .Where(version => version != sdkVersion)
+                .ToEq();
+            return channel with { InstalledSdkVersions = updatedInstalledVersions };
+        }).ToEq();
+
+        return manifest with { RegisteredChannels = updatedChannels };
     }
 }
