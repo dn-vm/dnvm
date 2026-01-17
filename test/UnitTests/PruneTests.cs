@@ -177,4 +177,65 @@ public sealed class PruneTests
         Assert.Single(finalManifest.InstalledSdks);
         Assert.Equal(upgradeVersion, finalManifest.InstalledSdks[0].SdkVersion);
     });
+
+    /// <summary>
+    /// Tests the scenario from https://github.com/dn-vm/dnvm/issues/311:
+    /// Before PR #274, uninstalling an SDK removed it from InstalledSdks but not from
+    /// RegisteredChannels.InstalledSdkVersions. Prune should handle this gracefully by
+    /// logging a warning and cleaning up the stale manifest entry.
+    /// </summary>
+    [Fact]
+    public Task PruneHandlesCorruptedManifestFromPre274Uninstall() => RunWithServer(async (server, env) =>
+    {
+        var oldVersion = SemVersion.Parse("8.0.100", SemVersionStyles.Strict);
+        var newVersion = SemVersion.Parse("8.0.101", SemVersionStyles.Strict);
+        Channel channel = new Channel.Latest();
+
+        // Create a corrupted manifest that simulates the state left by a pre-PR#274 uninstall:
+        // - The old SDK version is in RegisteredChannels.InstalledSdkVersions (was not removed)
+        // - But the old SDK is NOT in InstalledSdks (was removed)
+        // - The new SDK is properly tracked in both places
+        var corruptedManifest = Manifest.Empty with
+        {
+            InstalledSdks = [
+                // Only the new version is in InstalledSdks (old version was uninstalled)
+                new InstalledSdk
+                {
+                    SdkVersion = newVersion,
+                    RuntimeVersion = newVersion,
+                    AspNetVersion = newVersion,
+                    ReleaseVersion = newVersion,
+                    SdkDirName = DnvmEnv.DefaultSdkDirName
+                }
+            ],
+            RegisteredChannels = [
+                new RegisteredChannel
+                {
+                    ChannelName = channel,
+                    SdkDirName = DnvmEnv.DefaultSdkDirName,
+                    // Bug: old version is still in InstalledSdkVersions even though it was uninstalled
+                    InstalledSdkVersions = [oldVersion, newVersion]
+                }
+            ]
+        };
+
+        await Manifest.WriteManifestUnsafe(env, corruptedManifest);
+
+        var console = (TestConsole)env.Console;
+        var initialOutput = console.Output;
+
+        // Prune should succeed and clean up the stale manifest entry
+        var pruneResult = await PruneCommand.Run(env, _logger, new PruneCommand.Options());
+
+        var output = console.Output[initialOutput.Length..];
+
+        Assert.Equal(0, pruneResult);
+        Assert.Contains("was not found in installed SDKs", output);
+
+        // Verify the manifest was cleaned up - old version should be removed from channel
+        var finalManifest = await Manifest.ReadManifestUnsafe(env);
+        var registeredChannel = Assert.Single(finalManifest.RegisteredChannels);
+        Assert.Single(registeredChannel.InstalledSdkVersions);
+        Assert.Equal(newVersion, registeredChannel.InstalledSdkVersions[0]);
+    });
 }
