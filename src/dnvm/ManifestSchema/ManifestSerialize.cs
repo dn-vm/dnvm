@@ -70,7 +70,6 @@ public static class ManifestConvert
     {
         return new Manifest
         {
-            PreviewsEnabled = manifestV9.PreviewsEnabled,
             CurrentSdkDir = manifestV9.CurrentSdkDir.Convert(),
             InstalledSdks = manifestV9.InstalledSdks.SelectAsArray(sdk => new InstalledSdk
             {
@@ -94,7 +93,7 @@ public static class ManifestConvert
     {
         return new ManifestV9
         {
-            PreviewsEnabled = @this.PreviewsEnabled,
+            PreviewsEnabled = false, // Always write false since this is now in config file
             CurrentSdkDir = @this.CurrentSdkDir.ConvertToLatest(),
             InstalledSdks = @this.InstalledSdks.SelectAsArray(sdk => new InstalledSdkV9
             {
