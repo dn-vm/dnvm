@@ -253,6 +253,26 @@ public static class Utilities
         return null;
     }
 
+    /// <summary>
+    /// Replace all symbolic links in a directory tree with copies of their target files.
+    /// .NET SDK tarballs starting with .NET 11 use symlink deduplication to reduce archive size.
+    /// Zio's virtual filesystem does not support symlinks, so they must be resolved before
+    /// the Zio-based copy phase.
+    /// </summary>
+    internal static void ResolveSymlinks(string dirPath)
+    {
+        foreach (var file in Directory.EnumerateFiles(dirPath, "*", SearchOption.AllDirectories))
+        {
+            var fi = new FileInfo(file);
+            if (fi.LinkTarget is not null)
+            {
+                var content = File.ReadAllBytes(file); // follows the symlink
+                fi.Delete();
+                File.WriteAllBytes(file, content);
+            }
+        }
+    }
+
     public static async Task<string?> ExtractSdkToDir(
         SemVersion? existingMuxerVersion,
         SemVersion runtimeVersion,
@@ -272,6 +292,10 @@ public static class Utilities
             {
                 return procResult.Error;
             }
+            // .NET SDK tarballs may contain symlinks (e.g. .NET 11+ uses symlink deduplication
+            // to reduce archive size). Zio's virtual filesystem cannot move symlinks, so resolve
+            // them to regular files before the copy phase.
+            ResolveSymlinks(tempRealPath.Path);
         }
         else
         {

@@ -445,6 +445,73 @@ public sealed class InstallTests
         }
     });
 
+    [Fact]
+    [Trait("Category", "Unix")]
+    public async Task ExtractSdkWithSymlinks()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Symlink deduplication only applies to tar.gz archives on Unix");
+
+        using var tempSdkDir = TestUtils.CreateTempDirectory();
+
+        // Create an SDK layout with symlink deduplication (like .NET 11+ tarballs)
+        var sharedDir = Path.Combine(tempSdkDir.Path, "shared", "Microsoft.NETCore.App", "11.0.0");
+        var fsharpDir = Path.Combine(tempSdkDir.Path, "sdk", "11.0.100", "FSharp");
+        Directory.CreateDirectory(sharedDir);
+        Directory.CreateDirectory(fsharpDir);
+
+        // Create the real file in shared/
+        var realDllPath = Path.Combine(sharedDir, "System.Security.Cryptography.ProtectedData.dll");
+        File.WriteAllText(realDllPath, "real dll content");
+
+        // Create a symlink in FSharp/ pointing to the shared file (relative path)
+        var symlinkPath = Path.Combine(fsharpDir, "System.Security.Cryptography.ProtectedData.dll");
+        var symlinkTarget = "../../../shared/Microsoft.NETCore.App/11.0.0/System.Security.Cryptography.ProtectedData.dll";
+        try
+        {
+            File.CreateSymbolicLink(symlinkPath, symlinkTarget);
+        }
+        catch (IOException)
+        {
+            Assert.Skip("Filesystem does not support symbolic links");
+        }
+
+        // Create the dotnet host executable
+        var dotnetPath = Path.Combine(tempSdkDir.Path, Utilities.DotnetExeName);
+        Assets.MakeEchoExe(dotnetPath, Assets.ArchiveToken);
+
+        // Create archive containing symlinks
+        var archiveDir = Path.Combine(TestUtils.ArtifactsTmpDir.FullName, "symlink-sdk");
+        var archivePath = Assets.MakeZipOrTarball(tempSdkDir.Path, archiveDir);
+
+        // Extract using the same code path as a real install
+        using var tempDir = TestUtils.CreateTempDirectory();
+        var physicalFs = new PhysicalFileSystem();
+        var tempFs = new SubFileSystem(physicalFs, physicalFs.ConvertPathFromInternal(tempDir.Path));
+        var destFs = new MemoryFileSystem();
+        var destDir = UPath.Root / "sdk";
+
+        var result = await Utilities.ExtractSdkToDir(
+            existingMuxerVersion: null,
+            runtimeVersion: SemVersion("11.0.0"),
+            archivePath: archivePath,
+            tempFs: tempFs,
+            destFs: destFs,
+            destDir: destDir
+        );
+
+        Assert.Null(result);
+
+        // Verify both the real file and the symlink target were extracted with correct content
+        var dllName = "System.Security.Cryptography.ProtectedData.dll";
+        var sharedDest = destDir / "shared" / "Microsoft.NETCore.App" / "11.0.0" / dllName;
+        Assert.True(destFs.FileExists(sharedDest));
+        Assert.Equal("real dll content", destFs.ReadAllText(sharedDest));
+
+        var fsharpDest = destDir / "sdk" / "11.0.100" / "FSharp" / dllName;
+        Assert.True(destFs.FileExists(fsharpDest));
+        Assert.Equal("real dll content", destFs.ReadAllText(fsharpDest));
+    }
+
     [Theory]
     [InlineData("8.0.1")] // 1-digit patch -> suggest patch*100
     [InlineData("8.0.2")] // 1-digit non-zero patch -> patch*100
