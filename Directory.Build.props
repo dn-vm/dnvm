@@ -15,5 +15,6 @@
     <GitHeadSha Condition="'$(HeadFileContent)' != '' AND '$(RefPath)' == ''">$(HeadFileContent)</GitHeadSha>
     <ShortSha Condition="'$(GitHeadSha)' != ''">$(GitHeadSha.Substring(0, 8))</ShortSha>
     <SemVer>1.1.2</SemVer>
+    <InformationalVersion>$(SemVer)+$(ShortSha)</InformationalVersion>
   </PropertyGroup>
 </Project>

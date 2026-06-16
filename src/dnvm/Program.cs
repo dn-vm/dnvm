@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using System.Threading.Tasks;
 using Semver;
 using Spectre.Console;
@@ -8,7 +9,13 @@ namespace Dnvm;
 
 public static class Program
 {
-    public static readonly SemVersion SemVer = SemVersion.Parse(GitVersionInformation.SemVer, SemVersionStyles.Strict);
+    private static readonly string[] versionParts = typeof(Program).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
+        .InformationalVersion.Split('+');
+
+    public static readonly SemVersion SemVer = SemVersion.Parse(versionParts[0], SemVersionStyles.Strict);
+    public static readonly string ShortSha = versionParts[1];
+
 
     public static async Task<int> Main(string[] args)
     {
@@ -18,7 +25,7 @@ public static class Program
             // Set the width to a large, but reasonable, value to avoid wrapping.
             console.Profile.Width = 255;
         }
-        console.WriteLine("dnvm " + SemVer + " " + GitVersionInformation.ShortSha);
+        console.WriteLine("dnvm " + SemVer + " " + ShortSha);
         console.WriteLine();
         var logger = new Logger(Console.Error);
 
