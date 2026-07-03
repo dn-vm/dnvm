@@ -80,6 +80,30 @@ public sealed class SelfInstallTests
     });
 
     [ConditionalFact(typeof(UnixOnly))]
+    public Task SelfInstallSkipEnv() => RunWithServer(async (mockServer, env) =>
+    {
+        var zshrcPath = Path.Combine(env.UserHome, ".zshrc");
+        const string initialZshrcContent = "# Existing zsh config";
+        await File.WriteAllTextAsync(zshrcPath, initialZshrcContent);
+
+        var procResult = await DnvmRunner.RunAndRestoreEnv(
+            env,
+            DnvmExe,
+            $"selfinstall --feed-url {mockServer.PrefixString} -y -v --skip-env"
+        );
+
+        _testOutput.WriteLine(procResult.Out);
+        _testOutput.WriteLine(procResult.Error);
+        Assert.Equal(0, procResult.ExitCode);
+
+        var dnvmPath = env.DnvmHomeFs.ConvertPathToInternal(DnvmEnv.DnvmExePath);
+        Assert.True(File.Exists(dnvmPath));
+        Assert.False(env.DnvmHomeFs.FileExists(DnvmEnv.EnvPath));
+        Assert.Equal(initialZshrcContent, await File.ReadAllTextAsync(zshrcPath));
+        Assert.DoesNotContain("Scanning for shell files", procResult.Out);
+    });
+
+    [ConditionalFact(typeof(UnixOnly))]
     public async Task SelfInstallDialog() => await RunWithServer(async (mockServer, env) =>
     {
         var buffer = new char[1024];

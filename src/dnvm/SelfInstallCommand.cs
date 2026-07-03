@@ -40,6 +40,10 @@ public class SelfInstallCommand
         /// Skip channel tracking and SDK installation during self-install.
         /// </summary>
         public bool SkipTracking { get; init; } = false;
+        /// <summary>
+        /// Skip modifying shell profiles and the user environment during self-install.
+        /// </summary>
+        public bool SkipEnv { get; init; } = false;
     }
 
     private readonly DnvmEnv _env;
@@ -64,7 +68,8 @@ public class SelfInstallCommand
             Yes = args.Yes ?? false,
             Update = args.Update ?? false,
             DestPath = args.DestPath,
-            SkipTracking = args.SkipTracking ?? false
+            SkipTracking = args.SkipTracking ?? false,
+            SkipEnv = args.SkipEnv ?? false
         });
     }
 
@@ -150,7 +155,7 @@ public class SelfInstallCommand
 
         var updateUserEnv = true;
         var sdkDirName = DnvmEnv.DefaultSdkDirName;
-        if (!opt.Yes && MissingFromEnv(env, sdkDirName))
+        if (!opt.SkipEnv && !opt.Yes && MissingFromEnv(env, sdkDirName))
         {
             console.WriteLine("One or more paths are missing from the user environment. Attempt to update the user environment?");
             console.Write("[Y/n]> ");
@@ -226,7 +231,7 @@ public class SelfInstallCommand
         SelectCommand.SelectDir(_logger, _env, oldDirName, newDirName);
 
         // Set up path
-        if (updateUserEnv)
+        if (updateUserEnv && !_opts.SkipEnv)
         {
             await UpdateEnv(_logger, _env, newDirName);
         }

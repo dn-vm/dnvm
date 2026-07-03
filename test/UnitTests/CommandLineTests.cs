@@ -322,7 +322,8 @@ given name.
             [ "selfinstall", param ]));
         Assert.Equal("""
 usage: dnvm selfinstall [-v | --verbose] [-f | --force] [--feed-url <feedUrl>]
-[-y] [--update] [--dest-path <destPath>] [--skip-tracking] [-h | --help]
+[-y] [--update] [--dest-path <destPath>] [--skip-tracking] [--skip-env] [-h |
+--help]
 
 Install dnvm to the local machine.
 
@@ -335,6 +336,8 @@ Options:
 be called from dnvm.
     --dest-path  <destPath>  Set the destination path for the dnvm executable.
     --skip-tracking  Skip channel tracking and SDK installation during
+self-install.
+    --skip-env  Skip modifying shell profiles and user environment during
 self-install.
     -h, --help  Show help information.
 

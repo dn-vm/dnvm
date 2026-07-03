@@ -105,6 +105,9 @@ public abstract partial record DnvmSubCommand
 
         [CommandOption("--skip-tracking", Description = "Skip channel tracking and SDK installation during self-install.")]
         public bool? SkipTracking { get; init; } = null;
+
+        [CommandOption("--skip-env", Description = "Skip modifying shell profiles and user environment during self-install.")]
+        public bool? SkipEnv { get; init; } = null;
     }
 
     [Command("update", Summary = "Update the installed SDKs or dnvm itself.")]
