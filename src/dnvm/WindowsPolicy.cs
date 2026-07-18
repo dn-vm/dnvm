@@ -139,7 +139,10 @@ public sealed class WindowsPolicyLock : IDisposable
         if (env.DnvmHomeFs.FileExists(PolicyPath))
         {
             var backupPath = UPath.Root / "dnvmPolicy.json.backup";
-            env.DnvmHomeFs.DeleteFile(backupPath);
+            if (env.DnvmHomeFs.FileExists(backupPath))
+            {
+                env.DnvmHomeFs.DeleteFile(backupPath);
+            }
             env.DnvmHomeFs.MoveFile(PolicyPath, backupPath);
         }
         env.DnvmHomeFs.MoveFile(tempPath, PolicyPath);

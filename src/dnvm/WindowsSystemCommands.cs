@@ -199,7 +199,7 @@ public static class WindowsSystemCommands
             table.AddRow(update.Tracked.ChannelName.GetDisplayName(), update.Version.ToString());
         }
         env.Console.Write(table);
-        if (!Confirm("Install updates?", args.Yes ?? false))
+        if (!Confirm(env, "Install updates?", args.Yes ?? false))
         {
             return 0;
         }
@@ -302,6 +302,7 @@ public static class WindowsSystemCommands
             return 1;
         }
         if (!Confirm(
+            env,
             $"Remove globally shared SDK {args.SdkVersion} for all users?",
             args.Yes ?? false))
         {
@@ -353,7 +354,7 @@ public static class WindowsSystemCommands
                 env.Console.WriteLine($"Would remove system SDK {version}");
                 continue;
             }
-            if (!Confirm($"Remove globally shared SDK {version} for all users?", args.Yes ?? false))
+            if (!Confirm(env, $"Remove globally shared SDK {version} for all users?", args.Yes ?? false))
             {
                 continue;
             }
@@ -506,13 +507,12 @@ public static class WindowsSystemCommands
         return 1;
     }
 
-    private static bool Confirm(string prompt, bool yes)
+    private static bool Confirm(DnvmEnv env, string prompt, bool yes)
     {
         if (yes)
         {
             return true;
         }
-        Console.Write($"{prompt} [y/N]: ");
-        return Console.ReadLine()?.Trim().Equals("y", StringComparison.OrdinalIgnoreCase) == true;
+        return env.Console.Confirm(prompt, defaultValue: false);
     }
 }

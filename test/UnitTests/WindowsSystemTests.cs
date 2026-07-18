@@ -108,4 +108,14 @@ public sealed class WindowsSystemTests
         Assert.Equal(installerPath, executable);
         Assert.Equal("/uninstall", arguments);
     }
+
+    [Fact]
+    public void RejectsUninstallCommandWithEmbeddedExeExtension()
+    {
+        var invalidPath = Path.Combine(Path.GetTempPath(), "installer.exe.backup", "uninstall");
+        Assert.False(WindowsSystemInstallBackend.TrySplitCommandLine(
+            invalidPath,
+            out _,
+            out _));
+    }
 }

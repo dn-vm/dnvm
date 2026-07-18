@@ -273,12 +273,27 @@ public sealed partial class WindowsSystemInstallBackend : ISystemInstallBackend
             return Path.IsPathFullyQualified(executable);
         }
 
-        var exeEnd = value.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+        var exeEnd = -1;
+        var searchStart = 0;
+        while (searchStart < value.Length)
+        {
+            var match = value.IndexOf(".exe", searchStart, StringComparison.OrdinalIgnoreCase);
+            if (match < 0)
+            {
+                break;
+            }
+            var afterExtension = match + 4;
+            if (afterExtension == value.Length || char.IsWhiteSpace(value[afterExtension]))
+            {
+                exeEnd = afterExtension;
+                break;
+            }
+            searchStart = afterExtension;
+        }
         if (exeEnd < 0)
         {
             return false;
         }
-        exeEnd += 4;
         executable = value[..exeEnd].Trim();
         arguments = value[exeEnd..].TrimStart();
         return Path.IsPathFullyQualified(executable)

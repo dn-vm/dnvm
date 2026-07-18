@@ -196,7 +196,12 @@ public class SelfInstallCommand
         try
         {
             using var physicalFs = new PhysicalFileSystem();
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+            if (Path.GetDirectoryName(targetPath) is not { } targetDirectory)
+            {
+                _env.Console.Error($"Could not determine the destination directory for '{targetPath}'.");
+                return Result.SelfInstallFailed;
+            }
+            Directory.CreateDirectory(targetDirectory);
             _logger.Log($"Copying file from '{procPath}' to '{targetPath}'");
             physicalFs.CopyFile(
                 physicalFs.ConvertPathFromInternal(procPath),
@@ -387,7 +392,11 @@ public class SelfInstallCommand
     private static bool MissingFromEnv(DnvmEnv dnvmEnv, SdkDirName sdkDirName)
     {
         var dnvmHome = dnvmEnv.RealPath(UPath.Root);
-        var executableDir = Path.GetDirectoryName(dnvmEnv.DnvmExecutablePath)!;
+        var executableDir = Path.GetDirectoryName(dnvmEnv.DnvmExecutablePath);
+        if (executableDir is null)
+        {
+            return true;
+        }
         string SdkInstallPath = dnvmEnv.IsSystemWide
             ? dnvmEnv.SystemInstallBackend!.DotnetInstallLocation
             : Path.Combine(dnvmHome, sdkDirName.Name);
@@ -422,7 +431,12 @@ public class SelfInstallCommand
                     "Visual Studio dotnet installer from setting the System PATH again: " +
                     "reg add \"HKLM\\SOFTWARE\\Microsoft\\.NET\" /v DisableSettingHostPath /t REG_DWORD /d 1");
             }
-            var executableDir = Path.GetDirectoryName(env.DnvmExecutablePath)!;
+            var executableDir = Path.GetDirectoryName(env.DnvmExecutablePath);
+            if (executableDir is null)
+            {
+                console.Error($"Could not determine the dnvm executable directory from '{env.DnvmExecutablePath}'.");
+                return 1;
+            }
             console.WriteLine($"Adding dnvm to {(env.IsSystemWide ? "system" : "user")} path: " + executableDir);
             WindowsAddToPath(env, executableDir);
             console.WriteLine("Setting DOTNET_ROOT: " + sdkInstallDir);
