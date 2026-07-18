@@ -99,16 +99,24 @@ public class SelfInstallCommand
         if (!opt.Yes)
         {
             var dnvmHome = Environment.GetEnvironmentVariable("DNVM_HOME") ?? DnvmEnv.DefaultDnvmHome;
-            console.WriteLine("The dnvm binary, manifest, and all SDKs will be installed under the dnvm home directory:");
+            console.WriteLine(env.IsSystemWide
+                ? "Dnvm policy will be stored under the system dnvm home directory:"
+                : "The dnvm binary, manifest, and all SDKs will be installed under the dnvm home directory:");
             console.WriteLine();
             console.WriteLine($"	{dnvmHome}");
+            if (env.IsSystemWide)
+            {
+                console.WriteLine();
+                console.WriteLine($"The dnvm binary will be installed at: {env.DnvmExecutablePath}");
+                console.WriteLine($"Official .NET installers will manage: {env.SystemInstallBackend!.DotnetInstallLocation}");
+            }
             console.WriteLine();
             console.WriteLine("You can change this location by setting the DNVM_HOME environment variable.");
         }
 
         var targetPath = opt.DestPath is not null
             ? opt.DestPath
-            : env.DnvmHomeFs.ConvertPathToInternal(DnvmEnv.DnvmExePath);
+            : env.DnvmExecutablePath;
         if (!Path.IsPathFullyQualified(targetPath))
         {
             console.Error("Dest path must be fully-qualified.");
@@ -182,6 +190,7 @@ public class SelfInstallCommand
         try
         {
             using var physicalFs = new PhysicalFileSystem();
+            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             _logger.Log($"Copying file from '{procPath}' to '{targetPath}'");
             physicalFs.CopyFile(
                 physicalFs.ConvertPathFromInternal(procPath),
@@ -201,34 +210,55 @@ public class SelfInstallCommand
 
         if (!_opts.SkipTracking)
         {
-            var result = await TrackCommand.Run(_env, _logger, new TrackCommand.Options
+            if (_env.IsSystemWide)
             {
-                Channel = channel,
-                Force = _opts.Force,
-                Verbose = _opts.Verbose,
-                FeedUrl = _opts.FeedUrl,
-                SdkDir = newDirName,
-                Yes = _opts.Yes
-            });
+                var result = await WindowsSystemCommands.Run(_env, _logger, new DnvmSubCommand.TrackArgs
+                {
+                    Channel = channel,
+                    Force = _opts.Force,
+                    Verbose = _opts.Verbose,
+                    FeedUrl = _opts.FeedUrl,
+                    Yes = _opts.Yes,
+                });
+                if (result != 0)
+                {
+                    return Result.InstallFailed;
+                }
+            }
+            else
+            {
+                var result = await TrackCommand.Run(_env, _logger, new TrackCommand.Options
+                {
+                    Channel = channel,
+                    Force = _opts.Force,
+                    Verbose = _opts.Verbose,
+                    FeedUrl = _opts.FeedUrl,
+                    SdkDir = newDirName,
+                    Yes = _opts.Yes
+                });
 
-            if (result is not TrackCommand.Result.Success)
-            {
-                _logger.Log("Track failed: " + result);
-                return Result.InstallFailed;
+                if (result is not TrackCommand.Result.Success)
+                {
+                    _logger.Log("Track failed: " + result);
+                    return Result.InstallFailed;
+                }
             }
         }
 
-        SdkDirName oldDirName;
-        try
+        if (!_env.IsSystemWide)
         {
-            var manifest = await Manifest.ReadManifestUnsafe(_env);
-            oldDirName = manifest.CurrentSdkDir;
+            SdkDirName oldDirName;
+            try
+            {
+                var manifest = await Manifest.ReadManifestUnsafe(_env);
+                oldDirName = manifest.CurrentSdkDir;
+            }
+            catch
+            {
+                oldDirName = newDirName;
+            }
+            SelectCommand.SelectDir(_logger, _env, oldDirName, newDirName);
         }
-        catch
-        {
-            oldDirName = newDirName;
-        }
-        SelectCommand.SelectDir(_logger, _env, oldDirName, newDirName);
 
         // Set up path
         if (updateUserEnv && !_opts.SkipEnv)
@@ -266,8 +296,11 @@ public class SelfInstallCommand
             return Result.SelfInstallFailed;
         }
 
-        // Select the SDK directory if not already selected
-        SelectCommand.SelectDir(logger, dnvmEnv, sdkDirName, sdkDirName);
+        if (!dnvmEnv.IsSystemWide)
+        {
+            // Select the SDK directory if not already selected
+            SelectCommand.SelectDir(logger, dnvmEnv, sdkDirName, sdkDirName);
+        }
 
         logger.Log("Updating environment");
         await UpdateEnv(logger, dnvmEnv, sdkDirName);
@@ -348,9 +381,12 @@ public class SelfInstallCommand
     private static bool MissingFromEnv(DnvmEnv dnvmEnv, SdkDirName sdkDirName)
     {
         var dnvmHome = dnvmEnv.RealPath(UPath.Root);
-        string SdkInstallPath = Path.Combine(dnvmHome, sdkDirName.Name);
+        var executableDir = Path.GetDirectoryName(dnvmEnv.DnvmExecutablePath)!;
+        string SdkInstallPath = dnvmEnv.IsSystemWide
+            ? dnvmEnv.SystemInstallBackend!.DotnetInstallLocation
+            : Path.Combine(dnvmHome, sdkDirName.Name);
         if (GetEnvVar(dnvmEnv, "DOTNET_ROOT") != SdkInstallPath ||
-            !PathContains(dnvmEnv, dnvmHome))
+            !PathContains(dnvmEnv, executableDir))
         {
             return true;
         }
@@ -361,11 +397,13 @@ public class SelfInstallCommand
     {
         var console = env.Console;
         var dnvmHome = env.RealPath(UPath.Root);
-        var sdkInstallDir = env.RealPath(DnvmEnv.GetSdkPath(sdkDir));
+        var sdkInstallDir = env.IsSystemWide
+            ? env.SystemInstallBackend!.DotnetInstallLocation
+            : env.RealPath(DnvmEnv.GetSdkPath(sdkDir));
         if (OperatingSystem.IsWindows())
         {
             logger.Log("Setting environment variables in Windows");
-            if (FindDotnetInSystemPath())
+            if (!env.IsSystemWide && FindDotnetInSystemPath())
             {
                 // dotnet.exe is in one of the system path variables. Produce a warning
                 // that the dnvm dotnet.exe will not appear on the path as long as the
@@ -378,8 +416,9 @@ public class SelfInstallCommand
                     "Visual Studio dotnet installer from setting the System PATH again: " +
                     "reg add \"HKLM\\SOFTWARE\\Microsoft\\.NET\" /v DisableSettingHostPath /t REG_DWORD /d 1");
             }
-            console.WriteLine("Adding install directory to user path: " + dnvmHome);
-            WindowsAddToPath(env, dnvmHome);
+            var executableDir = Path.GetDirectoryName(env.DnvmExecutablePath)!;
+            console.WriteLine($"Adding dnvm to {(env.IsSystemWide ? "system" : "user")} path: " + executableDir);
+            WindowsAddToPath(env, executableDir);
             console.WriteLine("Setting DOTNET_ROOT: " + sdkInstallDir);
             env.SetUserEnvVar("DOTNET_ROOT", sdkInstallDir);
             if (dnvmHome != DnvmEnv.DefaultDnvmHome)

@@ -36,7 +36,18 @@ public static class Program
             return 0;
         }
 
-        using var env = DnvmEnv.CreateDefault();
+        DnvmEnv env;
+        try
+        {
+            env = DnvmEnv.CreateDefault(parsedArgs.Scope);
+        }
+        catch (ArgumentException ex)
+        {
+            console.Error(ex.Message);
+            return 1;
+        }
+        using (env)
+        {
         if (parsedArgs.SubCommand is null)
         {
             if (parsedArgs.EnableDnvmPreviews == true)
@@ -51,10 +62,15 @@ public static class Program
         }
 
         return await Dnvm(env, logger, parsedArgs);
+        }
     }
 
     public static async Task<int> EnableDnvmPreviews(DnvmEnv env)
     {
+        if (env.IsSystemWide)
+        {
+            return await WindowsSystemCommands.EnableDnvmPreviews(env);
+        }
         using var @lock = await ManifestLock.Acquire(env);
         var manifest = await @lock.ReadOrCreateManifest(env);
         manifest = manifest with { PreviewsEnabled = true };
@@ -64,6 +80,10 @@ public static class Program
 
     internal static async Task<int> Dnvm(DnvmEnv env, Logger logger, DnvmArgs args)
     {
+        if (env.IsSystemWide)
+        {
+            return await WindowsSystemCommands.Run(env, logger, args.SubCommand!);
+        }
         return args.SubCommand switch
         {
             DnvmSubCommand.TrackArgs a => (int)await TrackCommand.Run(env, logger, a),

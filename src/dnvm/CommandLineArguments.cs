@@ -14,6 +14,9 @@ namespace Dnvm;
 [Command("dnvm", Summary = "Install and manage .NET SDKs.")]
 public partial record DnvmArgs
 {
+    [CommandOption("--scope", Description = "Select user or system installation scope. Windows defaults to system.")]
+    public string? Scope { get; init; }
+
     [CommandOption("--enable-dnvm-previews", Description = "Enable dnvm previews.")]
     public bool? EnableDnvmPreviews { get; init; }
 
@@ -172,6 +175,9 @@ public abstract partial record DnvmSubCommand
         [CommandOption("-s|--sdk-dir", Description = "Uninstall the SDK from the given directory.")]
         [SerdeMemberOptions(DeserializeProxy = typeof(NullableRefProxy.De<SdkDirName, SdkDirNameProxy>))] // Treat as string
         public SdkDirName? SdkDir { get; init; } = null;
+
+        [CommandOption("-y", Description = "Confirm removal of a globally shared SDK.")]
+        public bool? Yes { get; init; } = null;
     }
 
     [Command("prune", Summary = "Remove older SDK versions from tracked channels.")]
@@ -182,6 +188,9 @@ public abstract partial record DnvmSubCommand
 
         [CommandOption("--dry-run", Description = "Print the list of the SDKs to be uninstalled, but don't uninstall.")]
         public bool? DryRun { get; init; } = null;
+
+        [CommandOption("-y", Description = "Confirm removal of globally shared SDKs.")]
+        public bool? Yes { get; init; } = null;
     }
 
     [Command("restore", Summary = "Restore the SDK listed in the global.json file.",

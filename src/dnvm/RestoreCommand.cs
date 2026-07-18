@@ -255,6 +255,16 @@ public static partial class RestoreCommand
         }
 
         console.WriteLine($"Found version {sdk.Version} in global.json. Selected version {release.Sdk.Version} based on roll forward rules.");
+        if (!options.Local && env.IsSystemWide)
+        {
+            var result = await WindowsSystemCommands.InstallComponent(
+                env,
+                logger,
+                release.Sdk,
+                options.Force);
+            return result == 0 ? release.Sdk.Version : Error.IoError;
+        }
+
         var downloadUrl = release.Sdk.Files.Single(f => f.Rid == Utilities.CurrentRID.ToString() && f.Url.EndsWith(Utilities.ZipSuffix)).Url;
 
         if (options.Local)

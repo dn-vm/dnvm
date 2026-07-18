@@ -18,6 +18,8 @@ namespace Dnvm;
 /// <summary>
 public sealed partial class DnvmEnv : IDisposable
 {
+    public InstallScope Scope { get; }
+    public bool IsSystemWide => Scope == InstallScope.System;
     public bool IsPhysicalDnvmHome { get; }
     public readonly IFileSystem DnvmHomeFs;
     public readonly IFileSystem CwdFs;
@@ -31,6 +33,8 @@ public sealed partial class DnvmEnv : IDisposable
     public string UserHome { get; }
     public ScopedHttpClient HttpClient { get; }
     public IAnsiConsole Console { get; }
+    public ISystemInstallBackend? SystemInstallBackend { get; }
+    public string DnvmExecutablePath { get; }
 
     public DnvmEnv(
         string userHome,
@@ -43,8 +47,12 @@ public sealed partial class DnvmEnv : IDisposable
         IAnsiConsole console,
         IEnumerable<string>? dotnetFeedUrls = null,
         string releasesUrl = DefaultReleasesUrl,
-        HttpClient? httpClient = null)
+        HttpClient? httpClient = null,
+        InstallScope scope = InstallScope.User,
+        ISystemInstallBackend? systemInstallBackend = null,
+        string? dnvmExecutablePath = null)
     {
+        Scope = scope;
         UserHome = userHome;
         DnvmHomeFs = homeFs;
         CwdFs = cwdFs;
@@ -61,6 +69,9 @@ public sealed partial class DnvmEnv : IDisposable
         SetUserEnvVar = setUserEnvVar;
         DotnetFeedUrls = dotnetFeedUrls ?? DefaultDotnetFeedUrls;
         DnvmReleasesUrl = releasesUrl;
+        SystemInstallBackend = systemInstallBackend;
+        DnvmExecutablePath = dnvmExecutablePath
+            ?? homeFs.ConvertPathToInternal(DnvmExePath);
         HttpClient = new ScopedHttpClient(httpClient ?? new HttpClient() {
             Timeout = Timeout.InfiniteTimeSpan
         });
@@ -97,6 +108,15 @@ public sealed partial class DnvmEnv
         GetFolderPath(SpecialFolder.LocalApplicationData, SpecialFolderOption.DoNotVerify),
         "dnvm");
 
+    public static readonly string DefaultSystemDnvmHome = Path.Combine(
+        GetFolderPath(SpecialFolder.CommonApplicationData, SpecialFolderOption.DoNotVerify),
+        "dnvm");
+
+    public static readonly string DefaultSystemDnvmExecutable = Path.Combine(
+        GetFolderPath(SpecialFolder.ProgramFiles, SpecialFolderOption.DoNotVerify),
+        "dnvm",
+        Utilities.DnvmExeName);
+
     /// <summary>
     /// The location of the SDK install directory, relative to <see cref="DnvmHome" />
     /// </summary>
@@ -109,16 +129,46 @@ public sealed partial class DnvmEnv
     /// and the installed SDKs. If the environment variable is not set, uses
     /// <see cref="DnvmEnv.DefaultDnvmHome" /> as the default.
     /// </summar>
-    public static DnvmEnv CreateDefault()
+    public static DnvmEnv CreateDefault(string? scopeOption = null)
     {
         var home = Environment.GetEnvironmentVariable("DNVM_HOME");
-        var dnvmHome = string.IsNullOrWhiteSpace(home)
-            ? DefaultDnvmHome
-            : home;
-        return CreatePhysical(dnvmHome,
+        var scope = ResolveScope(scopeOption, home, OperatingSystem.IsWindows());
+        if (scope == InstallScope.System)
+        {
+            return CreatePhysical(
+                DefaultSystemDnvmHome,
+                n => Environment.GetEnvironmentVariable(n, EnvironmentVariableTarget.Machine),
+                (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.Machine),
+                AnsiConsole.Console,
+                scope: scope,
+                systemInstallBackend: new WindowsSystemInstallBackend(),
+                dnvmExecutablePath: DefaultSystemDnvmExecutable);
+        }
+
+        var dnvmHome = string.IsNullOrWhiteSpace(home) ? DefaultDnvmHome : home;
+        return CreatePhysical(
+            dnvmHome,
             n => Environment.GetEnvironmentVariable(n, EnvironmentVariableTarget.User),
             (n, v) => Environment.SetEnvironmentVariable(n, v, EnvironmentVariableTarget.User),
             AnsiConsole.Console);
+    }
+
+    public static InstallScope ResolveScope(string? scopeOption, string? dnvmHome, bool isWindows)
+    {
+        if (scopeOption is not null)
+        {
+            return scopeOption.ToLowerInvariant() switch
+            {
+                "user" => InstallScope.User,
+                "system" when isWindows => InstallScope.System,
+                "system" => throw new ArgumentException("System scope is only supported on Windows."),
+                _ => throw new ArgumentException("Scope must be either 'user' or 'system'."),
+            };
+        }
+
+        return isWindows && string.IsNullOrWhiteSpace(dnvmHome)
+            ? InstallScope.System
+            : InstallScope.User;
     }
 
     public static DnvmEnv CreatePhysical(
@@ -126,7 +176,10 @@ public sealed partial class DnvmEnv
         Func<string, string?> getUserEnvVar,
         Action<string, string> setUserEnvVar,
         IAnsiConsole console,
-        string? dotnetFeedUrl = null)
+        string? dotnetFeedUrl = null,
+        InstallScope scope = InstallScope.User,
+        ISystemInstallBackend? systemInstallBackend = null,
+        string? dnvmExecutablePath = null)
     {
         Directory.CreateDirectory(realPath);
 
@@ -140,6 +193,15 @@ public sealed partial class DnvmEnv
             getUserEnvVar,
             setUserEnvVar,
             console,
-            dotnetFeedUrls: dotnetFeedUrl is not null ? [ dotnetFeedUrl ] : null);
+            dotnetFeedUrls: dotnetFeedUrl is not null ? [ dotnetFeedUrl ] : null,
+            scope: scope,
+            systemInstallBackend: systemInstallBackend,
+            dnvmExecutablePath: dnvmExecutablePath);
     }
+}
+
+public enum InstallScope
+{
+    User,
+    System,
 }
