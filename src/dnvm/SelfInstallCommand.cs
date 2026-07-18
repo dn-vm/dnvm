@@ -96,9 +96,15 @@ public class SelfInstallCommand
 
         console.WriteLine("Starting dnvm install");
 
+        if (env.IsSystemWide && !env.SystemInstallBackend!.IsElevated)
+        {
+            console.Error("System-wide dnvm installation requires an elevated Administrator terminal.");
+            return Result.SelfInstallFailed;
+        }
+
         if (!opt.Yes)
         {
-            var dnvmHome = Environment.GetEnvironmentVariable("DNVM_HOME") ?? DnvmEnv.DefaultDnvmHome;
+            var dnvmHome = env.RealPath(UPath.Root);
             console.WriteLine(env.IsSystemWide
                 ? "Dnvm policy will be stored under the system dnvm home directory:"
                 : "The dnvm binary, manifest, and all SDKs will be installed under the dnvm home directory:");
@@ -421,7 +427,7 @@ public class SelfInstallCommand
             WindowsAddToPath(env, executableDir);
             console.WriteLine("Setting DOTNET_ROOT: " + sdkInstallDir);
             env.SetUserEnvVar("DOTNET_ROOT", sdkInstallDir);
-            if (dnvmHome != DnvmEnv.DefaultDnvmHome)
+            if (!env.IsSystemWide && dnvmHome != DnvmEnv.DefaultDnvmHome)
             {
                 console.WriteLine("Setting DNVM_HOME: " + dnvmHome);
                 env.SetUserEnvVar("DNVM_HOME", dnvmHome);

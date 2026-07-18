@@ -1,16 +1,30 @@
 # dnvm
 
-Dnvm is a command-line program for installing and updating `dotnet` SDKs, targeted at Unix-like machines.
+Dnvm is a command-line program for installing and updating `dotnet` SDKs.
 
 ## Getting started
 
-dnvm installs .NET SDKs to the dnvm home path, which is `~/.local/dnvm` on Linux, ` ~/Library/Application\ Support/dnvm/` on Mac, and `%LOCALAPPDATA%/dnvm` on Windows. Dnvm lets you:
+On Linux and macOS, and in Windows user scope, dnvm installs .NET SDKs under its home path. The default is `~/.local/share/dnvm` on Linux, `~/Library/Application Support/dnvm/` on macOS, and `%LOCALAPPDATA%\dnvm` on Windows. Dnvm lets you:
 - Install the latest release from channels through the `track` command
 - Update SDK versions through the `update` command
 - Cleanup old SDKs through the `prune` command (see [detailed documentation](docs/prune.md))
 - Install specific SDKs through the `install` command.
 
 The `--help` command can help you find more information on all available commands.
+
+## Windows installation scopes
+
+Windows defaults to system scope. In this scope:
+
+- official Microsoft .NET installer bundles manage the shared `%ProgramFiles%\dotnet` installation;
+- installed SDKs are discovered from the documented .NET setup registry and Windows installer registrations;
+- dnvm stores only channel-tracking policy under `%ProgramData%\dnvm`;
+- install, update, uninstall, and prune operations require an elevated Administrator terminal;
+- dnvm refuses to directly remove SDKs owned by Visual Studio or not registered as independently removable.
+
+Use `dnvm --scope user <command>` for an isolated, dnvm-owned installation. User scope retains the manifest and archive-based behavior and is recommended for CI. Setting `DNVM_HOME` also selects user scope for backward compatibility. `--scope system` is only supported on Windows.
+
+System scope uses the canonical shared .NET location and therefore does not support named SDK directories or `dnvm select`.
 
 ## Documentation
 

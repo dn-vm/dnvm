@@ -167,8 +167,12 @@ public sealed partial class WindowsSystemInstallBackend : ISystemInstallBackend
             return SystemInstallResult.DownloadFailed;
         }
 
-        if (installer.Hash is { Length: > 0 }
-            && !VerifySha512(installerPath, installer.Hash))
+        if (installer.Hash is not { Length: > 0 })
+        {
+            env.Console.Error("The Microsoft release metadata does not provide a SHA-512 hash for this installer.");
+            return SystemInstallResult.IntegrityCheckFailed;
+        }
+        if (!VerifySha512(installerPath, installer.Hash))
         {
             env.Console.Error("The downloaded .NET SDK installer did not match the published SHA-512 hash.");
             return SystemInstallResult.IntegrityCheckFailed;

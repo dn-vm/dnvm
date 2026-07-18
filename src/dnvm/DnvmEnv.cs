@@ -166,9 +166,19 @@ public sealed partial class DnvmEnv
             };
         }
 
-        return isWindows && string.IsNullOrWhiteSpace(dnvmHome)
-            ? InstallScope.System
-            : InstallScope.User;
+        if (!isWindows)
+        {
+            return InstallScope.User;
+        }
+        if (string.IsNullOrWhiteSpace(dnvmHome)
+            || string.Equals(
+                Path.GetFullPath(dnvmHome),
+                Path.GetFullPath(DefaultSystemDnvmHome),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return InstallScope.System;
+        }
+        return InstallScope.User;
     }
 
     public static DnvmEnv CreatePhysical(

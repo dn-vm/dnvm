@@ -9,11 +9,13 @@ namespace Dnvm.Test;
 public sealed class CommandLineTests
 {
     private static readonly string ExpectedHelpText = """
-        usage: dnvm [--enable-dnvm-previews] [-h | --help] <command>
+        usage: dnvm [--scope <scope>] [--enable-dnvm-previews] [-h | --help] <command>
 
         Install and manage .NET SDKs.
 
         Options:
+            --scope  <scope>  Select user or system installation scope. Windows defaults
+        to system.
             --enable-dnvm-previews  Enable dnvm previews.
             -h, --help  Show help information.
 
@@ -185,6 +187,15 @@ Channel must be one of:
             "--enable-dnvm-previews",
         ]);
         Assert.True(options!.EnableDnvmPreviews);
+    }
+
+    [Fact]
+    public void SystemScope()
+    {
+        var options = CommandLineArguments.ParseRaw(new TestConsole(), [
+            "--scope", "system", "list"
+        ]);
+        Assert.Equal("system", options!.Scope);
     }
 
     [Theory]
@@ -382,7 +393,7 @@ Options:
             console,
             [ "uninstall", param ]));
         Assert.Equal("""
-usage: dnvm uninstall [-s | --sdk-dir <sdkDir>] [-h | --help] <sdkVersion>
+usage: dnvm uninstall [-s | --sdk-dir <sdkDir>] [-y] [-h | --help] <sdkVersion>
 
 Uninstall an SDK.
 
@@ -391,6 +402,7 @@ Arguments:
 
 Options:
     -s, --sdk-dir  <sdkDir>  Uninstall the SDK from the given directory.
+    -y  Confirm removal of a globally shared SDK.
     -h, --help  Show help information.
 
 
@@ -407,7 +419,7 @@ Options:
             console,
             [ "prune", param ]));
         Assert.Equal("""
-usage: dnvm prune [-v | --verbose] [--dry-run] [-h | --help]
+usage: dnvm prune [-v | --verbose] [--dry-run] [-y] [-h | --help]
 
 Remove older SDK versions from tracked channels.
 
@@ -415,6 +427,7 @@ Options:
     -v, --verbose  Print extra debugging info to the console.
     --dry-run  Print the list of the SDKs to be uninstalled, but don't
 uninstall.
+    -y  Confirm removal of globally shared SDKs.
     -h, --help  Show help information.
 
 

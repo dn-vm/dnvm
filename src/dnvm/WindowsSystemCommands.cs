@@ -30,6 +30,10 @@ public static class WindowsSystemCommands
 
     public static async Task<int> EnableDnvmPreviews(DnvmEnv env)
     {
+        if (!RequireElevation(env))
+        {
+            return 1;
+        }
         using var @lock = await WindowsPolicyLock.Acquire(env);
         var policy = @lock.ReadOrCreate(env) with { PreviewsEnabled = true };
         @lock.Write(env, policy);
@@ -48,6 +52,10 @@ public static class WindowsSystemCommands
         if (args.SdkDir is not null)
         {
             env.Console.Error("--sdk-dir is only available in user scope.");
+            return 1;
+        }
+        if (!RequireElevation(env))
+        {
             return 1;
         }
 
@@ -79,6 +87,10 @@ public static class WindowsSystemCommands
         if (args.SdkDir is not null)
         {
             env.Console.Error("--sdk-dir is only available in user scope.");
+            return 1;
+        }
+        if (!RequireElevation(env))
+        {
             return 1;
         }
 
@@ -129,6 +141,10 @@ public static class WindowsSystemCommands
         Logger logger,
         DnvmSubCommand.UpdateArgs args)
     {
+        if (!RequireElevation(env))
+        {
+            return 1;
+        }
         using var @lock = await WindowsPolicyLock.Acquire(env);
         var policy = @lock.ReadOrCreate(env);
         if (args.Self == true)
@@ -208,8 +224,7 @@ public static class WindowsSystemCommands
 
     private static async Task<int> List(DnvmEnv env)
     {
-        using var @lock = await WindowsPolicyLock.Acquire(env);
-        var policy = @lock.ReadOrCreate(env);
+        var policy = WindowsPolicyLock.ReadPolicy(env);
         var installations = GetBackend(env).GetInstalledSdks();
 
         env.Console.WriteLine($"System .NET location: {GetBackend(env).DotnetInstallLocation}");
@@ -241,6 +256,10 @@ public static class WindowsSystemCommands
 
     private static async Task<int> Untrack(DnvmEnv env, Channel channel)
     {
+        if (!RequireElevation(env))
+        {
+            return 1;
+        }
         using var @lock = await WindowsPolicyLock.Acquire(env);
         var policy = @lock.ReadOrCreate(env);
         if (!policy.TrackedChannels().Any(x => x.ChannelName == channel))
@@ -260,6 +279,10 @@ public static class WindowsSystemCommands
         if (args.SdkDir is not null)
         {
             env.Console.Error("--sdk-dir is only available in user scope.");
+            return 1;
+        }
+        if (!RequireElevation(env))
+        {
             return 1;
         }
 
@@ -304,6 +327,10 @@ public static class WindowsSystemCommands
         Logger logger,
         DnvmSubCommand.PruneArgs args)
     {
+        if (!RequireElevation(env))
+        {
+            return 1;
+        }
         using var @lock = await WindowsPolicyLock.Acquire(env);
         var policy = @lock.ReadOrCreate(env);
         var candidates = GetPruneCandidates(policy);
@@ -350,6 +377,10 @@ public static class WindowsSystemCommands
         Logger logger,
         DnvmSubCommand.RestoreArgs args)
     {
+        if (args.Local != true && !RequireElevation(env))
+        {
+            return 1;
+        }
         var result = await RestoreCommand.Run(env, logger, args);
         return result switch
         {
@@ -433,6 +464,16 @@ public static class WindowsSystemCommands
     private static ISystemInstallBackend GetBackend(DnvmEnv env)
         => env.SystemInstallBackend
             ?? throw new InvalidOperationException("System installation backend is not configured.");
+
+    private static bool RequireElevation(DnvmEnv env)
+    {
+        if (GetBackend(env).IsElevated)
+        {
+            return true;
+        }
+        env.Console.Error("System-wide .NET changes require an elevated Administrator terminal.");
+        return false;
+    }
 
     private static int ReportSystemResult(DnvmEnv env, SystemInstallResult result)
     {

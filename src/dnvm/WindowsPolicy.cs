@@ -117,6 +117,9 @@ public sealed class WindowsPolicyLock : IDisposable
             ManifestLockingConfig.BaseRetryDelay));
 
     public WindowsPolicy ReadOrCreate(DnvmEnv env)
+        => ReadPolicy(env);
+
+    public static WindowsPolicy ReadPolicy(DnvmEnv env)
     {
         if (!env.DnvmHomeFs.FileExists(PolicyPath))
         {

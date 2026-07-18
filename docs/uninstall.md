@@ -5,15 +5,18 @@ The `dnvm uninstall` command removes a specific .NET SDK version from your syste
 ## Usage
 
 ```bash
-dnvm uninstall <version> [--dir <directory>]
+dnvm uninstall <version> [--sdk-dir <directory>] [-y]
 ```
 
 - `<version>` - The exact SDK version to uninstall (e.g., `8.0.100`, `9.0.0-preview.1`)
-- `--dir <directory>` - Optional. Specify which SDK directory to uninstall from
+- `--sdk-dir <directory>` - In user scope, specify which SDK directory to uninstall from
+- `-y` - Confirm removal without prompting in Windows system scope
 
 ## How It Works
 
-The uninstall command removes the SDK and checks which runtime components (runtimes, ASP.NET, templates, etc.) are still needed by other installed SDKs. Only components that are no longer needed are removed.
+In user scope, the uninstall command removes the SDK and checks which runtime components (runtimes, ASP.NET, templates, etc.) are still needed by other installed SDKs.
+
+In Windows system scope, dnvm delegates removal to the SDK's registered Windows uninstaller. It never deletes files directly and refuses to remove Visual Studio-managed SDKs or SDKs that Windows does not report as independently removable.
 
 ## Examples
 
