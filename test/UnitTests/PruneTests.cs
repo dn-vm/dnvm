@@ -187,7 +187,6 @@ public sealed class PruneTests
         var alternateDir = new SdkDirName("alternate");
 
         var manifest = Manifest.Empty
-            .AddSdk(oldVersion, sdkDirParam: defaultDir)
             .AddSdk(newVersion, sdkDirParam: defaultDir)
             .AddSdk(oldVersion, sdkDirParam: alternateDir);
         manifest = manifest with
