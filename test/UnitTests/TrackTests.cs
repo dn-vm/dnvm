@@ -1,3 +1,4 @@
+using StaticCs.Collections;
 using System.Collections.Immutable;
 using Semver;
 using Spectre.Console.Testing;
@@ -41,6 +42,8 @@ public sealed class TrackTests
             SdkVersion = installedVersion,
             AspNetVersion = installedVersion,
             RuntimeVersion = installedVersion,
+            WindowsDesktopVersion = installedVersion,
+            SdkManifestBands = EqArray.Create((installedVersion).ToFeatureBand()),
             ReleaseVersion = installedVersion,
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ];
@@ -137,6 +140,8 @@ public sealed class TrackTests
             SdkVersion = sdkVersion,
             RuntimeVersion = releaseVersion,
             AspNetVersion = releaseVersion,
+            WindowsDesktopVersion = releaseVersion,
+            SdkManifestBands = EqArray.Create((sdkVersion).ToFeatureBand()),
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ], manifest.InstalledSdks);
         Assert.Equal([
@@ -166,6 +171,8 @@ public sealed class TrackTests
             SdkVersion = version,
             RuntimeVersion = version,
             AspNetVersion = version,
+            WindowsDesktopVersion = version,
+            SdkManifestBands = EqArray.Create((version).ToFeatureBand()),
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ], manifest.InstalledSdks);
     });
@@ -183,6 +190,8 @@ public sealed class TrackTests
             SdkVersion = version,
             RuntimeVersion = version,
             AspNetVersion = version,
+            WindowsDesktopVersion = version,
+            SdkManifestBands = EqArray.Create((version).ToFeatureBand()),
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ], manifest.InstalledSdks);
     });

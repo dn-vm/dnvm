@@ -33,6 +33,17 @@ public partial record InstalledSdk
     public required SemVersion SdkVersion { get; init; }
     public required SemVersion RuntimeVersion { get; init; }
     public required SemVersion AspNetVersion { get; init; }
+    public required SemVersion? WindowsDesktopVersion { get; init; }
+
+    /// <summary>
+    /// The <c>sdk-manifests/&lt;feature-band&gt;</c> directories contained in this SDK's archive.
+    /// A single archive can lay down in-box workload manifests under multiple feature bands
+    /// (mobile/MAUI manifests routinely lag the SDK's own band), so the SDK's own feature band
+    /// is not sufficient to determine which manifest directories it contributed.
+    /// An empty array means "unknown" (the SDK predates this field) and suppresses all
+    /// <c>sdk-manifests</c> cleanup in that SDK directory.
+    /// </summary>
+    public EqArray<string> SdkManifestBands { get; init; } = EqArray<string>.Empty;
 
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 }
@@ -88,7 +99,9 @@ partial record Manifest
             SdkVersion = semVersion,
             RuntimeVersion = semVersion,
             AspNetVersion = semVersion,
+            WindowsDesktopVersion = semVersion,
             ReleaseVersion = semVersion,
+            SdkManifestBands = EqArray.Create(semVersion.ToFeatureBand()),
         };
         return AddSdk(installedSdk, c);
     }
@@ -322,4 +335,3 @@ internal static class ManifestLockingConfig
     /// </summary>
     public static TimeSpan BaseRetryDelay { get; set; } = TimeSpan.FromMilliseconds(50);
 }
-

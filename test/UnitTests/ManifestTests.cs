@@ -1,3 +1,4 @@
+using StaticCs.Collections;
 
 using Dnvm;
 using Semver;
@@ -108,7 +109,7 @@ public sealed class ManifestTests
     });
 
     [Fact]
-    public void WriteManifestV9()
+    public void WriteManifestV10()
     {
         var manifest = new Manifest
         {
@@ -119,6 +120,8 @@ public sealed class ManifestTests
                     SdkVersion = new SemVersion(7, 0, 203),
                     RuntimeVersion = new SemVersion(7, 0, 2),
                     AspNetVersion = new SemVersion(7, 0, 2),
+                    WindowsDesktopVersion = new SemVersion(7, 0, 2),
+                    SdkManifestBands = EqArray.Create("7.0.200"),
                     SdkDirName = new SdkDirName("dn")
                 }
             ],
@@ -141,7 +144,7 @@ public sealed class ManifestTests
         };
         var expected = """
 {
-    "version":9,
+    "version":10,
     "previewsEnabled": false,
     "currentSdkDir": "dn",
     "installedSdks":[
@@ -150,6 +153,8 @@ public sealed class ManifestTests
             "sdkVersion":"7.0.203",
             "runtimeVersion":"7.0.2",
             "aspNetVersion":"7.0.2",
+            "windowsDesktopVersion":"7.0.2",
+            "sdkManifestBands":["7.0.200"],
             "sdkDirName": "dn"
         }
     ],
@@ -171,5 +176,32 @@ public sealed class ManifestTests
 """;
         var serialized = ManifestSerialize.Serialize(manifest);
         Assert.Equal(JsonSerializer.DeserializeJsonValue(expected), JsonSerializer.DeserializeJsonValue(serialized));
+    }
+
+    [Fact]
+    public async Task ManifestV9LeavesWindowsDesktopVersionUnknown()
+    {
+        var manifest = """
+{
+    "version":9,
+    "previewsEnabled":false,
+    "currentSdkDir":"dn",
+    "installedSdks":[{
+        "releaseVersion":"10.0.0-preview.1",
+        "sdkVersion":"10.0.100-preview.1.12345.6",
+        "runtimeVersion":"10.0.0-preview.1.12345.6",
+        "aspNetVersion":"10.0.0-preview.1.12345.7",
+        "sdkDirName":"dn"
+    }],
+    "registeredChannels":[]
+}
+""";
+
+        var parsed = await ManifestSerialize.DeserializeNewOrOldManifest(
+            new ScopedHttpClient(new HttpClient()),
+            manifest,
+            DnvmEnv.DefaultDotnetFeedUrls);
+
+        Assert.Null(Assert.Single(parsed.InstalledSdks).WindowsDesktopVersion);
     }
 }
