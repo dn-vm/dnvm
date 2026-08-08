@@ -71,7 +71,7 @@ public sealed class UninstallCommand
         DeleteAspnets(env, aspnetToRemove, logger);
         DeleteWins(env, winToRemove, logger);
 
-        manifest = UninstallSdk(manifest, sdkVersion);
+        manifest = UninstallSdks(manifest, sdksToRemove);
         await @lock.WriteManifest(env, manifest);
 
         return 0;
@@ -137,18 +137,18 @@ public sealed class UninstallCommand
         }
     }
 
-    private static Manifest UninstallSdk(Manifest manifest, SemVersion sdkVersion)
+    private static Manifest UninstallSdks(
+        Manifest manifest,
+        HashSet<(SemVersion Version, SdkDirName Dir)> sdksToRemove)
     {
-        // Delete SDK version from all directories
         var newVersions = manifest.InstalledSdks
-            .Where(sdk => sdk.SdkVersion != sdkVersion)
+            .Where(sdk => !sdksToRemove.Contains((sdk.SdkVersion, sdk.SdkDirName)))
             .ToEq();
 
-        // Also remove the SDK version from RegisteredChannels.InstalledSdkVersions
         var updatedChannels = manifest.RegisteredChannels.Select(channel =>
         {
             var updatedInstalledVersions = channel.InstalledSdkVersions
-                .Where(version => version != sdkVersion)
+                .Where(version => !sdksToRemove.Contains((version, channel.SdkDirName)))
                 .ToEq();
             return channel with { InstalledSdkVersions = updatedInstalledVersions };
         }).ToEq();
