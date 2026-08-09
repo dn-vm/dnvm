@@ -10,6 +10,7 @@ using Serde;
 using Serde.Json;
 using Spectre.Console;
 using StaticCs;
+using StaticCs.Collections;
 using Zio;
 using Zio.FileSystems;
 
@@ -323,6 +324,7 @@ public static partial class InstallCommand
 
         env.Console.WriteLine($"Downloading SDK {sdkVersion} for {ridString}");
         var curMuxerVersion = manifest.MuxerVersion(sdkDir);
+        var sdkManifestBands = new HashSet<string>(StringComparer.Ordinal);
         var err = await InstallSdkToDir(
             curMuxerVersion,
             release.Runtime.Version,
@@ -332,7 +334,8 @@ public static partial class InstallCommand
             env.DnvmHomeFs,
             sdkInstallPath,
             env.TempFs,
-            logger);
+            logger,
+            sdkManifestBands);
         if (err is not null)
         {
             return err;
@@ -343,22 +346,28 @@ public static partial class InstallCommand
         var result = JsonSerializer.Serialize(manifest.ConvertToLatest());
         logger.Log("Existing manifest: " + result);
 
-        if (!manifest.IsSdkInstalled(sdkVersion, sdkDir))
+        var installedSdk = new InstalledSdk
         {
-            manifest = manifest with
-            {
-                InstalledSdks = manifest.InstalledSdks.Add(new InstalledSdk
-                {
-                    ReleaseVersion = release.ReleaseVersion,
-                    RuntimeVersion = release.Runtime.Version,
-                    AspNetVersion = release.AspNetCore.Version,
-                    SdkVersion = sdkVersion,
-                    SdkDirName = sdkDir,
-                })
-            };
+            ReleaseVersion = release.ReleaseVersion,
+            RuntimeVersion = release.Runtime.Version,
+            AspNetVersion = release.AspNetCore.Version,
+            WindowsDesktopVersion = release.WindowsDesktop.Version,
+            SdkManifestBands = sdkManifestBands.OrderBy(band => band, StringComparer.Ordinal).ToEq(),
+            SdkManifestBandsKnown = true,
+            SdkVersion = sdkVersion,
+            SdkDirName = sdkDir,
+        };
 
-            await @lock.WriteManifest(env, manifest);
-        }
+        var existingSdk = manifest.InstalledSdks.FirstOrDefault(
+            sdk => sdk.SdkVersion == sdkVersion && sdk.SdkDirName == sdkDir);
+        manifest = manifest with
+        {
+            InstalledSdks = existingSdk is null
+                ? manifest.InstalledSdks.Add(installedSdk)
+                : manifest.InstalledSdks.Replace(existingSdk, installedSdk)
+        };
+
+        await @lock.WriteManifest(env, manifest);
 
         return manifest;
     }
@@ -372,7 +381,8 @@ public static partial class InstallCommand
         IFileSystem destFs,
         UPath destPath,
         IFileSystem tempFs,
-        Logger logger)
+        Logger logger,
+        ISet<string>? sdkManifestBands = null)
     {
         // The Release name does not contain a version
         string archiveName = ConstructArchiveName(versionString: null, Utilities.CurrentRID, Utilities.ZipSuffix);
@@ -403,7 +413,8 @@ public static partial class InstallCommand
             archivePath,
             tempFs,
             destFs,
-            destPath);
+            destPath,
+            sdkManifestBands);
         File.Delete(archivePath);
         if (extractResult != null)
         {

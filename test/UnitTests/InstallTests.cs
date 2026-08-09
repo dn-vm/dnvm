@@ -87,6 +87,51 @@ public sealed class InstallTests
     });
 
     [Fact]
+    public Task ForceRefreshesLegacyOwnershipMetadata() => RunWithServer(async (server, env) =>
+    {
+        var version = MockServer.DefaultLtsVersion;
+        var options = new DnvmSubCommand.InstallArgs
+        {
+            SdkVersion = version,
+        };
+
+        Assert.Equal(InstallCommand.Result.Success,
+            await InstallCommand.Run(env, _logger, options));
+
+        var manifest = await Manifest.ReadManifestUnsafe(env);
+        var original = Assert.Single(manifest.InstalledSdks);
+        Assert.NotNull(original.WindowsDesktopVersion);
+        Assert.NotEmpty(original.SdkManifestBands);
+        Assert.True(original.SdkManifestBandsKnown);
+
+        using (var @lock = await ManifestLock.Acquire(env))
+        {
+            manifest = manifest with
+            {
+                InstalledSdks =
+                [
+                    original with
+                    {
+                        WindowsDesktopVersion = null,
+                        SdkManifestBands = [],
+                        SdkManifestBandsKnown = false,
+                    }
+                ]
+            };
+            await @lock.WriteManifest(env, manifest);
+        }
+
+        Assert.Equal(InstallCommand.Result.Success,
+            await InstallCommand.Run(env, _logger, options with { Force = true }));
+
+        manifest = await Manifest.ReadManifestUnsafe(env);
+        var refreshed = Assert.Single(manifest.InstalledSdks);
+        Assert.Equal(original.WindowsDesktopVersion, refreshed.WindowsDesktopVersion);
+        Assert.Equal(original.SdkManifestBands, refreshed.SdkManifestBands);
+        Assert.True(refreshed.SdkManifestBandsKnown);
+    });
+
+    [Fact]
     public Task InstallProgressInConsole() => RunWithServer(async (server, env) =>
     {
         var options = new DnvmSubCommand.InstallArgs

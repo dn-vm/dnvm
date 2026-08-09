@@ -309,6 +309,7 @@ public sealed class PruneTests
                     SdkVersion = newVersion,
                     RuntimeVersion = newVersion,
                     AspNetVersion = newVersion,
+                    WindowsDesktopVersion = newVersion,
                     ReleaseVersion = newVersion,
                     SdkDirName = DnvmEnv.DefaultSdkDirName
                 }

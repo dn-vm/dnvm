@@ -175,6 +175,36 @@ public static class Utilities
         return $"{version.Major}.{version.Minor}.{feature}xx";
     }
 
+    /// <summary>
+    /// The SDK feature band directory name, as used under the 'sdk-manifests' directory,
+    /// e.g. "10.0.300" or "11.0.100-preview.6". Build metadata identifiers (such as the
+    /// build number appended to a preview version) are not part of the band.
+    /// </summary>
+    public static string ToFeatureBand(this SemVersion version)
+    {
+        var band = $"{version.Major}.{version.Minor}.{version.Patch / 100 * 100}";
+        var prerelease = version.Prerelease;
+        if (version.Major < 7
+            || string.IsNullOrEmpty(prerelease)
+            || prerelease.Contains("dev", StringComparison.Ordinal)
+            || prerelease.Contains("ci", StringComparison.Ordinal)
+            || prerelease.Contains("rtm", StringComparison.Ordinal))
+        {
+            return band;
+        }
+
+        var prereleaseIdentifiers = version.PrereleaseIdentifiers;
+        if (prereleaseIdentifiers.Count >= 2)
+        {
+            band += $"-{prereleaseIdentifiers[0]}.{prereleaseIdentifiers[1]}";
+        }
+        else
+        {
+            band += $"-{prereleaseIdentifiers[0]}";
+        }
+        return band;
+    }
+
     public static string SeqToString<T>(this IEnumerable<T> e)
     {
         return "[ " + string.Join(", ", e) + " ]";
@@ -279,7 +309,8 @@ public static class Utilities
         string archivePath,
         IFileSystem tempFs,
         IFileSystem destFs,
-        UPath destDir)
+        UPath destDir,
+        ISet<string>? sdkManifestBands = null)
     {
         destFs.CreateDirectory(destDir);
         var tempExtractDir = UPath.Root / Path.GetRandomFileName();
@@ -311,6 +342,19 @@ public static class Utilities
 
         try
         {
+            if (sdkManifestBands is not null)
+            {
+                sdkManifestBands.Clear();
+                var manifestsDir = tempExtractDir / "sdk-manifests";
+                if (tempFs.DirectoryExists(manifestsDir))
+                {
+                    foreach (var manifestBandDir in tempFs.EnumerateDirectories(manifestsDir))
+                    {
+                        sdkManifestBands.Add(manifestBandDir.GetName());
+                    }
+                }
+            }
+
             // We want to copy over all the files from the extraction directory to the target
             // directory, with one exception: the top-level files. Those have special logic.
             CopyTopLevelFiles(existingMuxerVersion, runtimeVersion, tempFs, tempExtractDir, destFs, destDir);

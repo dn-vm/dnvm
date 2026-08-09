@@ -13,7 +13,14 @@ dnvm uninstall <version> [--dir <directory>]
 
 ## How It Works
 
-The uninstall command removes the SDK and checks which runtime components (runtimes, ASP.NET, templates, etc.) are still needed by other installed SDKs. Only components that are no longer needed are removed.
+The uninstall command removes the SDK and checks which shared components are still needed by other installed SDKs. Only components that are no longer needed are removed. This includes:
+
+- Shared frameworks (`Microsoft.NETCore.App`, `Microsoft.AspNetCore.App`, `Microsoft.WindowsDesktop.App`)
+- Reference and host packs under `packs/` (`Microsoft.NETCore.App.Ref`, `Microsoft.AspNetCore.App.Ref`, `Microsoft.NETCore.App.Host.<rid>`, `Microsoft.WindowsDesktop.App.Ref`)
+- Host `fxr`, templates, and the SDK itself
+- Workload manifests under `sdk-manifests/<feature-band>` (removed only when no other installed SDK contributed that directory and no workload installation metadata references it). A single SDK archive can lay down manifests under several feature bands, so dnvm records the set of directories each install contributed. SDKs installed by dnvm versions older than this feature have no recorded set, and their presence disables `sdk-manifests` cleanup for that SDK directory entirely.
+
+Workload packs installed via `dotnet workload install` (for example the iOS, Android, and MacCatalyst packs) are not tracked by dnvm and are not removed. Use `dotnet workload clean` to reclaim that space.
 
 ## Examples
 

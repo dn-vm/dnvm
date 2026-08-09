@@ -1,3 +1,4 @@
+using StaticCs.Collections;
 using System.Collections.Immutable;
 using System.Runtime.InteropServices.Marshalling;
 using System.Security.Cryptography;
@@ -41,6 +42,9 @@ public sealed class UpdateTests
                 SdkVersion = new(42, 42, 142),
                 AspNetVersion = new(42, 42, 142),
                 RuntimeVersion = new(42, 42, 142),
+                WindowsDesktopVersion = new(42, 42, 142),
+                SdkManifestBands = EqArray.Create((new SemVersion(42, 42, 142)).ToFeatureBand()),
+                SdkManifestBandsKnown = true,
                 ReleaseVersion = new(42, 42, 142),
                 SdkDirName = sdkDir
             } ],
@@ -78,6 +82,9 @@ public sealed class UpdateTests
                 SdkDirName = DnvmEnv.DefaultSdkDirName,
                 AspNetVersion = installedVersion,
                 RuntimeVersion = installedVersion,
+                WindowsDesktopVersion = installedVersion,
+                SdkManifestBands = EqArray.Create((installedVersion).ToFeatureBand()),
+                SdkManifestBandsKnown = true,
                 ReleaseVersion = installedVersion,
             }] ,
             RegisteredChannels = [ new RegisteredChannel {
@@ -120,6 +127,9 @@ public sealed class UpdateTests
                 SdkVersion = v,
                 AspNetVersion = v,
                 RuntimeVersion = v,
+                WindowsDesktopVersion = v,
+                SdkManifestBands = EqArray.Create((v).ToFeatureBand()),
+                SdkManifestBandsKnown = true,
                 ReleaseVersion = v,
                 SdkDirName = DnvmEnv.DefaultSdkDirName }).ToEq(),
             RegisteredChannels = [ new RegisteredChannel() {
@@ -276,12 +286,18 @@ public sealed class UpdateTests
                 ReleaseVersion = oldReleaseVersion,
                 RuntimeVersion = oldReleaseVersion,
                 AspNetVersion = oldReleaseVersion,
+                WindowsDesktopVersion = oldReleaseVersion,
+                SdkManifestBands = EqArray.Create((oldSdkVersion).ToFeatureBand()),
+                SdkManifestBandsKnown = true,
             },
             new() {
                 SdkVersion = newSdkVersion,
                 ReleaseVersion = newSdkVersion,
                 RuntimeVersion = newSdkVersion,
                 AspNetVersion = newSdkVersion,
+                WindowsDesktopVersion = newSdkVersion,
+                SdkManifestBands = EqArray.Create((newSdkVersion).ToFeatureBand()),
+                SdkManifestBandsKnown = true,
             } ], manifest.InstalledSdks);
         Assert.Equal([
             new() {
@@ -385,6 +401,9 @@ public sealed class UpdateTests
                 ReleaseVersion = initialVersion,
                 RuntimeVersion = initialVersion,
                 AspNetVersion = initialVersion,
+                WindowsDesktopVersion = initialVersion,
+                SdkManifestBands = EqArray.Create((initialVersion).ToFeatureBand()),
+                SdkManifestBandsKnown = true,
                 SdkDirName = DnvmEnv.DefaultSdkDirName
             },
             new InstalledSdk
@@ -393,6 +412,9 @@ public sealed class UpdateTests
                 ReleaseVersion = updatedVersion,
                 RuntimeVersion = updatedVersion,
                 AspNetVersion = updatedVersion,
+                WindowsDesktopVersion = updatedVersion,
+                SdkManifestBands = EqArray.Create((updatedVersion).ToFeatureBand()),
+                SdkManifestBandsKnown = true,
                 SdkDirName = DnvmEnv.DefaultSdkDirName
             },
             new InstalledSdk
@@ -401,6 +423,9 @@ public sealed class UpdateTests
                 ReleaseVersion = updatedVersion,
                 RuntimeVersion = updatedVersion,
                 AspNetVersion = updatedVersion,
+                WindowsDesktopVersion = updatedVersion,
+                SdkManifestBands = EqArray.Create((updatedVersion).ToFeatureBand()),
+                SdkManifestBandsKnown = true,
                 SdkDirName = new("custom-sdk-dir")
             }
         ], manifest.InstalledSdks);

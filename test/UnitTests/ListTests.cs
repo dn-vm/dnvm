@@ -25,11 +25,13 @@ public sealed class ListTests
                 SdkVersion = new(1,0,0),
                 RuntimeVersion = new(1,0,0),
                 AspNetVersion = new(1,0,0),
+                WindowsDesktopVersion = new(1,0,0),
                 ReleaseVersion = new(1,0,0) }, new Channel.Latest())
             .AddSdk(new InstalledSdk() {
                 SdkVersion = previewVersion,
                 RuntimeVersion = previewVersion,
                 AspNetVersion = previewVersion,
+                WindowsDesktopVersion = previewVersion,
                 ReleaseVersion = previewVersion,
                 SdkDirName = new("preview") }, new Channel.Preview());
 
@@ -65,6 +67,7 @@ Tracked channels:
                 SdkVersion = new(42, 42, 42),
                 RuntimeVersion = new(42, 42, 42),
                 AspNetVersion = new(42, 42, 42),
+                WindowsDesktopVersion = new(42, 42, 42),
                 ReleaseVersion = new(42, 42, 42),
             }, new Channel.Latest());
 

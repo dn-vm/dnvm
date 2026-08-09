@@ -267,7 +267,9 @@ public sealed class MockServer : IAsyncDisposable
                 var sdkVersion = SemVersion.Parse(channelIndex.LatestSdk, SemVersionStyles.Strict);
                 var route = $"/sdk/{sdkVersion}/dotnet-sdk-{sdkVersion}-{CurrentRID}{ZipSuffix}";
                 var unversioned = $"/sdk/{sdkVersion}/dotnet-sdk-{CurrentRID}{ZipSuffix}";
-                routes[route] = routes[unversioned] = GetSdk(sdkVersion, sdkVersion, sdkVersion, sdkVersion);
+                var handler = GetSdk(sdkVersion, sdkVersion, sdkVersion, sdkVersion);
+                routes.TryAdd(route, handler);
+                routes.TryAdd(unversioned, handler);
             }
             foreach (var v in _dailyBuilds)
             {
@@ -303,15 +305,33 @@ public sealed class MockServer : IAsyncDisposable
     private Action<HttpListenerResponse> GetChannelIndexJson(ChannelReleaseIndex index)
         => WriteJson(JsonSerializer.Serialize(index));
 
-    private static Action<HttpListenerResponse> GetSdk(
+    /// <summary>
+    /// Extra <c>sdk-manifests/&lt;band&gt;</c> directories to include in every served SDK archive,
+    /// mimicking the in-box workload manifests that real SDKs ship under older feature bands.
+    /// </summary>
+    public List<string> ExtraManifestBands { get; } = new();
+    public bool IncludeSdkManifestBand { get; set; } = true;
+
+    private Action<HttpListenerResponse> GetSdk(
         SemVersion sdkVersion,
         SemVersion runtimeVersion,
         SemVersion aspnetVersion,
-        SemVersion winVersion) => response =>
+        SemVersion winVersion)
     {
-        using var f = Assets.GetSdkArchive(sdkVersion, runtimeVersion, aspnetVersion);
-        WriteOk(response, f);
-    };
+        var extraBands = ExtraManifestBands.ToList();
+        var includeSdkManifestBand = IncludeSdkManifestBand;
+        return response =>
+        {
+            using var f = Assets.GetSdkArchive(
+                sdkVersion,
+                runtimeVersion,
+                aspnetVersion,
+                winVersion,
+                extraBands,
+                includeSdkManifestBand);
+            WriteOk(response, f);
+        };
+    }
 
     private void GetDnvm(HttpListenerResponse response)
     {
