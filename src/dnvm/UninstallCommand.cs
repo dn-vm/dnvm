@@ -69,7 +69,7 @@ public sealed class UninstallCommand
                     winDirsWithUnknownVersion.Add(installed.SdkDirName);
                 }
                 bandsToKeep.UnionWith(installed.SdkManifestBands.Select(b => (b, installed.SdkDirName)));
-                if (installed.SdkManifestBands.Length == 0)
+                if (!installed.SdkManifestBandsKnown)
                 {
                     bandDirsWithUnknownManifests.Add(installed.SdkDirName);
                 }
@@ -119,17 +119,26 @@ public sealed class UninstallCommand
         foreach (var (version, dir) in runtimes)
         {
             var verString = version.ToString();
-            var netcoreappDir = DnvmEnv.GetSdkPath(dir) / "shared" / "Microsoft.NETCore.App" / verString;
-            var hostfxrDir = DnvmEnv.GetSdkPath(dir) / "host" / "fxr" / verString;
-            var packsHostDir = DnvmEnv.GetSdkPath(dir) / "packs" / $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}" / verString;
-            var packsRefDir = DnvmEnv.GetSdkPath(dir) / "packs" / "Microsoft.NETCore.App.Ref" / verString;
+            var sdkPath = DnvmEnv.GetSdkPath(dir);
+            var hostPackId = $"Microsoft.NETCore.App.Host.{Utilities.CurrentRID}";
+            const string refPackId = "Microsoft.NETCore.App.Ref";
+            var netcoreappDir = sdkPath / "shared" / "Microsoft.NETCore.App" / verString;
+            var hostfxrDir = sdkPath / "host" / "fxr" / verString;
+            var packsHostDir = sdkPath / "packs" / hostPackId / verString;
+            var packsRefDir = sdkPath / "packs" / refPackId / verString;
 
             env.Console.WriteLine($"Deleting Runtime {verString} from {dir.Name}");
 
             TryDeleteDirectory(env, netcoreappDir);
             TryDeleteDirectory(env, hostfxrDir);
-            TryDeleteDirectory(env, packsHostDir);
-            TryDeleteDirectory(env, packsRefDir);
+            if (!IsPackReferencedByWorkloads(env, sdkPath, hostPackId, version))
+            {
+                TryDeleteDirectory(env, packsHostDir);
+            }
+            if (!IsPackReferencedByWorkloads(env, sdkPath, refPackId, version))
+            {
+                TryDeleteDirectory(env, packsRefDir);
+            }
         }
     }
 
@@ -138,15 +147,20 @@ public sealed class UninstallCommand
         foreach (var (version, dir) in aspnets)
         {
             var verString = version.ToString();
-            var aspnetDir = DnvmEnv.GetSdkPath(dir) / "shared" / "Microsoft.AspNetCore.App" / verString;
-            var templatesDir = DnvmEnv.GetSdkPath(dir) / "templates" / verString;
-            var packsRefDir = DnvmEnv.GetSdkPath(dir) / "packs" / "Microsoft.AspNetCore.App.Ref" / verString;
+            var sdkPath = DnvmEnv.GetSdkPath(dir);
+            const string refPackId = "Microsoft.AspNetCore.App.Ref";
+            var aspnetDir = sdkPath / "shared" / "Microsoft.AspNetCore.App" / verString;
+            var templatesDir = sdkPath / "templates" / verString;
+            var packsRefDir = sdkPath / "packs" / refPackId / verString;
 
             env.Console.WriteLine($"Deleting ASP.NET pack {verString} from {dir.Name}");
 
             TryDeleteDirectory(env, aspnetDir);
             TryDeleteDirectory(env, templatesDir);
-            TryDeleteDirectory(env, packsRefDir);
+            if (!IsPackReferencedByWorkloads(env, sdkPath, refPackId, version))
+            {
+                TryDeleteDirectory(env, packsRefDir);
+            }
         }
     }
 
@@ -155,8 +169,10 @@ public sealed class UninstallCommand
         foreach (var (version, dir) in wins)
         {
             var verString = version.ToString();
-            var winDir = DnvmEnv.GetSdkPath(dir) / "shared" / "Microsoft.WindowsDesktop.App" / verString;
-            var packsRefDir = DnvmEnv.GetSdkPath(dir) / "packs" / "Microsoft.WindowsDesktop.App.Ref" / verString;
+            var sdkPath = DnvmEnv.GetSdkPath(dir);
+            const string refPackId = "Microsoft.WindowsDesktop.App.Ref";
+            var winDir = sdkPath / "shared" / "Microsoft.WindowsDesktop.App" / verString;
+            var packsRefDir = sdkPath / "packs" / refPackId / verString;
 
             if (env.DnvmHomeFs.DirectoryExists(winDir))
             {
@@ -164,7 +180,8 @@ public sealed class UninstallCommand
                 TryDeleteDirectory(env, winDir);
             }
 
-            if (env.DnvmHomeFs.DirectoryExists(packsRefDir))
+            if (env.DnvmHomeFs.DirectoryExists(packsRefDir)
+                && !IsPackReferencedByWorkloads(env, sdkPath, refPackId, version))
             {
                 TryDeleteDirectory(env, packsRefDir);
             }
@@ -198,6 +215,17 @@ public sealed class UninstallCommand
         return env.DnvmHomeFs
             .EnumerateFiles(workloadsMetadataDir, "*", SearchOption.AllDirectories)
             .Any(file => file.FullName.Split('/').Contains(band, StringComparer.Ordinal));
+    }
+
+    private static bool IsPackReferencedByWorkloads(
+        DnvmEnv env,
+        UPath sdkPath,
+        string packId,
+        SemVersion version)
+    {
+        var installedPackVersionDir = sdkPath / "metadata" / "workloads" / "InstalledPacks"
+            / "v1" / packId / version.ToString();
+        return env.DnvmHomeFs.DirectoryExists(installedPackVersionDir);
     }
 
     private static Manifest UninstallSdks(

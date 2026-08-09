@@ -17,7 +17,7 @@ public sealed class Assets
     public const string ArchiveToken = "2c192c853403aa1725f8f99bbe72fe691226fa28";
 
     private static readonly ConcurrentDictionary<
-        (SemVersion Sdk, SemVersion Runtime, SemVersion AspNet, SemVersion WindowsDesktop, string ExtraBands),
+        (SemVersion Sdk, SemVersion Runtime, SemVersion AspNet, SemVersion WindowsDesktop, string ExtraBands, bool IncludeSdkBand),
         byte[]> _archiveCache = new();
 
     public static Stream GetSdkArchive(
@@ -25,10 +25,17 @@ public sealed class Assets
         SemVersion runtimeVersion,
         SemVersion aspnetVersion,
         SemVersion windowsDesktopVersion,
-        IEnumerable<string>? extraManifestBands = null)
+        IEnumerable<string>? extraManifestBands = null,
+        bool includeSdkManifestBand = true)
     {
         var extraBands = (extraManifestBands ?? []).ToList();
-        var versions = (sdkVersion, runtimeVersion, aspnetVersion, windowsDesktopVersion, string.Join(';', extraBands));
+        var versions = (
+            sdkVersion,
+            runtimeVersion,
+            aspnetVersion,
+            windowsDesktopVersion,
+            string.Join(';', extraBands),
+            includeSdkManifestBand);
         if (_archiveCache.TryGetValue(versions, out var archive))
         {
             return new MemoryStream(archive);
@@ -51,7 +58,10 @@ public sealed class Assets
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "packs", "Microsoft.AspNetCore.App.Ref", aspnetVersion.ToString()));
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "shared", "Microsoft.WindowsDesktop.App", windowsDesktopVersion.ToString()));
         _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "packs", "Microsoft.WindowsDesktop.App.Ref", windowsDesktopVersion.ToString()));
-        _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "sdk-manifests", sdkVersion.ToFeatureBand(), "Microsoft.NET.Sdk.SomeWorkload"));
+        if (includeSdkManifestBand)
+        {
+            _ = Directory.CreateDirectory(Path.Combine(tempDir.Path, "sdk-manifests", sdkVersion.ToFeatureBand(), "Microsoft.NET.Sdk.SomeWorkload"));
+        }
         // Real SDK archives can also lay down in-box workload manifests under *older* feature
         // bands (the mobile/MAUI manifests routinely lag the SDK's own band), which means two
         // SDKs with different feature bands can share a manifest directory.

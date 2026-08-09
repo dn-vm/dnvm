@@ -310,6 +310,7 @@ public sealed class MockServer : IAsyncDisposable
     /// mimicking the in-box workload manifests that real SDKs ship under older feature bands.
     /// </summary>
     public List<string> ExtraManifestBands { get; } = new();
+    public bool IncludeSdkManifestBand { get; set; } = true;
 
     private Action<HttpListenerResponse> GetSdk(
         SemVersion sdkVersion,
@@ -318,9 +319,16 @@ public sealed class MockServer : IAsyncDisposable
         SemVersion winVersion)
     {
         var extraBands = ExtraManifestBands.ToList();
+        var includeSdkManifestBand = IncludeSdkManifestBand;
         return response =>
         {
-            using var f = Assets.GetSdkArchive(sdkVersion, runtimeVersion, aspnetVersion, winVersion, extraBands);
+            using var f = Assets.GetSdkArchive(
+                sdkVersion,
+                runtimeVersion,
+                aspnetVersion,
+                winVersion,
+                extraBands,
+                includeSdkManifestBand);
             WriteOk(response, f);
         };
     }

@@ -65,6 +65,7 @@ public partial record InstalledSdkV10
         DeserializeProxy = typeof(NullableRefProxy.De<SemVersion, SemVersionProxy>))]
     public required SemVersion? WindowsDesktopVersion { get; init; }
     public EqArray<string> SdkManifestBands { get; init; } = EqArray<string>.Empty;
+    public bool SdkManifestBandsKnown { get; init; } = false;
     public required SdkDirNameV10 SdkDirName { get; init; }
 }
 
@@ -85,6 +86,7 @@ public static partial class ManifestV10Convert
         RuntimeVersion = v9.RuntimeVersion,
         AspNetVersion = v9.AspNetVersion,
         WindowsDesktopVersion = null,
+        SdkManifestBandsKnown = false,
         SdkDirName = v9.SdkDirName,
     };
 

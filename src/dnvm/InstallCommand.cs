@@ -353,6 +353,7 @@ public static partial class InstallCommand
             AspNetVersion = release.AspNetCore.Version,
             WindowsDesktopVersion = release.WindowsDesktop.Version,
             SdkManifestBands = sdkManifestBands.OrderBy(band => band, StringComparer.Ordinal).ToEq(),
+            SdkManifestBandsKnown = true,
             SdkVersion = sdkVersion,
             SdkDirName = sdkDir,
         };

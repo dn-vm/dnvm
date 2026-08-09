@@ -122,6 +122,7 @@ public sealed class ManifestTests
                     AspNetVersion = new SemVersion(7, 0, 2),
                     WindowsDesktopVersion = new SemVersion(7, 0, 2),
                     SdkManifestBands = EqArray.Create("7.0.200"),
+                    SdkManifestBandsKnown = true,
                     SdkDirName = new SdkDirName("dn")
                 }
             ],
@@ -155,6 +156,7 @@ public sealed class ManifestTests
             "aspNetVersion":"7.0.2",
             "windowsDesktopVersion":"7.0.2",
             "sdkManifestBands":["7.0.200"],
+            "sdkManifestBandsKnown":true,
             "sdkDirName": "dn"
         }
     ],
@@ -202,6 +204,8 @@ public sealed class ManifestTests
             manifest,
             DnvmEnv.DefaultDotnetFeedUrls);
 
-        Assert.Null(Assert.Single(parsed.InstalledSdks).WindowsDesktopVersion);
+        var installedSdk = Assert.Single(parsed.InstalledSdks);
+        Assert.Null(installedSdk.WindowsDesktopVersion);
+        Assert.False(installedSdk.SdkManifestBandsKnown);
     }
 }

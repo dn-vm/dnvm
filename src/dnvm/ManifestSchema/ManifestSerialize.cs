@@ -81,6 +81,7 @@ public static class ManifestConvert
                 AspNetVersion = sdk.AspNetVersion,
                 WindowsDesktopVersion = sdk.WindowsDesktopVersion,
                 SdkManifestBands = sdk.SdkManifestBands,
+                SdkManifestBandsKnown = sdk.SdkManifestBandsKnown,
                 SdkDirName = sdk.SdkDirName.Convert()
             }),
             RegisteredChannels = manifestV10.RegisteredChannels.SelectAsArray(channel => new RegisteredChannel
@@ -107,6 +108,7 @@ public static class ManifestConvert
                 AspNetVersion = sdk.AspNetVersion,
                 WindowsDesktopVersion = sdk.WindowsDesktopVersion,
                 SdkManifestBands = sdk.SdkManifestBands,
+                SdkManifestBandsKnown = sdk.SdkManifestBandsKnown,
                 SdkDirName = sdk.SdkDirName.ConvertToLatest()
             }),
             RegisteredChannels = @this.RegisteredChannels.SelectAsArray(channel => new RegisteredChannelV10

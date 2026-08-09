@@ -44,6 +44,7 @@ public sealed class TrackTests
             RuntimeVersion = installedVersion,
             WindowsDesktopVersion = installedVersion,
             SdkManifestBands = EqArray.Create((installedVersion).ToFeatureBand()),
+            SdkManifestBandsKnown = true,
             ReleaseVersion = installedVersion,
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ];
@@ -142,6 +143,7 @@ public sealed class TrackTests
             AspNetVersion = releaseVersion,
             WindowsDesktopVersion = releaseVersion,
             SdkManifestBands = EqArray.Create((sdkVersion).ToFeatureBand()),
+            SdkManifestBandsKnown = true,
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ], manifest.InstalledSdks);
         Assert.Equal([
@@ -173,6 +175,7 @@ public sealed class TrackTests
             AspNetVersion = version,
             WindowsDesktopVersion = version,
             SdkManifestBands = EqArray.Create((version).ToFeatureBand()),
+            SdkManifestBandsKnown = true,
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ], manifest.InstalledSdks);
     });
@@ -192,6 +195,7 @@ public sealed class TrackTests
             AspNetVersion = version,
             WindowsDesktopVersion = version,
             SdkManifestBands = EqArray.Create((version).ToFeatureBand()),
+            SdkManifestBandsKnown = true,
             SdkDirName = DnvmEnv.DefaultSdkDirName
         } ], manifest.InstalledSdks);
     });

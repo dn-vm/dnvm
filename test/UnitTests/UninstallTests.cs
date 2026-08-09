@@ -329,7 +329,11 @@ public sealed class UninstallTests
             {
                 InstalledSdks = manifest.InstalledSdks
                     .Select(sdk => sdk.SdkVersion == legacyVersion
-                        ? sdk with { SdkManifestBands = EqArray<string>.Empty }
+                        ? sdk with
+                        {
+                            SdkManifestBands = EqArray<string>.Empty,
+                            SdkManifestBandsKnown = false,
+                        }
                         : sdk)
                     .ToEq()
             };
@@ -339,6 +343,42 @@ public sealed class UninstallTests
         var newBandDir = UPath.Root / "dn" / "sdk-manifests" / newVersion.ToFeatureBand();
         Assert.Equal(0, await UninstallCommand.Run(env, _logger, newVersion));
         Assert.True(env.DnvmHomeFs.DirectoryExists(newBandDir));
+    });
+
+    [Fact]
+    public Task KnownEmptyManifestBandsDoNotProtectDirectory() => RunWithServer(async (server, env) =>
+    {
+        var emptyArchiveVersion = new SemVersion(5, 0, 408);
+        var versionWithManifests = new SemVersion(8, 0, 100);
+        server.RegisterReleaseVersion(emptyArchiveVersion, "lts", "eol");
+        server.RegisterReleaseVersion(versionWithManifests, "lts", "active");
+
+        server.IncludeSdkManifestBand = false;
+        Assert.Equal(InstallCommand.Result.Success,
+            await InstallCommand.Run(env, _logger, new DnvmSubCommand.InstallArgs
+            {
+                SdkVersion = emptyArchiveVersion,
+            }));
+
+        server.IncludeSdkManifestBand = true;
+        Assert.Equal(InstallCommand.Result.Success,
+            await InstallCommand.Run(env, _logger, new DnvmSubCommand.InstallArgs
+            {
+                SdkVersion = versionWithManifests,
+            }));
+
+        var manifest = await Manifest.ReadManifestUnsafe(env);
+        var emptyArchiveSdk = Assert.Single(
+            manifest.InstalledSdks,
+            sdk => sdk.SdkVersion == emptyArchiveVersion);
+        Assert.Empty(emptyArchiveSdk.SdkManifestBands);
+        Assert.True(emptyArchiveSdk.SdkManifestBandsKnown);
+
+        var manifestsDir = UPath.Root / "dn" / "sdk-manifests" / versionWithManifests.ToFeatureBand();
+        Assert.True(env.DnvmHomeFs.DirectoryExists(manifestsDir));
+
+        Assert.Equal(0, await UninstallCommand.Run(env, _logger, versionWithManifests));
+        Assert.False(env.DnvmHomeFs.DirectoryExists(manifestsDir));
     });
 
     [Fact]
@@ -359,6 +399,31 @@ public sealed class UninstallTests
 
         Assert.Equal(0, await UninstallCommand.Run(env, _logger, version));
         Assert.True(env.DnvmHomeFs.DirectoryExists(bandDir));
+    });
+
+    [Theory]
+    [InlineData("Microsoft.NETCore.App.Ref")]
+    [InlineData("Microsoft.AspNetCore.App.Ref")]
+    [InlineData("Microsoft.WindowsDesktop.App.Ref")]
+    public Task WorkloadMetadataKeepsReferencedPack(string packId) => RunWithServer(async (server, env) =>
+    {
+        var version = MockServer.DefaultLtsVersion;
+        Assert.Equal(InstallCommand.Result.Success,
+            await InstallCommand.Run(env, _logger, new DnvmSubCommand.InstallArgs
+            {
+                SdkVersion = version,
+            }));
+
+        var workloadRecord = UPath.Root / "dn" / "metadata" / "workloads" / "InstalledPacks"
+            / "v1" / packId / version.ToString() / version.ToFeatureBand();
+        env.DnvmHomeFs.CreateDirectory(workloadRecord.GetDirectory());
+        env.DnvmHomeFs.WriteAllText(workloadRecord, "");
+
+        var packDir = UPath.Root / "dn" / "packs" / packId / version.ToString();
+        Assert.True(env.DnvmHomeFs.DirectoryExists(packDir));
+
+        Assert.Equal(0, await UninstallCommand.Run(env, _logger, version));
+        Assert.True(env.DnvmHomeFs.DirectoryExists(packDir));
     });
 
     [Fact]

@@ -40,10 +40,11 @@ public partial record InstalledSdk
     /// A single archive can lay down in-box workload manifests under multiple feature bands
     /// (mobile/MAUI manifests routinely lag the SDK's own band), so the SDK's own feature band
     /// is not sufficient to determine which manifest directories it contributed.
-    /// An empty array means "unknown" (the SDK predates this field) and suppresses all
-    /// <c>sdk-manifests</c> cleanup in that SDK directory.
+    /// <see cref="SdkManifestBandsKnown"/> distinguishes a known-empty archive from a legacy
+    /// SDK whose manifest-band ownership could not be determined.
     /// </summary>
     public EqArray<string> SdkManifestBands { get; init; } = EqArray<string>.Empty;
+    public bool SdkManifestBandsKnown { get; init; } = false;
 
     public SdkDirName SdkDirName { get; init; } = DnvmEnv.DefaultSdkDirName;
 }
@@ -102,6 +103,7 @@ partial record Manifest
             WindowsDesktopVersion = semVersion,
             ReleaseVersion = semVersion,
             SdkManifestBands = EqArray.Create(semVersion.ToFeatureBand()),
+            SdkManifestBandsKnown = true,
         };
         return AddSdk(installedSdk, c);
     }

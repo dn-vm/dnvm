@@ -102,6 +102,7 @@ public sealed class InstallTests
         var original = Assert.Single(manifest.InstalledSdks);
         Assert.NotNull(original.WindowsDesktopVersion);
         Assert.NotEmpty(original.SdkManifestBands);
+        Assert.True(original.SdkManifestBandsKnown);
 
         using (var @lock = await ManifestLock.Acquire(env))
         {
@@ -113,6 +114,7 @@ public sealed class InstallTests
                     {
                         WindowsDesktopVersion = null,
                         SdkManifestBands = [],
+                        SdkManifestBandsKnown = false,
                     }
                 ]
             };
@@ -126,6 +128,7 @@ public sealed class InstallTests
         var refreshed = Assert.Single(manifest.InstalledSdks);
         Assert.Equal(original.WindowsDesktopVersion, refreshed.WindowsDesktopVersion);
         Assert.Equal(original.SdkManifestBands, refreshed.SdkManifestBands);
+        Assert.True(refreshed.SdkManifestBandsKnown);
     });
 
     [Fact]
