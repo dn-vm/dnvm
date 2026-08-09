@@ -129,6 +129,43 @@ public sealed class UninstallTests
     });
 
     [Fact]
+    public Task UninstallWithoutDirectoryRemovesAllCopies() => RunWithServer(async (server, env) =>
+    {
+        var version = new SemVersion(8, 0, 100);
+        var defaultDir = DnvmEnv.DefaultSdkDirName;
+        var alternateDir = new SdkDirName("alternate");
+        var manifest = Manifest.Empty
+            .AddSdk(version, sdkDirParam: defaultDir)
+            .AddSdk(version, sdkDirParam: alternateDir);
+        manifest = manifest with
+        {
+            RegisteredChannels =
+            [
+                new RegisteredChannel
+                {
+                    ChannelName = new Channel.Latest(),
+                    SdkDirName = defaultDir,
+                    InstalledSdkVersions = [version],
+                },
+                new RegisteredChannel
+                {
+                    ChannelName = new Channel.VersionedMajorMinor(8, 0),
+                    SdkDirName = alternateDir,
+                    InstalledSdkVersions = [version],
+                },
+            ]
+        };
+        await Manifest.WriteManifestUnsafe(env, manifest);
+
+        Assert.Equal(0, await UninstallCommand.Run(env, _logger, version));
+
+        var finalManifest = await Manifest.ReadManifestUnsafe(env);
+        Assert.DoesNotContain(finalManifest.InstalledSdks, sdk => sdk.SdkVersion == version);
+        Assert.All(finalManifest.RegisteredChannels,
+            channel => Assert.DoesNotContain(version, channel.InstalledSdkVersions));
+    });
+
+    [Fact]
     public Task UninstallMessage() => RunWithServer(async (server, env) =>
     {
         var result = await TrackCommand.Run(env, _logger, new TrackCommand.Options

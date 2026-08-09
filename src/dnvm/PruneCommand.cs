@@ -54,7 +54,7 @@ public sealed class PruneCommand
                 if (!manifest.IsSdkInstalled(sdk.Version, sdk.Dir))
                 {
                     env.Console.Warn($"SDK {sdk.Version} was not found in installed SDKs, cleaning up stale manifest entry.");
-                    manifest = RemoveSdkFromChannels(manifest, sdk.Version);
+                    manifest = RemoveSdkFromChannels(manifest, sdk.Version, sdk.Dir);
                     await @lock.WriteManifest(env, manifest);
                     continue;
                 }
@@ -110,18 +110,26 @@ public sealed class PruneCommand
             }
         }
 
-        return sdksToRemove;
+        return sdksToRemove.Distinct().ToList();
     }
 
     /// <summary>
-    /// Removes an SDK version from all RegisteredChannels.InstalledSdkVersions.
+    /// Removes an SDK version from RegisteredChannels.InstalledSdkVersions for one SDK directory.
     /// This is used to clean up stale entries left by a bug fixed in
     /// https://github.com/dn-vm/dnvm/pull/274.
     /// </summary>
-    private static Manifest RemoveSdkFromChannels(Manifest manifest, SemVersion sdkVersion)
+    private static Manifest RemoveSdkFromChannels(
+        Manifest manifest,
+        SemVersion sdkVersion,
+        SdkDirName sdkDir)
     {
         var updatedChannels = manifest.RegisteredChannels.Select(channel =>
         {
+            if (channel.SdkDirName != sdkDir)
+            {
+                return channel;
+            }
+
             var updatedInstalledVersions = channel.InstalledSdkVersions
                 .Where(version => version != sdkVersion)
                 .ToEq();
