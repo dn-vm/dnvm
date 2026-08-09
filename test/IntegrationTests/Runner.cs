@@ -21,14 +21,20 @@ internal static class DnvmRunner
         }
         try
         {
+            var envVars = new Dictionary<string, string>
+            {
+                ["HOME"] = env.UserHome,
+                ["DNVM_HOME"] = env.RealPath(UPath.Root)
+            };
+            // Use the test config directory if it's set
+            if (DnvmConfigFile.TestConfigDirectory is not null)
+            {
+                envVars["DNVM_TEST_CONFIG_DIR"] = DnvmConfigFile.TestConfigDirectory;
+            }
             var procResult = await ProcUtil.RunWithOutput(
                 dnvmPath,
                 dnvmArgs,
-                new()
-                {
-                    ["HOME"] = env.UserHome,
-                    ["DNVM_HOME"] = env.RealPath(UPath.Root)
-                }
+                envVars
             );
             // Allow the test to check the environment variables before they are restored
             envChecker?.Invoke();
