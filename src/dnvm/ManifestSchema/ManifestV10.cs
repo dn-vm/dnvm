@@ -31,27 +31,22 @@ public sealed partial record ManifestV10
 }
 
 [GenerateSerde]
+[UseProxy(ForType = typeof(SemVersion), Proxy = typeof(SemVersionProxy))]
 public partial record RegisteredChannelV10
 {
     public required Channel ChannelName { get; init; }
     public required SdkDirNameV10 SdkDirName { get; init; }
-    [SerdeMemberOptions(
-        SerializeProxy = typeof(EqArrayProxy.Ser<SemVersion, SemVersionProxy>),
-        DeserializeProxy = typeof(EqArrayProxy.De<SemVersion, SemVersionProxy>))]
     public EqArray<SemVersion> InstalledSdkVersions { get; init; } = EqArray<SemVersion>.Empty;
     public bool Untracked { get; init; } = false;
 }
 
 [GenerateSerde]
+[UseProxy(ForType = typeof(SemVersion), Proxy = typeof(SemVersionProxy))]
 public partial record InstalledSdkV10
 {
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion ReleaseVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion SdkVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion RuntimeVersion { get; init; }
-    [SerdeMemberOptions(Proxy = typeof(SemVersionProxy))]
     public required SemVersion AspNetVersion { get; init; }
     [SerdeMemberOptions(
         SerializeProxy = typeof(NullableRefProxy.Ser<SemVersion, SemVersionProxy>),
