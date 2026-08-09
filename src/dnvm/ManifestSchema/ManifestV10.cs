@@ -6,20 +6,13 @@ using StaticCs.Collections;
 
 namespace Dnvm;
 
-[GenerateSerde(With = typeof(SdkDirNameV10._SerdeObj))]
+[GenerateSerde(As = typeof(string))]
 public sealed partial record SdkDirNameV10(string Name)
 {
     public string Name { get; init; } = Name.ToLower();
 
-    private sealed class _SerdeObj : ISerde<SdkDirNameV10>
-    {
-        public ISerdeInfo SerdeInfo => StringProxy.SerdeInfo;
-        public SdkDirNameV10 Deserialize(IDeserializer deserializer)
-            => new(StringProxy.Instance.Deserialize(deserializer));
-        public void Serialize(SdkDirNameV10 value, ISerializer serializer)
-            => serializer.WriteString(value.Name);
-    }
-
+    public static implicit operator string(SdkDirNameV10 dirName) => dirName.Name;
+    public static implicit operator SdkDirNameV10(string name) => new(name);
     public static implicit operator SdkDirNameV10(SdkDirNameV9 dirName) => new(dirName.Name);
 }
 
