@@ -229,6 +229,60 @@ public sealed class PruneTests
                 && channel.InstalledSdkVersions.Contains(oldVersion));
     });
 
+    [Fact]
+    public Task OverlappingChannelsDoNotPruneOtherSdkDirectories() => RunWithServer(async (server, env) =>
+    {
+        var oldVersion = new SemVersion(8, 0, 100);
+        var newVersion = new SemVersion(8, 0, 101);
+        var defaultDir = DnvmEnv.DefaultSdkDirName;
+        var alternateDir = new SdkDirName("alternate");
+
+        var manifest = Manifest.Empty
+            .AddSdk(oldVersion, sdkDirParam: defaultDir)
+            .AddSdk(newVersion, sdkDirParam: defaultDir)
+            .AddSdk(oldVersion, sdkDirParam: alternateDir);
+        manifest = manifest with
+        {
+            RegisteredChannels =
+            [
+                new RegisteredChannel
+                {
+                    ChannelName = new Channel.Latest(),
+                    SdkDirName = defaultDir,
+                    InstalledSdkVersions = [oldVersion, newVersion],
+                },
+                new RegisteredChannel
+                {
+                    ChannelName = new Channel.VersionedMajorMinor(8, 0),
+                    SdkDirName = defaultDir,
+                    InstalledSdkVersions = [oldVersion, newVersion],
+                },
+                new RegisteredChannel
+                {
+                    ChannelName = new Channel.VersionedMajorMinor(8, 0),
+                    SdkDirName = alternateDir,
+                    InstalledSdkVersions = [oldVersion],
+                },
+            ]
+        };
+        await Manifest.WriteManifestUnsafe(env, manifest);
+
+        Assert.Equal(
+            [(oldVersion, defaultDir)],
+            PruneCommand.GetOutOfDateSdks(manifest));
+
+        Assert.Equal(0, await PruneCommand.Run(env, _logger, new PruneCommand.Options()));
+
+        var finalManifest = await Manifest.ReadManifestUnsafe(env);
+        Assert.DoesNotContain(finalManifest.InstalledSdks,
+            sdk => sdk.SdkVersion == oldVersion && sdk.SdkDirName == defaultDir);
+        Assert.Contains(finalManifest.InstalledSdks,
+            sdk => sdk.SdkVersion == oldVersion && sdk.SdkDirName == alternateDir);
+        Assert.Contains(finalManifest.RegisteredChannels,
+            channel => channel.SdkDirName == alternateDir
+                && channel.InstalledSdkVersions.Contains(oldVersion));
+    });
+
     /// <summary>
     /// Tests the scenario from https://github.com/dn-vm/dnvm/issues/311:
     /// Before PR #274, uninstalling an SDK removed it from InstalledSdks but not from
